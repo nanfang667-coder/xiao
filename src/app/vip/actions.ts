@@ -68,7 +68,6 @@ export async function confirmPayment(orderId: number) {
 
   // 刷新会受会员状态影响的页面缓存
   revalidatePath("/");
-  revalidatePath("/alley");
   revalidatePath("/vip");
 
   redirect("/vip?paid=1");

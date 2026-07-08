@@ -6,8 +6,6 @@ export const MEMBERSHIP_PLAN = {
   price: 38, // 元
   benefits: [
     "查看老师联系方式（电话 / 微信 / QQ）",
-    "查看小巷子清晰图片",
-    "查看小巷子位置信息",
     "永久有效，一次开通终身可用",
   ],
 };

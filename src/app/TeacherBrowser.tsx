@@ -25,17 +25,6 @@ const entries = [
     ),
   },
   {
-    label: "小巷子信息",
-    href: "/alley",
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 21V8l6-4 6 4v13" />
-        <path d="M15 21V11l6 4v6" />
-        <path d="M9 9v.01M9 13v.01M9 17v.01" />
-      </svg>
-    ),
-  },
-  {
     label: "VIP升级",
     href: "/vip",
     icon: (
@@ -107,7 +96,7 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
         </div>
       </header>
 
-      {/* 功能入口：老师信息 / 小巷子信息 / VIP升级 / 推广赚钱 */}
+      {/* 功能入口：老师信息 / VIP升级 / 推广赚钱 */}
       <div className="px-4 pt-4">
         <div className="grid grid-cols-4 gap-2 rounded-2xl bg-white p-4 shadow-sm">
           {entries.map((e) => (

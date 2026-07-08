@@ -1,5 +1,5 @@
-// 后台管理首页：三个模块的入口
-// 老师管理 / 小巷子管理 / 用户管理
+// 后台管理首页：模块入口
+// 老师管理 / 用户管理
 
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
@@ -10,9 +10,8 @@ export default async function AdminDashboard() {
   await requireAdmin(); // 未登录会被挡下
 
   // 各模块的数据量，显示在入口卡片上
-  const [teacherCount, alleyCount, userCount, pendingWithdrawals] = await Promise.all([
+  const [teacherCount, userCount, pendingWithdrawals] = await Promise.all([
     prisma.teacher.count(),
-    prisma.alley.count(),
     prisma.user.count(),
     prisma.withdrawal.count({ where: { status: "pending" } }),
   ]);
@@ -24,13 +23,6 @@ export default async function AdminDashboard() {
       title: "老师管理",
       desc: "添加、编辑、删除老师信息",
       count: `${teacherCount} 位老师`,
-    },
-    {
-      href: "/admin/alleys",
-      icon: "🏠",
-      title: "小巷子管理",
-      desc: "添加、编辑、删除小巷子信息",
-      count: `${alleyCount} 条信息`,
     },
     {
       href: "/admin/users",
