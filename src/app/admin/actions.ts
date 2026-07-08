@@ -85,7 +85,7 @@ function extractFields(formData: FormData) {
     district: String(formData.get("district") ?? "").trim(),
     price: String(formData.get("price") ?? "").trim(),
     services: String(formData.get("services") ?? "").trim(),
-    process: String(formData.get("process") ?? "").trim(),
+    courseNotes: String(formData.get("courseNotes") ?? "").trim(),
     phone: String(formData.get("phone") ?? "").trim(),
     wechat: String(formData.get("wechat") ?? "").trim(),
     qq: String(formData.get("qq") ?? "").trim(),

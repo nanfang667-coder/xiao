@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/user-auth";
-import { MIN_WITHDRAW_AMOUNT, USDT_NETWORKS, withdrawalsEnabled } from "@/lib/membership";
+import { MIN_WITHDRAW_AMOUNT, USDT_NETWORKS, WITHDRAW_METHODS, withdrawalsEnabled } from "@/lib/membership";
 
 // 申请提现：把当前所有"还没被其它提现申请占用"的佣金记录打包成一笔提现申请，
 // 由管理员在后台人工审核、转账、标记发放。
@@ -16,13 +16,17 @@ export async function createWithdrawal(formData: FormData) {
     redirect(`/promote?error=${encodeURIComponent("提现功能筹备中，敬请期待")}`);
   }
 
-  const usdtAddress = String(formData.get("usdtAddress") ?? "").trim();
-  const network = String(formData.get("network") ?? USDT_NETWORKS[0]);
+  const payMethod = String(formData.get("payMethod") ?? "usdt");
+  const account = String(formData.get("account") ?? "").trim();
+  const network = payMethod === "usdt" ? String(formData.get("network") ?? USDT_NETWORKS[0]) : null;
 
-  if (!usdtAddress) {
-    redirect(`/promote?error=${encodeURIComponent("请填写USDT收款地址")}`);
+  if (!(WITHDRAW_METHODS as readonly { key: string }[]).some((m) => m.key === payMethod)) {
+    redirect(`/promote?error=${encodeURIComponent("收款方式不正确")}`);
   }
-  if (!(USDT_NETWORKS as readonly string[]).includes(network)) {
+  if (!account) {
+    redirect(`/promote?error=${encodeURIComponent("请填写收款账号")}`);
+  }
+  if (payMethod === "usdt" && !(USDT_NETWORKS as readonly string[]).includes(network!)) {
     redirect(`/promote?error=${encodeURIComponent("网络类型不正确")}`);
   }
 
@@ -42,7 +46,7 @@ export async function createWithdrawal(formData: FormData) {
   // （这批佣金一旦被认领，withdrawalId 就不再是 null，后来者的 WHERE 条件天然匹配不到它们）。
   const claimedAmount = await prisma.$transaction(async (tx) => {
     const withdrawal = await tx.withdrawal.create({
-      data: { userId: user.id, amount: 0, usdtAddress, network, status: "pending" },
+      data: { userId: user.id, amount: 0, payMethod, account, network, status: "pending" },
     });
 
     await tx.commission.updateMany({

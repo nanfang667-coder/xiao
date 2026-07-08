@@ -4,7 +4,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { requireUser } from "@/lib/user-auth";
 import { prisma } from "@/lib/prisma";
-import { COMMISSION_RATE, withdrawalsEnabled } from "@/lib/membership";
+import { COMMISSION_RATE, withdrawalsEnabled, withdrawMethodLabel } from "@/lib/membership";
 import { CopyButton } from "./CopyButton";
 import { WithdrawForm } from "./WithdrawForm";
 
@@ -114,7 +114,7 @@ export default async function PromotePage({
           <WithdrawForm available={available} />
         ) : (
           <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <h2 className="mb-2 text-sm font-bold text-gray-800">申请提现（USDT）</h2>
+            <h2 className="mb-2 text-sm font-bold text-gray-800">申请提现</h2>
             <p className="py-4 text-center text-sm text-gray-400">
               提现功能筹备中，敬请期待～佣金会持续为你累计，不会丢失。
             </p>
@@ -150,7 +150,7 @@ export default async function PromotePage({
               {recentWithdrawals.map((w) => (
                 <div key={w.id} className="flex items-center justify-between text-sm">
                   <span className="text-gray-500">
-                    {formatDate(w.createdAt)} · {w.network}
+                    {formatDate(w.createdAt)} · {withdrawMethodLabel(w.payMethod)}
                   </span>
                   <span className="font-medium text-gray-700">
                     ¥{w.amount.toFixed(1)} · {STATUS_LABEL[w.status] ?? w.status}

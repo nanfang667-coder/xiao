@@ -19,7 +19,7 @@ model Teacher {
   district  String // 区
   price     String // 价格
   services  String // 服务内容
-  process   String? // 过程介绍（可空，老数据没有）
+  courseNotes String? // 教学案例/课程记录（可空，老数据没有）
   photos    String // 多张照片，存成一段 JSON 文本，例如 ["图1","图2"]
   emoji     String // 照片上的小图标（暂代真实图片）
   phone     String // 联系电话（会员可见）
@@ -66,13 +66,14 @@ model Commission {
   createdAt    DateTime @default(now())
 }
 
-// 提现申请。每一行 = 一次佣金提现请求（人工审核后手动转 USDT）。
+// 提现申请。每一行 = 一次佣金提现请求（人工审核后手动转账）。
 model Withdrawal {
   id          Int      @id @default(autoincrement())
   userId      Int
-  amount      Float // 本次提现总额（人民币计价，实际按当时汇率手动转账）
-  usdtAddress String // 收款 USDT 地址
-  network     String // 网络类型，如 "TRC20"
+  amount      Float // 本次提现总额（人民币）
+  payMethod   String // 收款方式："usdt" / "alipay" / "wechat"
+  account     String // 收款账号：USDT地址 / 支付宝账号 / 微信收款码或账号
+  network     String? // 仅 payMethod 为 "usdt" 时使用，网络类型如 "TRC20"
   status      String   @default("pending") // pending 待处理 / paid 已发放 / rejected 已驳回
   createdAt   DateTime @default(now())
   paidAt      DateTime?

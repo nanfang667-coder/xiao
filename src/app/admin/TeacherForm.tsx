@@ -101,8 +101,14 @@ export function TeacherForm({
         </div>
 
         <div>
-          <label className={label}>过程介绍</label>
-          <textarea name="process" defaultValue={initial?.process ?? ""} rows={4} className={field} />
+          <label className={label}>教学案例 / 课程记录</label>
+          <textarea
+            name="courseNotes"
+            defaultValue={initial?.courseNotes ?? ""}
+            rows={4}
+            placeholder="例如：学员上课频率、教材进度、阶段性成果等"
+            className={field}
+          />
         </div>
 
         <div>

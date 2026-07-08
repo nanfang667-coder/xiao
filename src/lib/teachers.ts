@@ -13,7 +13,7 @@ export type Teacher = {
   district: string;
   price: string;
   services: string;
-  process: string | null; // 过程介绍
+  courseNotes: string | null; // 教学案例/课程记录
   photos: string[];
   emoji: string;
   contact: { phone: string; wechat: string; qq: string | null };
@@ -36,7 +36,7 @@ function toTeacher(row: TeacherRow): Teacher {
     district: row.district,
     price: row.price,
     services: row.services,
-    process: row.process,
+    courseNotes: row.courseNotes,
     photos,
     emoji: row.emoji,
     contact: { phone: row.phone, wechat: row.wechat, qq: row.qq },

@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withdrawMethodLabel } from "@/lib/membership";
 import { MarkPaidButton, RejectButton } from "./WithdrawalActions";
 
 function formatDate(d: Date): string {
@@ -70,9 +71,10 @@ export default async function AdminWithdrawalsPage() {
             <div className="mt-1.5 space-y-0.5 text-xs text-gray-400">
               <p>
                 金额 <span className="font-medium text-rose-500">¥{w.amount.toFixed(1)}</span> ·
-                网络 {w.network}
+                方式 {withdrawMethodLabel(w.payMethod)}
+                {w.network ? ` · 网络 ${w.network}` : ""}
               </p>
-              <p className="break-all">收款地址：{w.usdtAddress}</p>
+              <p className="break-all">收款账号：{w.account}</p>
               <p>申请于 {formatDate(w.createdAt)}</p>
               {w.paidAt && <p>发放于 {formatDate(w.paidAt)}</p>}
             </div>

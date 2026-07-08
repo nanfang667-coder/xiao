@@ -16,6 +16,19 @@ export const COMMISSION_RATE = 0.45;
 // 提现支持的 USDT 网络类型
 export const USDT_NETWORKS = ["TRC20", "ERC20", "BEP20"] as const;
 
+// 提现支持的收款方式（用户自选）
+export const WITHDRAW_METHODS = [
+  { key: "usdt", label: "USDT" },
+  { key: "alipay", label: "支付宝" },
+  { key: "wechat", label: "微信" },
+] as const;
+
+export type WithdrawMethodKey = (typeof WITHDRAW_METHODS)[number]["key"];
+
+export function withdrawMethodLabel(key: string): string {
+  return WITHDRAW_METHODS.find((m) => m.key === key)?.label ?? key;
+}
+
 // 最低提现金额（人民币），避免零碎金额也来申请，增加人工处理成本
 export const MIN_WITHDRAW_AMOUNT = 10;
 

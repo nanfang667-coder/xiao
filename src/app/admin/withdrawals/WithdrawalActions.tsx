@@ -2,7 +2,7 @@
 
 import { markWithdrawalPaid, rejectWithdrawal } from "../actions";
 
-// 标记已发放按钮：人工转完 USDT 后点击
+// 标记已发放按钮：人工转账完成后点击
 export function MarkPaidButton({ id, amount }: { id: number; amount: number }) {
   const action = markWithdrawalPaid.bind(null, id);
 
@@ -10,7 +10,7 @@ export function MarkPaidButton({ id, amount }: { id: number; amount: number }) {
     <form
       action={action}
       onSubmit={(e) => {
-        if (!confirm(`确认已转账 ¥${amount.toFixed(1)} 对应的 USDT 吗？`)) {
+        if (!confirm(`确认已转账 ¥${amount.toFixed(1)} 吗？`)) {
           e.preventDefault();
         }
       }}

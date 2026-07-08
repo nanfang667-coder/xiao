@@ -50,12 +50,12 @@ export default async function TeacherDetail({
           <p className="text-sm leading-6 text-gray-600">{teacher.services}</p>
         </section>
 
-        {/* 过程介绍（有内容才显示） */}
-        {teacher.process && (
+        {/* 教学案例/课程记录（有内容才显示） */}
+        {teacher.courseNotes && (
           <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
-            <h2 className="mb-2 text-sm font-bold text-gray-800">过程介绍</h2>
+            <h2 className="mb-2 text-sm font-bold text-gray-800">教学案例 / 课程记录</h2>
             <p className="whitespace-pre-line text-sm leading-6 text-gray-600">
-              {teacher.process}
+              {teacher.courseNotes}
             </p>
           </section>
         )}
