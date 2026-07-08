@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(taskkill /PID 10144 /F)",
+      "Bash(node -e ' *)"
+    ]
+  }
+}

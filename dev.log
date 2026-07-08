@@ -1,0 +1,27 @@
+
+> hulim@0.1.0 dev
+> next dev -H 0.0.0.0
+
+▲ Next.js 16.2.10 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://0.0.0.0:3000
+- Environments: .env
+✓ Ready in 1570ms
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+⚠ Slow filesystem detected. The benchmark took 264ms. If E:\hulim\.next/dev is a network drive, consider moving it to a local folder.
+See more: https://nextjs.org/docs/app/guides/local-development
+- Experiments (use with caution):
+  · serverActions
+
+ GET / 200 in 684ms (next.js: 297ms, application-code: 386ms)
+ GET /register 200 in 200ms (next.js: 60ms, application-code: 139ms)
+⚠ Missing `origin` header from a forwarded Server Actions request.
+ POST /register 303 in 441ms (next.js: 11ms, application-code: 430ms)
+ GET /promote 200 in 485ms (next.js: 330ms, application-code: 155ms)
+ GET /alley/2 200 in 1140ms (next.js: 974ms, application-code: 167ms)
+ GET /alley 200 in 178ms (next.js: 57ms, application-code: 120ms)
+ GET /teacher/22 200 in 1268ms (next.js: 1046ms, application-code: 222ms)
+ GET /teacher/22 200 in 146ms (next.js: 19ms, application-code: 128ms)
+ GET /teacher/22 200 in 94ms (next.js: 8ms, application-code: 85ms)
+ GET / 200 in 202ms (next.js: 92ms, application-code: 110ms)
+ GET / 200 in 135ms (next.js: 15ms, application-code: 120ms)
