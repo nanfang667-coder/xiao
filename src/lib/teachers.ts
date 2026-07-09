@@ -17,6 +17,7 @@ export type Teacher = {
   photos: string[];
   emoji: string;
   contact: { phone: string; wechat: string; qq: string | null };
+  createdAt: Date;
 };
 
 // 把数据库里的一行，转换成页面用的格式
@@ -40,6 +41,7 @@ function toTeacher(row: TeacherRow): Teacher {
     photos,
     emoji: row.emoji,
     contact: { phone: row.phone, wechat: row.wechat, qq: row.qq },
+    createdAt: row.createdAt,
   };
 }
 

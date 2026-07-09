@@ -12,6 +12,12 @@ import type { User } from "@/lib/user-auth";
 
 const PAGE_SIZE = 10; // 每页展示 10 条
 
+// 把日期显示成 2026-07-09 这样的格式
+function formatDate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 // 功能入口配置（仿照 App 首页图标区）
 const entries = [
   {
@@ -44,6 +50,15 @@ const entries = [
       </svg>
     ),
   },
+  {
+    label: "发帖",
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+      </svg>
+    ),
+  },
 ];
 
 // 接收从数据库读来的老师列表，负责城市/区筛选与展示
@@ -56,6 +71,8 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
   const [cityOpen, setCityOpen] = useState(false);
   // 当前页码（从 1 开始）
   const [page, setPage] = useState(1);
+  // "发帖"提示弹窗的显示状态
+  const [showPostNotice, setShowPostNotice] = useState(false);
 
   // 当前所选省份下面有哪些城市
   const cityOptions = province === "全部" ? [] : citiesOfProvince(province);
@@ -96,21 +113,60 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
         </div>
       </header>
 
-      {/* 功能入口：老师信息 / VIP升级 / 推广赚钱 */}
+      {/* 功能入口：老师信息 / VIP升级 / 推广赚钱 / 发帖 */}
       <div className="px-4 pt-4">
         <div className="grid grid-cols-4 gap-2 rounded-2xl bg-white p-4 shadow-sm">
-          {entries.map((e) => (
-            <Link
-              key={e.label}
-              href={e.href}
-              className="flex flex-col items-center gap-2 py-2 active:scale-95 transition"
-            >
-              <span className="text-pink-500">{e.icon}</span>
-              <span className="text-xs font-medium text-gray-700">{e.label}</span>
-            </Link>
-          ))}
+          {entries.map((e) =>
+            e.href ? (
+              <Link
+                key={e.label}
+                href={e.href}
+                className="flex flex-col items-center gap-2 py-2 active:scale-95 transition"
+              >
+                <span className="text-pink-500">{e.icon}</span>
+                <span className="text-xs font-medium text-gray-700">{e.label}</span>
+              </Link>
+            ) : (
+              <button
+                key={e.label}
+                type="button"
+                onClick={() => setShowPostNotice(true)}
+                className="flex flex-col items-center gap-2 py-2 active:scale-95 transition"
+              >
+                <span className="text-pink-500">{e.icon}</span>
+                <span className="text-xs font-medium text-gray-700">{e.label}</span>
+              </button>
+            )
+          )}
         </div>
       </div>
+
+      {/* "发帖"提示弹窗 */}
+      {showPostNotice && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6"
+          onClick={() => setShowPostNotice(false)}
+        >
+          <div
+            className="max-w-xs rounded-2xl bg-white p-5 text-sm leading-relaxed text-gray-700 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p>
+              黑机构骗子较多，暂不开放发帖功能，
+              <span className="font-bold text-red-600">
+                我们所有信息都是大网站观察两天挑选出来的优秀帖子。
+              </span>
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowPostNotice(false)}
+              className="mt-4 w-full rounded-lg bg-pink-500 py-2 text-sm font-bold text-white active:bg-pink-600"
+            >
+              知道了
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 省份筛选（可展开/收起） */}
       <div className="px-4 pt-4">
@@ -259,6 +315,9 @@ function TeacherCard({ teacher }: { teacher: TeacherListItem }) {
           </h2>
           <p className="mt-1 line-clamp-2 text-xs text-gray-500">
             {teacher.services}
+          </p>
+          <p className="mt-1 text-xs text-gray-400">
+            发布于 {formatDate(teacher.createdAt)}
           </p>
         </div>
         <div className="text-sm font-bold text-rose-500">{teacher.price}</div>

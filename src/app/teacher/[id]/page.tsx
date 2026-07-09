@@ -4,6 +4,7 @@ import { getTeacherById } from "@/lib/teachers";
 import { getCurrentUser } from "@/lib/user-auth";
 import { isActiveMember } from "@/lib/membership";
 import { Gallery } from "./Gallery";
+import { SafetyNotice } from "./SafetyNotice";
 
 export default async function TeacherDetail({
   params,
@@ -20,6 +21,9 @@ export default async function TeacherDetail({
 
   return (
     <div className="mx-auto w-full max-w-md flex-1 pb-10">
+      {/* 安全提示弹窗 */}
+      <SafetyNotice />
+
       {/* 顶部返回栏 */}
       <div className="sticky top-0 z-10 flex items-center gap-2 bg-white/90 px-4 py-3 shadow-sm backdrop-blur">
         <Link href="/" className="text-pink-500">
@@ -59,6 +63,11 @@ export default async function TeacherDetail({
             </p>
           </section>
         )}
+
+        {/* 风险提示（所有人可见，不限会员） */}
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-relaxed text-amber-800">
+          本平台为信息分享平台，不对经历负责，凡是要求定金、视频验证、提前付费等行为可能是骗子，同时也注意任何形式的办卡行为。
+        </div>
 
         {/* 联系方式（会员可见） */}
         <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">

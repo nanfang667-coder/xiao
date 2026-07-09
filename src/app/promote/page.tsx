@@ -9,12 +9,11 @@ import { CopyButton } from "./CopyButton";
 import { WithdrawForm } from "./WithdrawForm";
 
 // 根据当前访问的域名拼出邀请链接，跟着实际部署域名自动变化
+// 不带协议头（不显示 https://），微信/短信里的链接识别、浏览器直接输入都能正常打开
 async function getReferralLink(code: string): Promise<string> {
   const h = await headers();
   const host = h.get("host") ?? "localhost:3000";
-  const isLocal = host.startsWith("localhost") || host.startsWith("192.168") || host.startsWith("127.");
-  const proto = h.get("x-forwarded-proto") ?? (isLocal ? "http" : "https");
-  return `${proto}://${host}/r/${code}`;
+  return `${host}/${code}`;
 }
 
 function formatDate(d: Date): string {

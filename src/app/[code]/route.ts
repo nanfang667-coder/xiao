@@ -1,6 +1,6 @@
-// 推广短链入口（旧版）：/r/邀请码
-// 新邀请链接已改为根路径下的短链接（见 src/app/[code]/route.ts），
-// 这里保留只是为了让之前已经发出去的 /r/邀请码 链接继续有效。
+// 推广短链入口：域名直接跟邀请码，例如 gp77.top/AB3
+// 查到对应用户就记一个 30 天有效的邀请 cookie，然后跳转首页。
+// 真正的绑定发生在"新用户注册"那一刻（见 src/lib/user-auth.ts 的 registerUser）。
 
 import { NextRequest } from "next/server";
 import { referralRedirect } from "@/lib/referral";
