@@ -160,6 +160,21 @@ export function citiesOfProvince(province: string): string[] {
   return provinceCities[province] ?? [];
 }
 
+// 反查：某个区/县属于哪个省份（用于粘贴城市名时自动带出省份）
+// 重名区县只取第一个匹配，只在需要时才建立一次
+let districtToProvince: Record<string, string> | null = null;
+export function provinceOfDistrict(district: string): string | undefined {
+  if (!districtToProvince) {
+    districtToProvince = {};
+    for (const [province, districts] of Object.entries(provinceCities)) {
+      for (const d of districts) {
+        if (!(d in districtToProvince)) districtToProvince[d] = province;
+      }
+    }
+  }
+  return districtToProvince[district];
+}
+
 // ===== 兼容旧接口（老代码引用） =====
 export const cityDistricts = provinceCities;
 export const cities = provinces;

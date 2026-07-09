@@ -1,8 +1,8 @@
 "use client"; // 表单有交互（城市联动、选文件、预览），要在浏览器运行
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { provinces, citiesOfProvince } from "@/data/locations";
+import { provinces, citiesOfProvince, provinceOfDistrict } from "@/data/locations";
 import { isImage } from "@/lib/photo";
 import type { Teacher } from "@/lib/teachers";
 
@@ -21,11 +21,37 @@ export function TeacherForm({
   const [district, setDistrict] = useState(initial?.district ?? "");
   const districts = citiesOfProvince(city);
 
-  // 选中的新照片的预览地址
+  // 已选中的照片文件（累加，不会因为再选/再拖一次就把之前的顶掉）
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 每次累加的文件变化时，重新生成预览图地址，并在下次变化前回收旧的
+  useEffect(() => {
+    const urls = photoFiles.map((f) => URL.createObjectURL(f));
+    setPreviews(urls);
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, [photoFiles]);
+
+  // 把累加后的完整文件列表同步回真正的 <input type="file">，
+  // 这样表单提交时读到的才是全部选中的照片，而不是最后一次选/拖的那一张
+  useEffect(() => {
+    if (!fileInputRef.current) return;
+    const dt = new DataTransfer();
+    photoFiles.forEach((f) => dt.items.add(f));
+    fileInputRef.current.files = dt.files;
+  }, [photoFiles]);
+
+  // 无论是点击选择文件，还是把文件拖到这个 input 上，都走这里——追加而不是替换
   const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    setPreviews(files.map((f) => URL.createObjectURL(f)));
+    if (files.length > 0) {
+      setPhotoFiles((prev) => [...prev, ...files]);
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotoFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const label = "mb-1 block text-sm font-medium text-gray-700";
@@ -47,57 +73,59 @@ export function TeacherForm({
       <form action={action} className="space-y-4">
         <div>
           <label className={label}>标题</label>
-          <input name="name" required defaultValue={initial?.name} className={field} />
+          <input name="name" defaultValue={initial?.name} className={field} />
         </div>
 
         <div className="flex gap-3">
           <div className="flex-1">
             <label className={label}>省份</label>
-            <select
+            <input
               name="city"
+              list="province-options"
+              required
               value={city}
-              onChange={(e) => {
-                setCity(e.target.value);
-                setDistrict(""); // 换省份时清空已选的城市
-              }}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="可直接粘贴，如：上海市"
               className={field}
-            >
+            />
+            <datalist id="province-options">
               {provinces.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
+                <option key={c} value={c} />
               ))}
-            </select>
+            </datalist>
           </div>
           <div className="flex-1">
             <label className={label}>城市</label>
-            <select
+            <input
               name="district"
+              list="district-options"
+              required
               value={district}
               onChange={(e) => setDistrict(e.target.value)}
-              required
+              onBlur={(e) => {
+                // 粘贴/输完区县名后，自动带出它属于哪个省份
+                const matched = provinceOfDistrict(e.target.value.trim());
+                if (matched) setCity(matched);
+              }}
+              placeholder="可直接粘贴，如：徐汇区"
               className={field}
-            >
-              <option value="" disabled>
-                请选择
-              </option>
+            />
+            <datalist id="district-options">
               {districts.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
+                <option key={d} value={d} />
               ))}
-            </select>
+            </datalist>
           </div>
         </div>
 
         <div>
           <label className={label}>价格</label>
-          <input name="price" required defaultValue={initial?.price} className={field} />
+          <input name="price" defaultValue={initial?.price} className={field} />
         </div>
 
         <div>
           <label className={label}>服务内容</label>
-          <textarea name="services" required defaultValue={initial?.services} rows={4} className={field} />
+          <textarea name="services" defaultValue={initial?.services} rows={4} className={field} />
         </div>
 
         <div>
@@ -113,12 +141,12 @@ export function TeacherForm({
 
         <div>
           <label className={label}>联系电话（会员可见）</label>
-          <input name="phone" required defaultValue={initial?.contact.phone} className={field} />
+          <input name="phone" defaultValue={initial?.contact.phone} className={field} />
         </div>
 
         <div>
           <label className={label}>微信号（会员可见）</label>
-          <input name="wechat" required defaultValue={initial?.contact.wechat} className={field} />
+          <input name="wechat" defaultValue={initial?.contact.wechat} className={field} />
         </div>
 
         <div>
@@ -127,8 +155,9 @@ export function TeacherForm({
         </div>
 
         <div>
-          <label className={label}>照片（可多选）</label>
+          <label className={label}>照片（可多选，也可以多次拖拽累加）</label>
           <input
+            ref={fileInputRef}
             type="file"
             name="photos"
             accept="image/*"
@@ -137,17 +166,25 @@ export function TeacherForm({
             className="w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-pink-50 file:px-3 file:py-2 file:text-pink-500"
           />
 
-          {/* 新选择的照片预览 */}
+          {/* 新选择的照片预览（可点右上角 × 单独移除） */}
           {previews.length > 0 && (
             <div className="mt-3 grid grid-cols-3 gap-2">
               {previews.map((src, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={i}
-                  src={src}
-                  alt=""
-                  className="h-24 w-full rounded-lg object-cover"
-                />
+                <div key={i} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={src}
+                    alt=""
+                    className="h-24 w-full rounded-lg object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(i)}
+                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs text-white"
+                  >
+                    ×
+                  </button>
+                </div>
               ))}
             </div>
           )}
