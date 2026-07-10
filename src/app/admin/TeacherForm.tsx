@@ -24,6 +24,8 @@ export function TeacherForm({
   // 已选中的照片文件（累加，不会因为再选/再拖一次就把之前的顶掉）
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [compressing, setCompressing] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 每次累加的文件变化时，重新生成预览图地址，并在下次变化前回收旧的
@@ -42,16 +44,72 @@ export function TeacherForm({
     fileInputRef.current.files = dt.files;
   }, [photoFiles]);
 
-  // 无论是点击选择文件，还是把文件拖到这个 input 上，都走这里——追加而不是替换
-  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (files.length > 0) {
-      setPhotoFiles((prev) => [...prev, ...files]);
+  // 手机原图动辄几MB到十几MB，多选/多次拖拽累加后很容易超过服务器单次请求大小上限，
+  // 导致提交时连接被直接断开（浏览器表现为"网页无法打开"，而不是清晰的报错提示）。
+  // 这里在加入队列前先压缩，避免这个问题，同时后台列表加载也更快。
+  async function compressImage(file: File): Promise<File> {
+    if (!file.type.startsWith("image/")) return file;
+    try {
+      const bitmap = await createImageBitmap(file);
+      const maxDim = 1600;
+      let { width, height } = bitmap;
+      if (width > maxDim || height > maxDim) {
+        const scale = maxDim / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return file;
+      ctx.drawImage(bitmap, 0, 0, width, height);
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.8)
+      );
+      if (!blob) return file;
+      const name = file.name.replace(/\.\w+$/, "") + ".jpg";
+      return new File([blob], name, { type: "image/jpeg" });
+    } catch {
+      return file; // 压缩失败（比如浏览器不支持该图片格式）就用原图，不影响上传
     }
+  }
+
+  // 无论是点击选文件，还是把一批文件一起拖进拖拽区，都走这里——追加而不是替换
+  const processFiles = async (files: File[]) => {
+    if (files.length === 0) return;
+    setCompressing(true);
+    try {
+      const compressed = await Promise.all(files.map(compressImage));
+      setPhotoFiles((prev) => [...prev, ...compressed]);
+    } finally {
+      setCompressing(false);
+    }
+  };
+
+  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    processFiles(Array.from(e.target.files ?? []));
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragActive(false);
+    processFiles(Array.from(e.dataTransfer.files ?? []));
   };
 
   const removePhoto = (index: number) => {
     setPhotoFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // 第一张会作为列表/详情页的封面图，所以要能调整顺序
+  const movePhoto = (index: number, direction: -1 | 1) => {
+    setPhotoFiles((prev) => {
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
   };
 
   const label = "mb-1 block text-sm font-medium text-gray-700";
@@ -125,7 +183,7 @@ export function TeacherForm({
 
         <div>
           <label className={label}>服务内容</label>
-          <textarea name="services" defaultValue={initial?.services} rows={4} className={field} />
+          <textarea name="services" defaultValue={initial?.services} rows={1} className={field} />
         </div>
 
         <div>
@@ -155,7 +213,10 @@ export function TeacherForm({
         </div>
 
         <div>
-          <label className={label}>照片（可多选，也可以多次拖拽累加）</label>
+          <label className={label}>
+            照片（可多选，也可以一次拖拽好几张进来）
+            {compressing && <span className="ml-2 text-xs font-normal text-pink-500">压缩中...</span>}
+          </label>
           <input
             ref={fileInputRef}
             type="file"
@@ -163,10 +224,28 @@ export function TeacherForm({
             accept="image/*"
             multiple
             onChange={handleFiles}
-            className="w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-pink-50 file:px-3 file:py-2 file:text-pink-500"
+            className="hidden"
           />
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragActive(true);
+            }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={handleDrop}
+            className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed py-8 text-center transition-colors ${
+              dragActive
+                ? "border-pink-400 bg-pink-50"
+                : "border-gray-200 bg-gray-50 active:bg-gray-100"
+            }`}
+          >
+            <span className="text-sm font-medium text-pink-500">点击选择照片</span>
+            <span className="mt-1 text-xs text-gray-400">或把照片拖到这个框里（可一次拖多张）</span>
+          </div>
 
-          {/* 新选择的照片预览（可点右上角 × 单独移除） */}
+          {/* 新选择的照片预览：左上角是顺序号，第1张会作为封面图；
+              可点右上角 × 移除，或用左右箭头调整这张图排第几 */}
           {previews.length > 0 && (
             <div className="mt-3 grid grid-cols-3 gap-2">
               {previews.map((src, i) => (
@@ -177,6 +256,9 @@ export function TeacherForm({
                     alt=""
                     className="h-24 w-full rounded-lg object-cover"
                   />
+                  <span className="absolute left-1 top-1 rounded-full bg-black/60 px-1.5 text-xs text-white">
+                    {i + 1}
+                  </span>
                   <button
                     type="button"
                     onClick={() => removePhoto(i)}
@@ -184,6 +266,24 @@ export function TeacherForm({
                   >
                     ×
                   </button>
+                  <div className="absolute bottom-1 left-1 right-1 flex justify-between">
+                    <button
+                      type="button"
+                      onClick={() => movePhoto(i, -1)}
+                      disabled={i === 0}
+                      className="flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs text-white disabled:opacity-0"
+                    >
+                      ←
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => movePhoto(i, 1)}
+                      disabled={i === previews.length - 1}
+                      className="flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs text-white disabled:opacity-0"
+                    >
+                      →
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -219,9 +319,10 @@ export function TeacherForm({
 
         <button
           type="submit"
-          className="w-full rounded-lg bg-pink-500 py-2.5 text-sm font-bold text-white active:bg-pink-600"
+          disabled={compressing}
+          className="w-full rounded-lg bg-pink-500 py-2.5 text-sm font-bold text-white active:bg-pink-600 disabled:opacity-50"
         >
-          {submitLabel}
+          {compressing ? "图片压缩中..." : submitLabel}
         </button>
       </form>
     </div>
