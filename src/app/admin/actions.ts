@@ -78,6 +78,9 @@ async function deleteUploadedPhotos(photosJson: string) {
 
 // 从表单里提取老师的文字字段
 function extractFields(formData: FormData) {
+  const ageRaw = String(formData.get("age") ?? "").trim();
+  const age = ageRaw ? Number(ageRaw) : null;
+
   return {
     name: String(formData.get("name") ?? "").trim(),
     type: String(formData.get("type") ?? "钢琴"),
@@ -86,6 +89,7 @@ function extractFields(formData: FormData) {
     price: String(formData.get("price") ?? "").trim(),
     services: String(formData.get("services") ?? "").trim(),
     courseNotes: String(formData.get("courseNotes") ?? "").trim(),
+    age: age !== null && Number.isFinite(age) ? age : null,
     phone: String(formData.get("phone") ?? "").trim(),
     wechat: String(formData.get("wechat") ?? "").trim(),
     qq: String(formData.get("qq") ?? "").trim(),

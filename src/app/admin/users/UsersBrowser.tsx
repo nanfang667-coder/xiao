@@ -21,6 +21,7 @@ type Filter = "all" | "member" | "normal";
 
 export function UsersBrowser({ users }: { users: AdminUser[] }) {
   const [filter, setFilter] = useState<Filter>("all");
+  const [search, setSearch] = useState("");
 
   const memberCount = users.filter((u) => u.isMember).length;
   const normalCount = users.length - memberCount;
@@ -31,14 +32,32 @@ export function UsersBrowser({ users }: { users: AdminUser[] }) {
     { key: "normal", label: "普通用户", count: normalCount },
   ];
 
+  const trimmedSearch = search.trim().toLowerCase();
+
   const list = users.filter((u) => {
-    if (filter === "member") return u.isMember;
-    if (filter === "normal") return !u.isMember;
+    if (filter === "member" && !u.isMember) return false;
+    if (filter === "normal" && u.isMember) return false;
+    if (
+      trimmedSearch &&
+      !String(u.id).includes(trimmedSearch) &&
+      !u.username.toLowerCase().includes(trimmedSearch) &&
+      !u.email.toLowerCase().includes(trimmedSearch)
+    )
+      return false;
     return true;
   });
 
   return (
     <>
+      {/* 按用户ID / 用户名 / 邮箱搜索 */}
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="搜索用户ID / 用户名 / 邮箱"
+        className="mb-3 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-pink-400"
+      />
+
       {/* 筛选标签页（带数量） */}
       <div className="mb-4 flex gap-2">
         {tabs.map((t) => (
@@ -74,6 +93,7 @@ export function UsersBrowser({ users }: { users: AdminUser[] }) {
           <div key={u.id} className="rounded-2xl bg-white p-4 shadow-sm">
             {/* 第一行：用户名 + 会员标识 */}
             <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">#{u.id}</span>
               <h2 className="text-sm font-semibold text-gray-800">
                 {u.username}
               </h2>

@@ -14,6 +14,7 @@ export type Teacher = {
   price: string;
   services: string;
   courseNotes: string | null; // 教学案例/课程记录
+  age: number | null; // 年龄（选填）
   photos: string[];
   emoji: string;
   contact: { phone: string; wechat: string; qq: string | null };
@@ -38,6 +39,7 @@ function toTeacher(row: TeacherRow): Teacher {
     price: row.price,
     services: row.services,
     courseNotes: row.courseNotes,
+    age: row.age,
     photos,
     emoji: row.emoji,
     contact: { phone: row.phone, wechat: row.wechat, qq: row.qq },

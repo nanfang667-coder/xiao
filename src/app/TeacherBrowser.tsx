@@ -66,9 +66,8 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
   // 两个筛选状态：省份（默认全部）、城市（默认全部）
   const [province, setProvince] = useState<string>("全部");
   const [city, setCity] = useState<string>("全部");
-  // 两个面板的展开/收起
-  const [provinceOpen, setProvinceOpen] = useState(false);
-  const [cityOpen, setCityOpen] = useState(false);
+  // 当前展开的选择面板：选省份 / 选城市 / 都收起
+  const [picker, setPicker] = useState<"province" | "city" | null>(null);
   // 当前页码（从 1 开始）
   const [page, setPage] = useState(1);
   // "发帖"提示弹窗的显示状态
@@ -77,19 +76,24 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
   // 当前所选省份下面有哪些城市
   const cityOptions = province === "全部" ? [] : citiesOfProvince(province);
 
-  // 切换省份时，把"城市"重置回"全部"，收起省份面板，并回到第一页
+  // 选完省份：重置城市为"全部"，自动接着展开城市选择（省份没有下级城市时就直接收起）
   const handleProvince = (p: string) => {
     setProvince(p);
     setCity("全部");
-    setProvinceOpen(false);
     setPage(1);
+    const opts = p === "全部" ? [] : citiesOfProvince(p);
+    setPicker(opts.length > 0 ? "city" : null);
   };
 
   const handleCity = (c: string) => {
     setCity(c);
-    setCityOpen(false);
+    setPicker(null);
     setPage(1);
   };
+
+  // 顶部摘要文字：全部地区 / 上海市 / 上海市 · 徐汇区
+  const locationSummary =
+    province === "全部" ? "全部地区" : city === "全部" ? province : `${province} · ${city}`;
 
   // 根据筛选条件，过滤出要显示的老师
   const list = teachers.filter((t) => {
@@ -168,30 +172,61 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
         </div>
       )}
 
-      {/* 省份筛选（可展开/收起） */}
+      {/* 地区筛选：先选省份，选完自动展开城市；收起后只显示一行摘要 */}
       <div className="px-4 pt-4">
-        <FilterPanel
-          title="省份"
-          options={["全部", ...provinces]}
-          selected={province}
-          open={provinceOpen}
-          onToggle={() => setProvinceOpen(!provinceOpen)}
-          onSelect={handleProvince}
-          moreLabel="更多省份"
-        />
-      </div>
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-gray-800">📍 {locationSummary}</span>
+            <button
+              onClick={() =>
+                setPicker(picker ? null : province === "全部" ? "province" : "city")
+              }
+              className="rounded-full border border-pink-400 px-4 py-1.5 text-sm text-pink-500 active:bg-pink-50"
+            >
+              {picker ? "收起" : "选择地区"}
+            </button>
+          </div>
 
-      {/* 城市筛选（跟着所选省份变化） */}
-      <div className="px-4 pt-3">
-        <FilterPanel
-          title="城市"
-          options={["全部", ...cityOptions]}
-          selected={city}
-          open={cityOpen}
-          onToggle={() => setCityOpen(!cityOpen)}
-          onSelect={handleCity}
-          moreLabel="更多城市"
-        />
+          {picker === "province" && (
+            <div className="mt-4 grid grid-cols-3 gap-x-2 gap-y-3">
+              {["全部", ...provinces].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => handleProvince(p)}
+                  className={`truncate text-left text-sm transition ${
+                    province === p ? "font-bold text-pink-500" : "text-gray-700"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {picker === "city" && (
+            <div className="mt-4">
+              <button
+                onClick={() => setPicker("province")}
+                className="mb-3 text-xs text-gray-400"
+              >
+                ‹ 重新选择省份
+              </button>
+              <div className="grid grid-cols-3 gap-x-2 gap-y-3">
+                {["全部", ...cityOptions].map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => handleCity(c)}
+                    className={`truncate text-left text-sm transition ${
+                      city === c ? "font-bold text-pink-500" : "text-gray-700"
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 老师卡片列表 */}
@@ -212,73 +247,6 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
   );
 }
 
-// 可展开/收起的筛选面板（省份、城市共用）
-// 收起时：只显示当前选中项 + "更多"按钮；展开时：三列网格显示全部选项 + "收起"按钮
-function FilterPanel({
-  title,
-  options,
-  selected,
-  open,
-  onToggle,
-  onSelect,
-  moreLabel,
-}: {
-  title: string;
-  options: string[];
-  selected: string;
-  open: boolean;
-  onToggle: () => void;
-  onSelect: (value: string) => void;
-  moreLabel: string;
-}) {
-  return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm">
-      <div className="flex items-start gap-3">
-        <span className="flex-none pt-1 text-sm font-bold text-gray-800">
-          {title}：
-        </span>
-
-        {open ? (
-          // 展开：三列网格 + 收起按钮
-          <div className="flex-1">
-            <div className="grid grid-cols-3 gap-x-2 gap-y-3">
-              {options.map((o) => (
-                <button
-                  key={o}
-                  onClick={() => onSelect(o)}
-                  className={`truncate text-left text-sm transition ${
-                    selected === o
-                      ? "font-bold text-pink-500"
-                      : "text-gray-700"
-                  }`}
-                >
-                  {o}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={onToggle}
-              className="mt-4 rounded-full border border-pink-400 px-5 py-1.5 text-sm text-pink-500 active:bg-pink-50"
-            >
-              − 收起
-            </button>
-          </div>
-        ) : (
-          // 收起：只显示选中项 + 更多按钮
-          <div className="flex flex-1 items-center justify-between gap-3">
-            <span className="text-sm font-medium text-pink-500">{selected}</span>
-            <button
-              onClick={onToggle}
-              className="rounded-full border border-pink-400 px-5 py-1.5 text-sm text-pink-500 active:bg-pink-50"
-            >
-              + {moreLabel}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // 单张老师卡片
 function TeacherCard({ teacher }: { teacher: TeacherListItem }) {
@@ -312,6 +280,9 @@ function TeacherCard({ teacher }: { teacher: TeacherListItem }) {
           </span>
           <h2 className="mt-1 line-clamp-1 text-sm font-semibold text-gray-800">
             {teacher.name}
+            {teacher.age != null && (
+              <span className="ml-2 text-xs font-normal text-gray-400">{teacher.age}岁</span>
+            )}
           </h2>
           <p className="mt-1 line-clamp-2 text-xs text-gray-500">
             {teacher.services}

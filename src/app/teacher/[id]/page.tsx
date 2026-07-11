@@ -42,6 +42,9 @@ export default async function TeacherDetail({
           </div>
           <h1 className="mt-2 text-lg font-bold text-gray-900">
             {teacher.name}
+            {teacher.age != null && (
+              <span className="ml-2 text-sm font-normal text-gray-400">{teacher.age}岁</span>
+            )}
           </h1>
           <div className="mt-2 text-xl font-bold text-rose-500">
             {teacher.price}

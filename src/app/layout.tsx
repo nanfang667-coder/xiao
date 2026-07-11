@@ -8,7 +8,7 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "找老师 · 钢琴/舞蹈名师",
+  title: "找老师",
   description: "汇集全国各城市的优质钢琴、舞蹈老师信息",
 };
 

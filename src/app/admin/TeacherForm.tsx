@@ -182,6 +182,18 @@ export function TeacherForm({
         </div>
 
         <div>
+          <label className={label}>年龄</label>
+          <input
+            name="age"
+            type="number"
+            min={0}
+            max={120}
+            defaultValue={initial?.age ?? ""}
+            className={field}
+          />
+        </div>
+
+        <div>
           <label className={label}>服务内容</label>
           <textarea name="services" defaultValue={initial?.services} rows={1} className={field} />
         </div>
