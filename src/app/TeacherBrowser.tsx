@@ -96,9 +96,11 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
     province === "全部" ? "全部地区" : city === "全部" ? province : `${province} · ${city}`;
 
   // 根据筛选条件，过滤出要显示的老师
+  // 后台省份/城市是自由填写的（可以粘贴比标准地名更细的内容，比如"深圳市宝安西乡"），
+  // 所以这里用"开头匹配"而不是精确相等，否则筛选"深圳市"就会漏掉这类更细的地址
   const list = teachers.filter((t) => {
-    const okProvince = province === "全部" || t.city === province;
-    const okCity = city === "全部" || t.district === city;
+    const okProvince = province === "全部" || t.city.startsWith(province);
+    const okCity = city === "全部" || t.district.startsWith(city);
     return okProvince && okCity;
   });
 

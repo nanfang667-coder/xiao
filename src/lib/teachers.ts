@@ -14,7 +14,7 @@ export type Teacher = {
   price: string;
   services: string;
   courseNotes: string | null; // 教学案例/课程记录
-  age: number | null; // 年龄（选填）
+  age: string | null; // 年龄（选填，支持单个数字或区间，如"28"、"25-30"）
   photos: string[];
   emoji: string;
   contact: { phone: string; wechat: string; qq: string | null };

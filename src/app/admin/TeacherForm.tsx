@@ -185,10 +185,8 @@ export function TeacherForm({
           <label className={label}>年龄</label>
           <input
             name="age"
-            type="number"
-            min={0}
-            max={120}
             defaultValue={initial?.age ?? ""}
+            placeholder="例如：28 或 25-30"
             className={field}
           />
         </div>

@@ -20,7 +20,7 @@ model Teacher {
   price     String // 价格
   services  String // 服务内容
   courseNotes String? // 教学案例/课程记录（可空，老数据没有）
-  age       Int? // 年龄（选填，方便家长/学员判断教学经验）
+  age       String? // 年龄（选填，支持单个数字或区间，如"28"、"25-30"）
   photos    String // 多张照片，存成一段 JSON 文本，例如 ["图1","图2"]
   emoji     String // 照片上的小图标（暂代真实图片）
   phone     String // 联系电话（会员可见）
