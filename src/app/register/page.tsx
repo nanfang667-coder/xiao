@@ -1,5 +1,5 @@
 // 用户注册页面
-// 功能：账号+密码+绑定邮箱（不发验证码）
+// 功能：账号+密码+确认密码（不需要邮箱）
 
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/user-auth";
@@ -58,19 +58,6 @@ export default async function RegisterPage({
 
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              邮箱
-            </label>
-            <input
-              type="email"
-              name="email"
-              placeholder="请输入邮箱"
-              required
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-pink-400"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
               密码
             </label>
             <input
@@ -83,6 +70,24 @@ export default async function RegisterPage({
             />
             <p className="mt-1 text-xs text-gray-400">至少6位字符</p>
           </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              确认密码
+            </label>
+            <input
+              type="password"
+              name="confirmPassword"
+              placeholder="请再次输入密码"
+              required
+              minLength={6}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-pink-400"
+            />
+          </div>
+
+          <p className="text-center text-xs text-gray-400">
+            请勿批量注册，系统会自动检测并封禁异常账号
+          </p>
 
           <button
             type="submit"

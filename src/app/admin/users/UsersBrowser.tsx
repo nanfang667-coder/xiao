@@ -4,6 +4,8 @@ import { useState } from "react";
 import {
   GrantMembershipForm,
   RevokeMembershipButton,
+  BanUserButton,
+  UnbanUserButton,
   DeleteUserButton,
 } from "./UserActions";
 
@@ -11,25 +13,40 @@ import {
 export type AdminUser = {
   id: number;
   username: string;
-  email: string;
+  email: string | null;
   isMember: boolean;
   createdAtLabel: string;
   expiryLabel: string | null; // 仅会员有：「永久会员」或「会员到期：xxxx」
+  memberSinceLabel: string | null; // 最近一次成为会员的日期（续费/延期不变）
+  isBanned: boolean;
+  bannedAtLabel: string | null;
+  banReason: string | null;
 };
 
-type Filter = "all" | "member" | "normal";
+// 新增会员统计：近24小时 / 近7天 / 近30天（服务端算好传下来）
+export type NewMemberStats = { day: number; week: number; month: number };
 
-export function UsersBrowser({ users }: { users: AdminUser[] }) {
+type Filter = "all" | "member" | "normal" | "banned";
+
+export function UsersBrowser({
+  users,
+  newMemberStats,
+}: {
+  users: AdminUser[];
+  newMemberStats: NewMemberStats;
+}) {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
 
   const memberCount = users.filter((u) => u.isMember).length;
   const normalCount = users.length - memberCount;
+  const bannedCount = users.filter((u) => u.isBanned).length;
 
   const tabs: { key: Filter; label: string; count: number }[] = [
     { key: "all", label: "全部", count: users.length },
     { key: "member", label: "👑 会员用户", count: memberCount },
     { key: "normal", label: "普通用户", count: normalCount },
+    { key: "banned", label: "🚫 已封禁", count: bannedCount },
   ];
 
   const trimmedSearch = search.trim().toLowerCase();
@@ -37,11 +54,12 @@ export function UsersBrowser({ users }: { users: AdminUser[] }) {
   const list = users.filter((u) => {
     if (filter === "member" && !u.isMember) return false;
     if (filter === "normal" && u.isMember) return false;
+    if (filter === "banned" && !u.isBanned) return false;
     if (
       trimmedSearch &&
       !String(u.id).includes(trimmedSearch) &&
       !u.username.toLowerCase().includes(trimmedSearch) &&
-      !u.email.toLowerCase().includes(trimmedSearch)
+      !(u.email ?? "").toLowerCase().includes(trimmedSearch)
     )
       return false;
     return true;
@@ -49,6 +67,20 @@ export function UsersBrowser({ users }: { users: AdminUser[] }) {
 
   return (
     <>
+      {/* 新增会员统计 */}
+      <div className="mb-3 grid grid-cols-3 gap-2">
+        {[
+          { label: "近24小时新增", count: newMemberStats.day },
+          { label: "近7天新增", count: newMemberStats.week },
+          { label: "近30天新增", count: newMemberStats.month },
+        ].map((s) => (
+          <div key={s.label} className="rounded-xl bg-white p-3 text-center shadow-sm">
+            <div className="text-lg font-bold text-pink-500">{s.count}</div>
+            <div className="mt-0.5 text-xs text-gray-400">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
       {/* 按用户ID / 用户名 / 邮箱搜索 */}
       <input
         type="text"
@@ -106,25 +138,46 @@ export function UsersBrowser({ users }: { users: AdminUser[] }) {
                   普通用户
                 </span>
               )}
+              {u.isBanned && (
+                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">
+                  🚫 已封禁
+                </span>
+              )}
             </div>
 
             {/* 第二行：邮箱、注册时间、会员到期 */}
             <div className="mt-1.5 space-y-0.5 text-xs text-gray-400">
-              <p>📮 {u.email}</p>
+              {u.email && <p>📮 {u.email}</p>}
               <p>注册于 {u.createdAtLabel}</p>
               {u.isMember && u.expiryLabel && (
                 <p className="text-amber-500">{u.expiryLabel}</p>
               )}
+              {u.isMember && u.memberSinceLabel && (
+                <p>入会于 {u.memberSinceLabel}</p>
+              )}
+              {u.isBanned && (
+                <p className="text-red-500">
+                  封禁于 {u.bannedAtLabel}
+                  {u.banReason ? ` · ${u.banReason}` : ""}
+                </p>
+              )}
             </div>
 
             {/* 第三行：操作按钮 */}
-            <div className="mt-3 flex items-center justify-between gap-2 border-t border-gray-50 pt-3">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-50 pt-3">
               {u.isMember ? (
                 <RevokeMembershipButton id={u.id} username={u.username} />
               ) : (
                 <GrantMembershipForm id={u.id} username={u.username} />
               )}
-              <DeleteUserButton id={u.id} username={u.username} />
+              <div className="flex items-center gap-2">
+                {u.isBanned ? (
+                  <UnbanUserButton id={u.id} username={u.username} />
+                ) : (
+                  <BanUserButton id={u.id} username={u.username} />
+                )}
+                <DeleteUserButton id={u.id} username={u.username} />
+              </div>
             </div>
           </div>
         ))}

@@ -43,15 +43,21 @@ export async function confirmPayment(orderId: number) {
       data: { status: "paid", paidAt: new Date() },
     });
 
+    // 支付前的状态：既用来判断是不是"新增会员"，也用来查是否被人邀请（避免重复查询）
+    const buyer = await prisma.user.findUnique({ where: { id: user.id } });
+
     // 开通永久会员（membershipExpiresAt 为空表示永久）
     await prisma.user.update({
       where: { id: user.id },
-      data: { isMember: true, membershipExpiresAt: null },
+      data: {
+        isMember: true,
+        membershipExpiresAt: null,
+        ...(buyer && !buyer.isMember ? { memberSince: new Date() } : {}),
+      },
     });
 
     // 如果这个买家是被人邀请来的，给推荐人生成一笔佣金记录
     // （orderId 唯一约束保证一笔订单只会产生一次佣金）
-    const buyer = await prisma.user.findUnique({ where: { id: user.id } });
     if (buyer?.referredBy) {
       await prisma.commission.create({
         data: {

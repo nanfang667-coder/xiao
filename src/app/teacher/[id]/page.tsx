@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/user-auth";
 import { isActiveMember } from "@/lib/membership";
 import { Gallery } from "./Gallery";
 import { SafetyNotice } from "./SafetyNotice";
+import { BackButton } from "./BackButton";
 
 export default async function TeacherDetail({
   params,
@@ -26,9 +27,7 @@ export default async function TeacherDetail({
 
       {/* 顶部返回栏 */}
       <div className="sticky top-0 z-10 flex items-center gap-2 bg-white/90 px-4 py-3 shadow-sm backdrop-blur">
-        <Link href="/" className="text-pink-500">
-          ← 返回
-        </Link>
+        <BackButton />
       </div>
 
       {/* 多张照片：可左右滑动浏览 */}

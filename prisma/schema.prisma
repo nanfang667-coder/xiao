@@ -33,12 +33,17 @@ model Teacher {
 model User {
   id        Int      @id @default(autoincrement())
   username  String   @unique // 登录账号，必须唯一
-  email     String   @unique // 绑定邮箱，必须唯一（但不需要验证）
+  email     String?  @unique // 绑定邮箱（选填，可为空；填了则必须唯一，不需要验证真实性）
   passwordHash String // 加密后的密码（不要存明文！）
   isMember  Boolean  @default(false) // 是否为会员
   membershipExpiresAt DateTime? // 会员到期时间（空表示永久或非会员）
+  memberSince DateTime? // 最近一次从非会员变成会员的时间（用于统计新增会员），续费/延期不会更新这个时间
   referralCode String  @unique // 该用户自己的专属邀请码
   referredBy   Int?    // 谁邀请来的（User.id），只在注册时写入一次，此后不变
+  registrationIp String? // 注册时的IP，用于识别同一IP短时间内批量注册
+  isBanned  Boolean  @default(false) // 是否被封禁（自动检测批量注册，或管理员手动封禁）
+  bannedAt  DateTime? // 封禁时间
+  banReason String?   // 封禁原因
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

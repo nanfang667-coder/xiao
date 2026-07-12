@@ -1,4 +1,5 @@
 // 首页（server 组件）：负责从数据库读取老师，再交给下面的组件展示。
+import { Suspense } from "react";
 import { getTeachersForList } from "@/lib/teachers";
 import { getCurrentUser } from "@/lib/user-auth";
 import { TeacherBrowser } from "./TeacherBrowser";
@@ -8,5 +9,10 @@ export default async function Home() {
   const teachers = await getTeachersForList();
   const user = await getCurrentUser(); // 获取当前登录用户
 
-  return <TeacherBrowser teachers={teachers} user={user} />;
+  // TeacherBrowser 用 useSearchParams 读网址里的筛选参数，Next.js 要求套一层 Suspense
+  return (
+    <Suspense>
+      <TeacherBrowser teachers={teachers} user={user} />
+    </Suspense>
+  );
 }

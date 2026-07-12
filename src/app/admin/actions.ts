@@ -176,9 +176,16 @@ export async function grantMembership(id: number, formData: FormData) {
   const expiresAt =
     days > 0 ? new Date(Date.now() + days * 24 * 60 * 60 * 1000) : null;
 
+  // 只有"从非会员变成会员"才算新增，给已是会员的人延期不重置这个时间
+  const existing = await prisma.user.findUnique({ where: { id } });
+
   await prisma.user.update({
     where: { id },
-    data: { isMember: true, membershipExpiresAt: expiresAt },
+    data: {
+      isMember: true,
+      membershipExpiresAt: expiresAt,
+      ...(existing && !existing.isMember ? { memberSince: new Date() } : {}),
+    },
   });
 
   revalidatePath("/admin/users");
@@ -190,6 +197,26 @@ export async function revokeMembership(id: number) {
   await prisma.user.update({
     where: { id },
     data: { isMember: false, membershipExpiresAt: null },
+  });
+  revalidatePath("/admin/users");
+}
+
+// 封禁用户（管理员手动封禁；批量注册触发的自动封禁见 src/lib/user-auth.ts）
+export async function banUser(id: number) {
+  await requireAdmin();
+  await prisma.user.update({
+    where: { id },
+    data: { isBanned: true, bannedAt: new Date(), banReason: "管理员手动封禁" },
+  });
+  revalidatePath("/admin/users");
+}
+
+// 解封用户
+export async function unbanUser(id: number) {
+  await requireAdmin();
+  await prisma.user.update({
+    where: { id },
+    data: { isBanned: false, bannedAt: null, banReason: null },
   });
   revalidatePath("/admin/users");
 }

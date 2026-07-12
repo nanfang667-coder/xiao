@@ -1,6 +1,7 @@
 "use client"; // 这个组件有交互（筛选），要在浏览器里运行
 
 import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { provinces, citiesOfProvince } from "@/data/locations";
 import { isImage } from "@/lib/photo";
@@ -63,33 +64,53 @@ const entries = [
 
 // 接收从数据库读来的老师列表，负责城市/区筛选与展示
 export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]; user?: User | null }) {
-  // 两个筛选状态：省份（默认全部）、城市（默认全部）
-  const [province, setProvince] = useState<string>("全部");
-  const [city, setCity] = useState<string>("全部");
-  // 当前展开的选择面板：选省份 / 选城市 / 都收起
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // 筛选状态放在网址参数里（?province=xx&city=xx&page=x），而不是纯组件内存状态：
+  // 这样从详情页返回时，就算浏览器/Next.js 没有把这个页面从缓存里原样恢复，
+  // 只要网址还是同一个，重新渲染也能读到当时选的省份/城市，不会跳回"全部地区"
+  const province = searchParams.get("province") ?? "全部";
+  const city = searchParams.get("city") ?? "全部";
+  const page = Number(searchParams.get("page")) || 1;
+
+  // 当前展开的选择面板：选省份 / 选城市 / 都收起（纯 UI 状态，不需要放进网址）
   const [picker, setPicker] = useState<"province" | "city" | null>(null);
-  // 当前页码（从 1 开始）
-  const [page, setPage] = useState(1);
   // "发帖"提示弹窗的显示状态
   const [showPostNotice, setShowPostNotice] = useState(false);
 
   // 当前所选省份下面有哪些城市
   const cityOptions = province === "全部" ? [] : citiesOfProvince(province);
 
+  // 把新的筛选值写回网址（省略的字段沿用当前值；等于"全部"/第1页时就从网址里去掉，保持网址干净）
+  function updateFilters(next: { province?: string; city?: string; page?: number }) {
+    const p = next.province ?? province;
+    const c = next.city ?? city;
+    const pg = next.page ?? page;
+
+    const params = new URLSearchParams();
+    if (p !== "全部") params.set("province", p);
+    if (c !== "全部") params.set("city", c);
+    if (pg > 1) params.set("page", String(pg));
+
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
+
   // 选完省份：重置城市为"全部"，自动接着展开城市选择（省份没有下级城市时就直接收起）
   const handleProvince = (p: string) => {
-    setProvince(p);
-    setCity("全部");
-    setPage(1);
+    updateFilters({ province: p, city: "全部", page: 1 });
     const opts = p === "全部" ? [] : citiesOfProvince(p);
     setPicker(opts.length > 0 ? "city" : null);
   };
 
   const handleCity = (c: string) => {
-    setCity(c);
+    updateFilters({ city: c, page: 1 });
     setPicker(null);
-    setPage(1);
   };
+
+  const setPage = (pg: number) => updateFilters({ page: pg });
 
   // 顶部摘要文字：全部地区 / 上海市 / 上海市 · 徐汇区
   const locationSummary =
