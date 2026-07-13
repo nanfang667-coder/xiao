@@ -175,6 +175,36 @@ export function provinceOfDistrict(district: string): string | undefined {
   return districtToProvince[district];
 }
 
+const PROVINCE_SUFFIXES = ["省", "市", "自治区", "特别行政区"];
+const DISTRICT_SUFFIXES = ["市", "区", "县", "自治州", "地区", "盟", "自治县"];
+
+// 粘贴省份名时容错：漏写"省/市/自治区"后缀也能对上（如"广东" -> "广东省"）
+export function normalizeProvince(input: string): string | undefined {
+  const trimmed = input.trim();
+  if (provinces.includes(trimmed)) return trimmed;
+  for (const suffix of PROVINCE_SUFFIXES) {
+    if (provinces.includes(trimmed + suffix)) return trimmed + suffix;
+  }
+  return undefined;
+}
+
+// 粘贴城市/区县名时容错：漏写"市/区"等后缀也能对上（如"深圳" -> "深圳市"），
+// 且不依赖已选的省份——扫描全部省份找到唯一匹配，一并返回它所属的省份
+export function resolveDistrict(input: string): { province: string; district: string } | undefined {
+  const trimmed = input.trim();
+  if (!trimmed) return undefined;
+  for (const [province, districts] of Object.entries(provinceCities)) {
+    if (districts.includes(trimmed)) return { province, district: trimmed };
+  }
+  for (const suffix of DISTRICT_SUFFIXES) {
+    const candidate = trimmed + suffix;
+    for (const [province, districts] of Object.entries(provinceCities)) {
+      if (districts.includes(candidate)) return { province, district: candidate };
+    }
+  }
+  return undefined;
+}
+
 // ===== 兼容旧接口（老代码引用） =====
 export const cityDistricts = provinceCities;
 export const cities = provinces;

@@ -120,8 +120,11 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
   // 后台省份/城市是自由填写的（可以粘贴比标准地名更细的内容，比如"深圳市宝安西乡"），
   // 所以这里用"开头匹配"而不是精确相等，否则筛选"深圳市"就会漏掉这类更细的地址
   const list = teachers.filter((t) => {
-    const okProvince = province === "全部" || t.city.startsWith(province);
-    const okCity = city === "全部" || t.district.startsWith(city);
+    // 双向 startsWith：既兼容"存的比筛选详细"（深圳市宝安西乡 vs 深圳市），
+    // 也兼容旧数据里漏写了"市/省"后缀的情况（深圳 vs 深圳市）
+    const okProvince =
+      province === "全部" || t.city.startsWith(province) || province.startsWith(t.city);
+    const okCity = city === "全部" || t.district.startsWith(city) || city.startsWith(t.district);
     return okProvince && okCity;
   });
 
@@ -179,7 +182,7 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
             onClick={(e) => e.stopPropagation()}
           >
             <p>
-              黑机构骗子较多，暂不开放发帖功能，
+              为了预防受骗，暂不开放发帖功能，
               <span className="font-bold text-red-600">
                 我们所有信息都是大网站观察两天挑选出来的优秀帖子。
               </span>
@@ -301,10 +304,13 @@ function TeacherCard({ teacher }: { teacher: TeacherListItem }) {
           <span className="text-xs text-gray-400">
             📍 {teacher.city} · {teacher.district}
           </span>
+          {teacher.address && (
+            <p className="mt-0.5 line-clamp-1 text-xs text-gray-400">{teacher.address}</p>
+          )}
           <h2 className="mt-1 line-clamp-1 text-sm font-semibold text-gray-800">
             {teacher.name}
             {teacher.age != null && (
-              <span className="ml-2 text-xs font-normal text-gray-400">{teacher.age}岁</span>
+              <span className="ml-2 text-xs font-normal text-gray-400">年龄{teacher.age}</span>
             )}
           </h2>
           <p className="mt-1 line-clamp-2 text-xs text-gray-500">

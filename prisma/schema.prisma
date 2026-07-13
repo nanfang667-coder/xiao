@@ -26,7 +26,13 @@ model Teacher {
   phone     String // 联系电话（会员可见）
   wechat    String // 微信号（会员可见）
   qq        String? // QQ（会员可见，可空）
+  otherContact String? // 其他联系方式（会员可见，可空，如 Telegram/邮箱等）
+  address   String? // 详细地址（会员可见，可空，帮学员判断通勤距离）
   createdAt DateTime @default(now()) // 创建时间，自动记录
+  source    String?
+  sourceId  Int?
+
+  @@unique([source, sourceId])
 }
 
 // 用户表（普通用户）

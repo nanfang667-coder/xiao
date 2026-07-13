@@ -42,7 +42,7 @@ export default async function TeacherDetail({
           <h1 className="mt-2 text-lg font-bold text-gray-900">
             {teacher.name}
             {teacher.age != null && (
-              <span className="ml-2 text-sm font-normal text-gray-400">{teacher.age}岁</span>
+              <span className="ml-2 text-sm font-normal text-gray-400">年龄{teacher.age}</span>
             )}
           </h1>
           <div className="mt-2 text-xl font-bold text-rose-500">
@@ -71,6 +71,16 @@ export default async function TeacherDetail({
           本平台为信息分享平台，不对经历负责，凡是要求定金、视频验证、提前付费等行为可能是骗子，同时也注意任何形式的办卡行为。
         </div>
 
+        {/* 详细地址（所有人可见，不限会员） */}
+        {teacher.contact.address && (
+          <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
+            <h2 className="mb-2 text-sm font-bold text-gray-800">详细地址</h2>
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <span className="font-medium">{teacher.contact.address}</span>
+            </div>
+          </section>
+        )}
+
         {/* 联系方式（会员可见） */}
         <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
           <h2 className="mb-3 text-sm font-bold text-gray-800">联系方式</h2>
@@ -90,6 +100,12 @@ export default async function TeacherDetail({
                 <div className="flex items-center gap-2 text-sm text-gray-700">
                   <span className="text-gray-400">QQ</span>
                   <span className="font-medium">{teacher.contact.qq}</span>
+                </div>
+              )}
+              {teacher.contact.other && (
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <span className="text-gray-400">其他</span>
+                  <span className="font-medium">{teacher.contact.other}</span>
                 </div>
               )}
             </div>

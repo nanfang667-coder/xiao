@@ -28,6 +28,13 @@ export default async function AdminTeachersPage() {
         ＋ 添加老师
       </Link>
 
+      <Link
+        href="/admin/import"
+        className="mb-4 flex items-center justify-center rounded-xl border border-pink-200 bg-white py-2.5 text-sm font-bold text-pink-600 active:bg-pink-50"
+      >
+        进
+      </Link>
+
       <p className="mb-2 text-xs text-gray-400">共 {teachers.length} 位老师</p>
 
       {/* 老师列表 */}

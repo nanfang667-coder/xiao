@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { provinces, citiesOfProvince, provinceOfDistrict } from "@/data/locations";
+import { provinces, citiesOfProvince, normalizeProvince, resolveDistrict } from "@/data/locations";
 import { isImage } from "@/lib/photo";
 import type { Teacher } from "@/lib/teachers";
 
@@ -143,6 +143,11 @@ export function TeacherForm({
               required
               value={city}
               onChange={(e) => setCity(e.target.value)}
+              onBlur={(e) => {
+                // 漏写"省/市/自治区"后缀时自动补全，确保跟筛选用的列表对得上
+                const matched = normalizeProvince(e.target.value);
+                if (matched) setCity(matched);
+              }}
               placeholder="可直接粘贴，如：上海市"
               className={field}
             />
@@ -161,9 +166,13 @@ export function TeacherForm({
               value={district}
               onChange={(e) => setDistrict(e.target.value)}
               onBlur={(e) => {
-                // 粘贴/输完区县名后，自动带出它属于哪个省份
-                const matched = provinceOfDistrict(e.target.value.trim());
-                if (matched) setCity(matched);
+                // 粘贴/输完区县名后，自动带出它属于哪个省份，并补全漏写的"市/区"等后缀
+                // （否则存的是"深圳"、筛选列表里是"深圳市"，前台按城市搜索会搜不到）
+                const resolved = resolveDistrict(e.target.value);
+                if (resolved) {
+                  setCity(resolved.province);
+                  setDistrict(resolved.district);
+                }
               }}
               placeholder="可直接粘贴，如：徐汇区"
               className={field}
@@ -220,6 +229,26 @@ export function TeacherForm({
         <div>
           <label className={label}>QQ（会员可见）</label>
           <input name="qq" defaultValue={initial?.contact.qq ?? ""} className={field} />
+        </div>
+
+        <div>
+          <label className={label}>其他联系方式（会员可见）</label>
+          <input
+            name="otherContact"
+            defaultValue={initial?.contact.other ?? ""}
+            placeholder="例如：邮箱、Telegram，选填"
+            className={field}
+          />
+        </div>
+
+        <div>
+          <label className={label}>详细地址（会员可见）</label>
+          <input
+            name="address"
+            defaultValue={initial?.contact.address ?? ""}
+            placeholder="例如：XX路XX号，帮学员判断通勤距离，选填"
+            className={field}
+          />
         </div>
 
         <div>

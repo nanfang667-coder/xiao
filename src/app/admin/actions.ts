@@ -92,6 +92,8 @@ function extractFields(formData: FormData) {
     phone: String(formData.get("phone") ?? "").trim(),
     wechat: String(formData.get("wechat") ?? "").trim(),
     qq: String(formData.get("qq") ?? "").trim(),
+    otherContact: String(formData.get("otherContact") ?? "").trim() || null,
+    address: String(formData.get("address") ?? "").trim() || null,
   };
 }
 

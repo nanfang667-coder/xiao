@@ -17,7 +17,13 @@ export type Teacher = {
   age: string | null; // 年龄（选填，支持单个数字或区间，如"28"、"25-30"）
   photos: string[];
   emoji: string;
-  contact: { phone: string; wechat: string; qq: string | null };
+  contact: {
+    phone: string;
+    wechat: string;
+    qq: string | null;
+    other: string | null;
+    address: string | null;
+  };
   createdAt: Date;
 };
 
@@ -42,7 +48,13 @@ function toTeacher(row: TeacherRow): Teacher {
     age: row.age,
     photos,
     emoji: row.emoji,
-    contact: { phone: row.phone, wechat: row.wechat, qq: row.qq },
+    contact: {
+      phone: row.phone,
+      wechat: row.wechat,
+      qq: row.qq,
+      other: row.otherContact,
+      address: row.address,
+    },
     createdAt: row.createdAt,
   };
 }
@@ -55,17 +67,18 @@ export async function getAllTeachers(): Promise<Teacher[]> {
   return rows.map(toTeacher);
 }
 
-// 列表用的老师格式：不含联系方式（会员专属，不能发到浏览器）
-export type TeacherListItem = Omit<Teacher, "contact">;
+// 列表用的老师格式：不含电话/微信/QQ等联系方式（会员专属，不能发到浏览器），但详细地址所有人可见
+export type TeacherListItem = Omit<Teacher, "contact"> & { address: string | null };
 
-// 取出所有老师供列表展示——去掉 contact，避免联系方式随页面源码泄露给非会员
+// 取出所有老师供列表展示——去掉 phone/wechat/qq/other，避免联系方式随页面源码泄露给非会员；
+// 详细地址不算敏感联系方式，所有人可见，因此保留
 export async function getTeachersForList(): Promise<TeacherListItem[]> {
   const rows = await prisma.teacher.findMany({
     orderBy: { createdAt: "desc" },
   });
   return rows.map((row) => {
     const { contact, ...rest } = toTeacher(row); // eslint-disable-line @typescript-eslint/no-unused-vars
-    return rest;
+    return { ...rest, address: contact.address };
   });
 }
 
