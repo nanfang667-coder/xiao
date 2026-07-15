@@ -39,7 +39,6 @@ export function withdrawalsEnabled(): boolean {
 
 // 支付方式
 export const PAY_METHODS = [
-  { key: "wechat", label: "微信支付", emoji: "💚" },
   { key: "alipay", label: "支付宝", emoji: "💙" },
 ] as const;
 

@@ -49,6 +49,12 @@ export function VipPurchase() {
       <p className="mt-3 text-center text-xs text-gray-400">
         开通即表示同意会员服务协议
       </p>
+      <p className="mt-2 text-center text-xs text-gray-500">
+        遇到支付问题，请联系
+        <a href="mailto:nanfang667@gmail.com" className="ml-1 text-pink-500">
+          nanfang667@gmail.com
+        </a>
+      </p>
     </form>
   );
 }

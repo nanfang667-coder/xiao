@@ -1,21 +1,34 @@
-// 支付页：显示订单金额、收款码（占位）、我已完成支付。
-// ⚠️ 未来接入真实支付：把这里的「收款码占位」换成支付宝/微信下单返回的二维码，
-//    并把「我已完成支付」按钮换成由支付回调自动触发 confirmPayment。
+// 支付页：支付结果只能由已验签的平台回调确认，用户端只能刷新状态。
 
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/user-auth";
 import { payMethodLabel } from "@/lib/membership";
-import { confirmPayment } from "../../actions";
+import { refreshPaymentStatus } from "../../actions";
+
+function safePaymentUrl(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
 
 export default async function PayPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ check?: string }>;
 }) {
   const { id } = await params;
+  const { check } = await searchParams;
   const orderId = Number(id);
+  if (!Number.isSafeInteger(orderId) || orderId <= 0) notFound();
+
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -25,8 +38,8 @@ export default async function PayPage({
   // 已支付则直接回 VIP 页
   if (order.status === "paid") redirect("/vip?paid=1");
 
-  // 把订单 id 预绑定到确认支付操作上
-  const confirm = confirmPayment.bind(null, order.id);
+  const paymentUrl = safePaymentUrl(order.paymentUrl);
+  const refresh = refreshPaymentStatus.bind(null, order.id);
 
   return (
     <div className="mx-auto w-full max-w-md flex-1 pb-10">
@@ -58,29 +71,48 @@ export default async function PayPage({
         </div>
       </div>
 
-      {/* 收款码占位 */}
+      {/* 平台返回 URL 收银台，用户支付后由异步通知或主动查单确认。 */}
       <div className="px-4 pt-4">
         <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
           <div className="mx-auto flex h-44 w-44 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
             <div className="text-gray-400">
               <div className="text-4xl">📷</div>
-              <p className="mt-2 text-xs">收款码（对接支付后显示）</p>
+              <p className="mt-2 text-xs">等待支付平台确认</p>
             </div>
           </div>
           <p className="mt-3 text-sm text-gray-500">
-            请使用{payMethodLabel(order.payMethod)}扫码支付
+            支付结果由平台签名通知确认，页面操作不会直接开通会员
           </p>
+          {paymentUrl && (
+            <a
+              href={paymentUrl}
+              className="mt-4 inline-block rounded-full border border-orange-300 px-5 py-2 text-sm font-medium text-orange-600"
+            >
+              返回{payMethodLabel(order.payMethod)}收银台
+            </a>
+          )}
         </div>
       </div>
 
-      {/* 我已完成支付 */}
+      {check === "failed" && (
+        <div className="mx-4 mt-4 rounded-xl bg-red-50 px-4 py-3 text-center text-xs text-red-600">
+          暂时无法确认支付结果，请稍后重试；系统不会在未确认时开通会员。
+        </div>
+      )}
+      {check === "pending" && (
+        <div className="mx-4 mt-4 rounded-xl bg-amber-50 px-4 py-3 text-center text-xs text-amber-700">
+          平台显示尚未支付成功，请完成支付后再查询。
+        </div>
+      )}
+
+      {/* 主动查单也必须验证平台响应签名、订单号、金额与成功状态。 */}
       <div className="px-4 pt-6">
-        <form action={confirm}>
+        <form action={refresh}>
           <button
             type="submit"
-            className="w-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 py-3 text-base font-bold text-white shadow active:opacity-90"
+            className="w-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 py-3 text-center text-base font-bold text-white shadow active:opacity-90"
           >
-            我已完成支付
+            查询支付结果
           </button>
         </form>
         <Link
@@ -89,6 +121,12 @@ export default async function PayPage({
         >
           取消，返回
         </Link>
+        <p className="mt-4 text-center text-xs text-gray-500">
+          遇到支付问题，请联系
+          <a href="mailto:nanfang667@gmail.com" className="ml-1 text-pink-500">
+            nanfang667@gmail.com
+          </a>
+        </p>
       </div>
     </div>
   );

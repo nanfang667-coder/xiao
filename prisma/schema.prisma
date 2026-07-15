@@ -63,6 +63,11 @@ model Order {
   amount    Float // 金额（元），如 38
   payMethod String // 支付方式："wechat" 微信 / "alipay" 支付宝
   status    String   @default("pending") // pending 待支付 / paid 已支付
+  merchantOrderNo String? @unique // 本站提交给支付平台的唯一订单号
+  providerTradeNo String? @unique // 支付平台订单号
+  paymentUrl String? // 支付平台返回的收银台地址
+  paymentExpiresAt DateTime? // 收银台地址过期时间
+  paymentCheckedAt DateTime? // 最近一次主动查单时间（用于限流）
   createdAt DateTime @default(now())
   paidAt    DateTime? // 支付完成时间
 }

@@ -9,11 +9,18 @@ import { VipPurchase } from "./VipPurchase";
 export default async function VipPage({
   searchParams,
 }: {
-  searchParams: Promise<{ paid?: string }>;
+  searchParams: Promise<{ paid?: string; paymentError?: string }>;
 }) {
-  const { paid } = await searchParams;
+  const { paid, paymentError } = await searchParams;
   const user = await getCurrentUser();
   const isMember = isActiveMember(user);
+  const paymentErrorMessages: Record<string, string> = {
+    configuration: "本地支付配置不完整，请检查商户号、密钥和通道编码后重启项目。",
+    unavailable: "暂时无法连接支付平台，请稍后重试；本次没有扣款。",
+    rejected: "支付平台拒绝了下单请求，请核对商户状态和支付宝通道配置。",
+    invalid_response: "支付平台返回内容未通过安全校验，本次没有扣款。",
+    rate: "操作过于频繁，请一分钟后再试。",
+  };
 
   return (
     <div className="mx-auto w-full max-w-md flex-1 pb-10">
@@ -29,6 +36,11 @@ export default async function VipPage({
       {paid === "1" && (
         <div className="mx-4 mt-4 rounded-xl bg-green-50 px-4 py-3 text-center text-sm font-medium text-green-600">
           🎉 开通成功，会员权益已生效！
+        </div>
+      )}
+      {paymentError && paymentErrorMessages[paymentError] && (
+        <div className="mx-4 mt-4 rounded-xl bg-red-50 px-4 py-3 text-center text-sm text-red-600">
+          {paymentErrorMessages[paymentError]}
         </div>
       )}
 
