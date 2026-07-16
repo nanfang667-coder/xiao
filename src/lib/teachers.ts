@@ -77,7 +77,7 @@ export async function getTeachersForList(): Promise<TeacherListItem[]> {
     orderBy: { createdAt: "desc" },
   });
   return rows.map((row) => {
-    const { contact, ...rest } = toTeacher(row); // eslint-disable-line @typescript-eslint/no-unused-vars
+    const { contact, ...rest } = toTeacher(row);
     return { ...rest, address: contact.address };
   });
 }
@@ -88,4 +88,32 @@ export async function getTeacherById(id: string): Promise<Teacher | null> {
   if (Number.isNaN(numId)) return null;
   const row = await prisma.teacher.findUnique({ where: { id: numId } });
   return row ? toTeacher(row) : null;
+}
+
+export type TeacherSeo = {
+  id: number;
+  name: string;
+  type: string;
+  city: string;
+  district: string;
+  services: string;
+};
+
+// SEO only needs public listing fields. Keep contact details out of the
+// metadata query so they cannot accidentally be exposed in page metadata.
+export async function getTeacherSeoById(id: string): Promise<TeacherSeo | null> {
+  const numId = Number(id);
+  if (!Number.isSafeInteger(numId) || numId <= 0) return null;
+
+  return prisma.teacher.findUnique({
+    where: { id: numId },
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      city: true,
+      district: true,
+      services: true,
+    },
+  });
 }

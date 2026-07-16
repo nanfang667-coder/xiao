@@ -1,17 +1,59 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTeacherById } from "@/lib/teachers";
+import { getTeacherById, getTeacherSeoById } from "@/lib/teachers";
 import { getCurrentUser } from "@/lib/user-auth";
 import { isActiveMember } from "@/lib/membership";
 import { Gallery } from "./Gallery";
 import { SafetyNotice } from "./SafetyNotice";
 import { BackButton } from "./BackButton";
 
-export default async function TeacherDetail({
-  params,
-}: {
+const SITE_URL = "https://gp77.top";
+
+type TeacherPageProps = {
   params: Promise<{ id: string }>;
-}) {
+};
+
+function compactText(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function truncate(value: string, maxLength: number) {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
+}
+
+export async function generateMetadata({ params }: TeacherPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const teacher = await getTeacherSeoById(id);
+
+  if (!teacher) {
+    return {
+      title: "信息不存在",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const name = compactText(teacher.name) || `老师 ${teacher.id}`;
+  const category = compactText(teacher.type) || "老师";
+  const locationParts = [compactText(teacher.city), compactText(teacher.district)].filter(Boolean);
+  const location = locationParts.join("·") || "本地";
+  const intro = compactText(teacher.services);
+  const title = truncate(`${name}｜${location}${category}服务`, 60);
+  const description = truncate(
+    `${name}提供${location}${category}服务。${intro || "查看服务介绍、价格及相关信息。"}`,
+    160,
+  );
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: `${SITE_URL}/teacher/${teacher.id}`,
+    },
+  };
+}
+
+export default async function TeacherDetail({ params }: TeacherPageProps) {
   const { id } = await params;
   const teacher = await getTeacherById(id); // 从数据库读取
   const user = await getCurrentUser(); // 获取当前登录用户（可能为null）
