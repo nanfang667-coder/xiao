@@ -177,6 +177,22 @@ export function provinceOfDistrict(district: string): string | undefined {
 
 const PROVINCE_SUFFIXES = ["省", "市", "自治区", "特别行政区"];
 const DISTRICT_SUFFIXES = ["市", "区", "县", "自治州", "地区", "盟", "自治县"];
+const LOCATION_ADMIN_PARTS =
+  /(特别行政区|壮族自治区|回族自治区|维吾尔自治区|自治区|自治州|自治县|新区|地区|省|市|区|县|盟)/g;
+
+// 地区筛选使用的统一格式：去掉空格、分隔符和行政区标记。
+// 例如“上海市普陀区” -> “上海普陀”，“普陀区” -> “普陀”。
+export function normalizeLocationName(input: string): string {
+  return input.trim().replace(/[\s·•,，/\\-]+/g, "").replace(LOCATION_ADMIN_PARTS, "");
+}
+
+// 兼容自由填写的旧数据：普陀、普陀区、上海普陀、上海市普陀区均视为同一地区。
+export function locationNamesMatch(storedValue: string, selectedValue: string): boolean {
+  const stored = normalizeLocationName(storedValue);
+  const selected = normalizeLocationName(selectedValue);
+  if (!stored || !selected) return false;
+  return stored.includes(selected) || selected.includes(stored);
+}
 
 // 粘贴省份名时容错：漏写"省/市/自治区"后缀也能对上（如"广东" -> "广东省"）
 export function normalizeProvince(input: string): string | undefined {

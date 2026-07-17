@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { provinces, citiesOfProvince } from "@/data/locations";
+import { provinces, citiesOfProvince, locationNamesMatch } from "@/data/locations";
 import { isImage } from "@/lib/photo";
 import { isActiveMember } from "@/lib/membership";
 import type { TeacherListItem } from "@/lib/teachers";
@@ -117,14 +117,10 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
     province === "全部" ? "全部地区" : city === "全部" ? province : `${province} · ${city}`;
 
   // 根据筛选条件，过滤出要显示的老师
-  // 后台省份/城市是自由填写的（可以粘贴比标准地名更细的内容，比如"深圳市宝安西乡"），
-  // 所以这里用"开头匹配"而不是精确相等，否则筛选"深圳市"就会漏掉这类更细的地址
+  // 后台省份/城市是自由填写的，需要兼容省市区后缀、上级城市前缀和更细地址。
   const list = teachers.filter((t) => {
-    // 双向 startsWith：既兼容"存的比筛选详细"（深圳市宝安西乡 vs 深圳市），
-    // 也兼容旧数据里漏写了"市/省"后缀的情况（深圳 vs 深圳市）
-    const okProvince =
-      province === "全部" || t.city.startsWith(province) || province.startsWith(t.city);
-    const okCity = city === "全部" || t.district.startsWith(city) || city.startsWith(t.district);
+    const okProvince = province === "全部" || locationNamesMatch(t.city, province);
+    const okCity = city === "全部" || locationNamesMatch(t.district, city);
     return okProvince && okCity;
   });
 

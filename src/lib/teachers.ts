@@ -3,7 +3,13 @@
 
 import { prisma } from "./prisma";
 import type { Prisma, Teacher as TeacherRow } from "@prisma/client";
-import { citiesOfProvince, normalizeProvince, provinces } from "@/data/locations";
+import {
+  citiesOfProvince,
+  locationNamesMatch,
+  normalizeLocationName,
+  normalizeProvince,
+  provinces,
+} from "@/data/locations";
 
 // 页面使用的"老师"格式（photos 是数组、contact 是对象，用起来更方便）
 export type Teacher = {
@@ -91,29 +97,22 @@ export type AdminTeacherSearchResult = {
   cityCounts: Record<string, number>;
 };
 
-function locationPrefixes(value: string): string[] {
+function locationVariants(value: string): string[] {
   const trimmed = value.trim();
-  const withoutSuffix = trimmed.replace(
-    /(特别行政区|壮族自治区|回族自治区|维吾尔自治区|自治区|自治州|地区|省|市|盟)$/,
-    "",
-  );
-  return withoutSuffix && withoutSuffix !== trimmed ? [trimmed, withoutSuffix] : [trimmed];
+  const normalized = normalizeLocationName(trimmed);
+  return [...new Set([trimmed, normalized].filter(Boolean))];
 }
 
 function locationFilter(field: "city" | "district", value: string): Prisma.TeacherWhereInput {
   return {
-    OR: locationPrefixes(value).map((prefix) => ({
-      [field]: { startsWith: prefix },
+    OR: locationVariants(value).map((variant) => ({
+      [field]: { contains: variant },
     })),
   };
 }
 
 function findCanonicalLocation(value: string, options: string[]): string | undefined {
-  return options.find((option) =>
-    locationPrefixes(option).some(
-      (prefix) => value.startsWith(prefix) || prefix.startsWith(value),
-    ),
-  );
+  return options.find((option) => locationNamesMatch(value, option));
 }
 
 function parsePhotos(photosJson: string): string[] {
