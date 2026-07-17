@@ -2,7 +2,8 @@
 // （页面不用直接跟数据库打交道，都通过这里的函数。）
 
 import { prisma } from "./prisma";
-import type { Teacher as TeacherRow } from "@prisma/client";
+import type { Prisma, Teacher as TeacherRow } from "@prisma/client";
+import { citiesOfProvince, normalizeProvince, provinces } from "@/data/locations";
 
 // 页面使用的"老师"格式（photos 是数组、contact 是对象，用起来更方便）
 export type Teacher = {
@@ -65,6 +66,158 @@ export async function getAllTeachers(): Promise<Teacher[]> {
     orderBy: { createdAt: "desc" },
   });
   return rows.map(toTeacher);
+}
+
+export type AdminTeacherFilters = {
+  province: string;
+  city: string;
+  query: string;
+  page: number;
+  pageSize: number;
+};
+
+export type AdminTeacherListItem = Pick<
+  Teacher,
+  "id" | "name" | "city" | "district" | "price" | "photos" | "emoji" | "createdAt"
+>;
+
+export type AdminTeacherSearchResult = {
+  teachers: AdminTeacherListItem[];
+  total: number;
+  allLocationTotal: number;
+  page: number;
+  totalPages: number;
+  provinceCounts: Record<string, number>;
+  cityCounts: Record<string, number>;
+};
+
+function locationPrefixes(value: string): string[] {
+  const trimmed = value.trim();
+  const withoutSuffix = trimmed.replace(
+    /(特别行政区|壮族自治区|回族自治区|维吾尔自治区|自治区|自治州|地区|省|市|盟)$/,
+    "",
+  );
+  return withoutSuffix && withoutSuffix !== trimmed ? [trimmed, withoutSuffix] : [trimmed];
+}
+
+function locationFilter(field: "city" | "district", value: string): Prisma.TeacherWhereInput {
+  return {
+    OR: locationPrefixes(value).map((prefix) => ({
+      [field]: { startsWith: prefix },
+    })),
+  };
+}
+
+function findCanonicalLocation(value: string, options: string[]): string | undefined {
+  return options.find((option) =>
+    locationPrefixes(option).some(
+      (prefix) => value.startsWith(prefix) || prefix.startsWith(value),
+    ),
+  );
+}
+
+function parsePhotos(photosJson: string): string[] {
+  try {
+    const photos = JSON.parse(photosJson);
+    return Array.isArray(photos) ? photos.filter((photo): photo is string => typeof photo === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+// 后台老师管理使用数据库筛选和分页，避免老师数量增长后把全部记录发到浏览器。
+export async function searchTeachersForAdmin(
+  filters: AdminTeacherFilters,
+): Promise<AdminTeacherSearchResult> {
+  const query = filters.query.trim().slice(0, 100);
+  const baseConditions: Prisma.TeacherWhereInput[] = [];
+
+  if (query) {
+    const numericId = Number(query);
+    baseConditions.push({
+      OR: [
+        ...(Number.isSafeInteger(numericId) && numericId > 0 ? [{ id: numericId }] : []),
+        { name: { contains: query } },
+        { phone: { contains: query } },
+        { wechat: { contains: query } },
+      ],
+    });
+  }
+
+  const baseWhere: Prisma.TeacherWhereInput =
+    baseConditions.length > 0 ? { AND: baseConditions } : {};
+  const provinceWhere: Prisma.TeacherWhereInput = filters.province
+    ? { AND: [baseWhere, locationFilter("city", filters.province)] }
+    : baseWhere;
+  const listWhere: Prisma.TeacherWhereInput = filters.city
+    ? { AND: [provinceWhere, locationFilter("district", filters.city)] }
+    : provinceWhere;
+
+  const [total, provinceGroups, cityGroups] = await Promise.all([
+    prisma.teacher.count({ where: listWhere }),
+    prisma.teacher.groupBy({
+      by: ["city"],
+      where: baseWhere,
+      _count: { _all: true },
+    }),
+    filters.province
+      ? prisma.teacher.groupBy({
+          by: ["district"],
+          where: provinceWhere,
+          _count: { _all: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / filters.pageSize));
+  const page = Math.min(Math.max(1, filters.page), totalPages);
+  const rows = await prisma.teacher.findMany({
+    where: listWhere,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    skip: (page - 1) * filters.pageSize,
+    take: filters.pageSize,
+    select: {
+      id: true,
+      name: true,
+      city: true,
+      district: true,
+      price: true,
+      photos: true,
+      emoji: true,
+      createdAt: true,
+    },
+  });
+
+  const provinceCounts: Record<string, number> = Object.fromEntries(
+    provinces.map((province) => [province, 0]),
+  );
+  for (const group of provinceGroups) {
+    const province = normalizeProvince(group.city) ?? findCanonicalLocation(group.city, provinces);
+    if (province) provinceCounts[province] += group._count._all;
+  }
+
+  const cityOptions = filters.province ? citiesOfProvince(filters.province) : [];
+  const cityCounts: Record<string, number> = Object.fromEntries(
+    cityOptions.map((city) => [city, 0]),
+  );
+  for (const group of cityGroups) {
+    const city = findCanonicalLocation(group.district, cityOptions);
+    if (city) cityCounts[city] += group._count._all;
+  }
+
+  return {
+    teachers: rows.map((row) => ({
+      ...row,
+      id: String(row.id),
+      photos: parsePhotos(row.photos),
+    })),
+    total,
+    allLocationTotal: provinceGroups.reduce((sum, group) => sum + group._count._all, 0),
+    page,
+    totalPages,
+    provinceCounts,
+    cityCounts,
+  };
 }
 
 // 列表用的老师格式：不含电话/微信/QQ等联系方式（会员专属，不能发到浏览器），但详细地址所有人可见

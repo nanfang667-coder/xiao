@@ -33,6 +33,8 @@ model Teacher {
   sourceId  Int?
 
   @@unique([source, sourceId])
+  @@index([city, district, createdAt])
+  @@index([createdAt])
 }
 
 // 用户表（普通用户）

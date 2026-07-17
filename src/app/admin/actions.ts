@@ -123,7 +123,7 @@ export async function createTeacher(formData: FormData) {
   redirect("/admin/teachers");
 }
 
-export async function updateTeacher(id: number, formData: FormData) {
+export async function updateTeacher(id: number, returnTo: string, formData: FormData) {
   await requireAdmin();
   const fields = extractFields(formData);
 
@@ -156,7 +156,11 @@ export async function updateTeacher(id: number, formData: FormData) {
   revalidatePath("/admin");
   revalidatePath("/admin/teachers");
   revalidatePath(`/teacher/${id}`);
-  redirect("/admin/teachers");
+  const safeReturnTo =
+    returnTo === "/admin/teachers" || returnTo.startsWith("/admin/teachers?")
+      ? returnTo
+      : "/admin/teachers";
+  redirect(safeReturnTo);
 }
 
 export async function deleteTeacher(id: number) {
