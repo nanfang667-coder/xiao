@@ -5,7 +5,15 @@ import { isImage } from "@/lib/photo";
 
 // 照片展示：先以网格缩略图展示所有照片，点击任意一张弹出完整大图，
 // 大图用 object-contain（不裁切、完整显示），可左右切换查看其它照片。
-export function Gallery({ photos, emoji }: { photos: string[]; emoji: string }) {
+export function Gallery({
+  photos,
+  emoji,
+  alt,
+}: {
+  photos: string[];
+  emoji: string;
+  alt: string;
+}) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   return (
@@ -28,7 +36,7 @@ export function Gallery({ photos, emoji }: { photos: string[]; emoji: string }) 
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={p}
-                alt=""
+                alt={`${alt} ${i + 1}`}
                 draggable={false}
                 className="h-full w-full select-none object-cover"
               />
@@ -58,6 +66,7 @@ export function Gallery({ photos, emoji }: { photos: string[]; emoji: string }) 
           <Lightbox
             photos={realPhotos}
             index={realIndex}
+            alt={alt}
             onClose={() => setOpenIndex(null)}
             onChange={(i) => setOpenIndex(realIndices[i])}
           />
@@ -71,11 +80,13 @@ export function Gallery({ photos, emoji }: { photos: string[]; emoji: string }) 
 function Lightbox({
   photos,
   index,
+  alt,
   onClose,
   onChange,
 }: {
   photos: string[];
   index: number;
+  alt: string;
   onClose: () => void;
   onChange: (i: number) => void;
 }) {
@@ -107,7 +118,7 @@ function Lightbox({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={photos[index]}
-        alt=""
+        alt={`${alt} ${index + 1}`}
         draggable={false}
         className="max-h-full max-w-full select-none object-contain"
         onClick={(e) => e.stopPropagation()}

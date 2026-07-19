@@ -31,7 +31,7 @@ export default async function LoginPage({
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6">
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h1 className="text-lg font-bold text-gray-900">用户登录</h1>
-        <p className="mt-1 text-sm text-gray-500">登录后可以浏览老师信息</p>
+        <p className="mt-1 text-sm text-gray-500">登录后可以浏览地区信息</p>
 
         {error && (
           <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">

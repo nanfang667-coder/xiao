@@ -4,11 +4,11 @@ import { notFound } from "next/navigation";
 import { getTeacherById, getTeacherSeoById } from "@/lib/teachers";
 import { getCurrentUser } from "@/lib/user-auth";
 import { isActiveMember } from "@/lib/membership";
+import { getSeoLocationPath, getSeoLocationUrl, getSeoLocationsForRecord } from "@/lib/location-seo";
+import { SITE_NAME, SITE_URL } from "@/lib/site-config";
 import { Gallery } from "./Gallery";
 import { SafetyNotice } from "./SafetyNotice";
 import { BackButton } from "./BackButton";
-
-const SITE_URL = "https://gp77.top";
 
 type TeacherPageProps = {
   params: Promise<{ id: string }>;
@@ -20,6 +20,10 @@ function compactText(value: string) {
 
 function truncate(value: string, maxLength: number) {
   return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
+}
+
+function jsonLd(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
 export async function generateMetadata({ params }: TeacherPageProps): Promise<Metadata> {
@@ -34,21 +38,29 @@ export async function generateMetadata({ params }: TeacherPageProps): Promise<Me
   }
 
   const name = compactText(teacher.name) || `老师 ${teacher.id}`;
-  const category = compactText(teacher.type) || "老师";
   const locationParts = [compactText(teacher.city), compactText(teacher.district)].filter(Boolean);
   const location = locationParts.join("·") || "本地";
   const intro = compactText(teacher.services);
-  const title = truncate(`${name}｜${location}${category}服务`, 60);
+  const title = `${truncate(`${name}｜${location}地区信息`, 54)} | ${SITE_NAME}`;
   const description = truncate(
-    `${name}提供${location}${category}服务。${intro || "查看服务介绍、价格及相关信息。"}`,
+    `${name}的${location}地区信息。${intro || "查看个人介绍、价格及相关信息。"}`,
     160,
   );
+  const canonical = `${SITE_URL}/teacher/${teacher.id}`;
 
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: {
-      canonical: `${SITE_URL}/teacher/${teacher.id}`,
+      canonical,
+    },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      siteName: SITE_NAME,
+      locale: "zh_CN",
+      type: "profile",
     },
   };
 }
@@ -62,8 +74,36 @@ export default async function TeacherDetail({ params }: TeacherPageProps) {
   // 找不到这位老师，就显示 404
   if (!teacher) notFound();
 
+  const seoLocations = getSeoLocationsForRecord(teacher.city, teacher.district);
+  const mostSpecificLocation = seoLocations.at(-1);
+  const breadcrumbItems = [
+    { "@type": "ListItem", position: 1, name: SITE_NAME, item: SITE_URL },
+    ...seoLocations.map((location, index) => ({
+      "@type": "ListItem",
+      position: index + 2,
+      name: `${location.name}凤楼`,
+      item: getSeoLocationUrl(location, SITE_URL),
+    })),
+    {
+      "@type": "ListItem",
+      position: seoLocations.length + 2,
+      name: teacher.name,
+      item: `${SITE_URL}/teacher/${teacher.id}`,
+    },
+  ];
+
   return (
     <div className="mx-auto w-full max-w-md flex-1 pb-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: jsonLd({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: breadcrumbItems,
+          }),
+        }}
+      />
       {/* 安全提示弹窗 */}
       <SafetyNotice />
 
@@ -72,8 +112,28 @@ export default async function TeacherDetail({ params }: TeacherPageProps) {
         <BackButton />
       </div>
 
+      <nav aria-label="面包屑" className="flex flex-wrap items-center gap-1 bg-white px-4 py-2 text-xs text-gray-500">
+        <Link href="/" className="hover:text-pink-500">
+          首页
+        </Link>
+        {seoLocations.map((location) => (
+          <span key={location.slug} className="flex items-center gap-1">
+            <span aria-hidden="true">›</span>
+            <Link href={getSeoLocationPath(location)} className="hover:text-pink-500">
+              {location.name}凤楼
+            </Link>
+          </span>
+        ))}
+        <span aria-hidden="true">›</span>
+        <span aria-current="page" className="line-clamp-1">{teacher.name}</span>
+      </nav>
+
       {/* 多张照片：可左右滑动浏览 */}
-      <Gallery photos={teacher.photos} emoji={teacher.emoji} />
+      <Gallery
+        photos={teacher.photos}
+        emoji={teacher.emoji}
+        alt={`${teacher.city}${teacher.district}${teacher.name}的公开照片`}
+      />
 
       <div className="px-4">
         {/* 标题区 */}
@@ -81,6 +141,14 @@ export default async function TeacherDetail({ params }: TeacherPageProps) {
           <div className="text-xs text-gray-400">
             📍 {teacher.city} · {teacher.district}
           </div>
+          {mostSpecificLocation && (
+            <Link
+              href={getSeoLocationPath(mostSpecificLocation)}
+              className="mt-1 inline-block text-xs text-pink-500"
+            >
+              查看{mostSpecificLocation.name}凤楼
+            </Link>
+          )}
           <h1 className="mt-2 text-lg font-bold text-gray-900">
             {teacher.name}
             {teacher.age != null && (

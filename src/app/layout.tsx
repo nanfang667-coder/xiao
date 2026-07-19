@@ -1,15 +1,20 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { SITE_NAME, SITE_URL } from "@/lib/site-config";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "找老师",
-  description: "汇集全国各城市的优质钢琴、舞蹈老师信息",
+  metadataBase: new URL(SITE_URL),
+  title: SITE_NAME,
+  description: "凤楼汇集全国各城市公开的地区信息",
+  applicationName: SITE_NAME,
+  openGraph: {
+    title: SITE_NAME,
+    description: "凤楼汇集全国各城市公开的地区信息",
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    locale: "zh_CN",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -18,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN" className={`${geistSans.variable} h-full antialiased`}>
+    <html lang="zh-CN" className="h-full antialiased">
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

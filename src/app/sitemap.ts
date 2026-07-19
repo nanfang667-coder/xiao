@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
-
-const SITE_URL = "https://gp77.top";
+import { getSeoLocationsForRecord, getSeoLocationUrl } from "@/lib/location-seo";
+import { MIN_ACCESSIBLE_LOCATION_RECORDS, SITE_URL } from "@/lib/site-config";
 
 // Sitemap metadata routes are cached by default. Generate this one per request so
 // newly created, updated, or deleted teachers are reflected immediately.
@@ -13,16 +13,6 @@ type SitemapTeacher = {
   district: string;
   createdAt: Date;
 };
-
-function locationUrl(province: string, city?: string): string {
-  const url = new URL(SITE_URL);
-  url.searchParams.set("province", province);
-  if (city) url.searchParams.set("city", city);
-
-  // Next.js 16.2.10 writes sitemap URLs directly into <loc> without XML escaping.
-  // XML parsers decode &amp; back to &, so crawlers still request the real URL.
-  return url.toString().replaceAll("&", "&amp;");
-}
 
 function newestDate(current: Date | undefined, candidate: Date): Date {
   return !current || candidate > current ? candidate : current;
@@ -41,47 +31,35 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     orderBy: { id: "asc" },
   });
 
-  const provinceDates = new Map<string, Date>();
-  const cityDates = new Map<string, { province: string; city: string; lastModified: Date }>();
+  const locationStats = new Map<
+    string,
+    { url: string; count: number; lastModified: Date }
+  >();
   let siteLastModified: Date | undefined;
 
   for (const teacher of teachers) {
     siteLastModified = newestDate(siteLastModified, teacher.createdAt);
 
-    const province = teacher.city.trim();
-    const city = teacher.district.trim();
-    if (!province) continue;
-
-    provinceDates.set(
-      province,
-      newestDate(provinceDates.get(province), teacher.createdAt),
-    );
-
-    if (city) {
-      const key = `${province}\u0000${city}`;
-      const existing = cityDates.get(key);
-      cityDates.set(key, {
-        province,
-        city,
+    for (const location of getSeoLocationsForRecord(teacher.city, teacher.district)) {
+      const url = getSeoLocationUrl(location, SITE_URL);
+      const existing = locationStats.get(url);
+      locationStats.set(url, {
+        url,
+        count: (existing?.count ?? 0) + 1,
         lastModified: newestDate(existing?.lastModified, teacher.createdAt),
       });
     }
   }
 
-  const locationEntries: MetadataRoute.Sitemap = [
-    ...[...provinceDates.entries()].map(([province, lastModified]) => ({
-      url: locationUrl(province),
+  const locationEntries: MetadataRoute.Sitemap = [...locationStats.values()]
+    .filter((entry) => entry.count >= MIN_ACCESSIBLE_LOCATION_RECORDS)
+    .sort((left, right) => left.url.localeCompare(right.url))
+    .map(({ url, lastModified }) => ({
+      url,
       lastModified,
       changeFrequency: "daily" as const,
       priority: 0.8,
-    })),
-    ...[...cityDates.values()].map(({ province, city, lastModified }) => ({
-      url: locationUrl(province, city),
-      lastModified,
-      changeFrequency: "daily" as const,
-      priority: 0.7,
-    })),
-  ];
+    }));
 
   const teacherEntries: MetadataRoute.Sitemap = teachers.map((teacher) => ({
     url: `${SITE_URL}/teacher/${teacher.id}`,
@@ -96,6 +74,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...(siteLastModified ? { lastModified: siteLastModified } : {}),
       changeFrequency: "daily",
       priority: 1,
+    },
+    {
+      url: `${SITE_URL}/fenglou`,
+      ...(siteLastModified ? { lastModified: siteLastModified } : {}),
+      changeFrequency: "weekly",
+      priority: 0.9,
     },
     ...locationEntries,
     ...teacherEntries,

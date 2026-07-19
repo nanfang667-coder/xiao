@@ -32,7 +32,7 @@ export default async function RegisterPage({
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h1 className="text-lg font-bold text-gray-900">用户注册</h1>
         <p className="mt-1 text-sm text-gray-500">
-          创建账号后即可浏览老师信息
+          创建账号后即可浏览地区信息
         </p>
 
         {error && (

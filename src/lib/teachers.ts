@@ -3,6 +3,7 @@
 
 import { prisma } from "./prisma";
 import type { Prisma, Teacher as TeacherRow } from "@prisma/client";
+import { cache } from "react";
 import {
   citiesOfProvince,
   locationNamesMatch,
@@ -10,6 +11,8 @@ import {
   normalizeProvince,
   provinces,
 } from "@/data/locations";
+import { getSeoLocationSlugsForRecords } from "@/lib/location-seo";
+import { MIN_ACCESSIBLE_LOCATION_RECORDS } from "@/lib/site-config";
 
 // 页面使用的"老师"格式（photos 是数组、contact 是对象，用起来更方便）
 export type Teacher = {
@@ -222,6 +225,32 @@ export async function searchTeachersForAdmin(
 // 列表用的老师格式：不含电话/微信/QQ等联系方式（会员专属，不能发到浏览器），但详细地址所有人可见
 export type TeacherListItem = Omit<Teacher, "contact"> & { address: string | null };
 
+export type TeacherCardItem = Pick<
+  Teacher,
+  | "id"
+  | "name"
+  | "type"
+  | "city"
+  | "district"
+  | "price"
+  | "services"
+  | "age"
+  | "photos"
+  | "emoji"
+  | "createdAt"
+> & {
+  address?: string | null;
+};
+
+export type SeoLocationTeacherResult = {
+  teachers: TeacherCardItem[];
+  total: number;
+  page: number;
+  totalPages: number;
+  typeCounts: Record<string, number>;
+  lastModified: Date | null;
+};
+
 // 取出所有老师供列表展示——去掉 phone/wechat/qq/other，避免联系方式随页面源码泄露给非会员；
 // 详细地址不算敏感联系方式，所有人可见，因此保留
 export async function getTeachersForList(): Promise<TeacherListItem[]> {
@@ -233,6 +262,84 @@ export async function getTeachersForList(): Promise<TeacherListItem[]> {
     return { ...rest, address: contact.address };
   });
 }
+
+// 地区 SEO 页只查询公开展示所需字段，并在数据库中完成筛选和分页。
+// React cache 会复用同一次请求中 generateMetadata 与页面正文的相同查询。
+export const getTeachersForSeoLocation = cache(
+  async function getTeachersForSeoLocation(
+    province: string,
+    region: string | undefined,
+    requestedPage: number,
+    pageSize: number,
+  ): Promise<SeoLocationTeacherResult> {
+    const conditions: Prisma.TeacherWhereInput[] = [locationFilter("city", province)];
+    if (region) conditions.push(locationFilter("district", region));
+    const where: Prisma.TeacherWhereInput = { AND: conditions };
+
+    const [total, typeGroups, latest] = await Promise.all([
+      prisma.teacher.count({ where }),
+      prisma.teacher.groupBy({
+        by: ["type"],
+        where,
+        _count: { _all: true },
+      }),
+      prisma.teacher.aggregate({
+        where,
+        _max: { createdAt: true },
+      }),
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(Math.max(1, requestedPage), totalPages);
+    const rows = await prisma.teacher.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        city: true,
+        district: true,
+        price: true,
+        services: true,
+        age: true,
+        photos: true,
+        emoji: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      teachers: rows.map((row) => ({
+        ...row,
+        id: String(row.id),
+        type: row.type as "钢琴" | "舞蹈",
+        photos: parsePhotos(row.photos),
+      })),
+      total,
+      page,
+      totalPages,
+      typeCounts: Object.fromEntries(
+        typeGroups.map((group) => [group.type, group._count._all]),
+      ),
+      lastModified: latest._max.createdAt,
+    };
+  },
+);
+
+// 站内地区导航只链接至少有一条公开资料的地区，避免产生空地区页和无效链接。
+export const getAvailableSeoLocationSlugs = cache(async function getAvailableSeoLocationSlugs() {
+  const rows = await prisma.teacher.findMany({
+    select: {
+      city: true,
+      district: true,
+    },
+  });
+
+  return getSeoLocationSlugsForRecords(rows, MIN_ACCESSIBLE_LOCATION_RECORDS);
+});
 
 // 按编号取一位老师
 export async function getTeacherById(id: string): Promise<Teacher | null> {
