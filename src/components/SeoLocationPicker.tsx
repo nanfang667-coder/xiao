@@ -99,14 +99,24 @@ export function SeoLocationPicker({
           </Link>
           {SEO_LOCATION_GROUPS.map((group) => {
             const available = availableSlugs.has(group.province.slug);
+            if (available) {
+              return (
+                <Link
+                  key={group.province.slug}
+                  href={getSeoLocationPath(group.province)}
+                  className="truncate text-left text-sm text-gray-800 transition hover:text-pink-500"
+                >
+                  {group.province.province}
+                </Link>
+              );
+            }
+
             return (
               <button
                 key={group.province.slug}
                 type="button"
                 onClick={() => chooseProvince(group.province.slug)}
-                className={`truncate text-left text-sm transition ${
-                  available ? "text-gray-800 hover:text-pink-500" : "text-gray-400"
-                }`}
+                className="truncate text-left text-sm text-gray-400 transition hover:text-pink-500"
                 aria-label={`选择${group.province.province}`}
               >
                 {group.province.province}
