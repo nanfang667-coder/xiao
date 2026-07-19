@@ -13,18 +13,27 @@ type PickerView = "provinces" | "regions" | null;
 type SeoLocationPickerProps = {
   availableLocationSlugs: string[];
   defaultOpen?: boolean;
+  initialProvinceSlug?: string;
 };
 
 export function SeoLocationPicker({
   availableLocationSlugs,
   defaultOpen = false,
+  initialProvinceSlug,
 }: SeoLocationPickerProps) {
   const availableSlugs = useMemo(
     () => new Set(availableLocationSlugs),
     [availableLocationSlugs],
   );
-  const [view, setView] = useState<PickerView>(defaultOpen ? "provinces" : null);
-  const [selectedProvinceSlug, setSelectedProvinceSlug] = useState("");
+  const initialGroup = SEO_LOCATION_GROUPS.find(
+    (group) => group.province.slug === initialProvinceSlug,
+  );
+  const [view, setView] = useState<PickerView>(
+    defaultOpen ? (initialGroup ? "regions" : "provinces") : null,
+  );
+  const [selectedProvinceSlug, setSelectedProvinceSlug] = useState(
+    initialGroup?.province.slug ?? "",
+  );
   const selectedGroup = SEO_LOCATION_GROUPS.find(
     (group) => group.province.slug === selectedProvinceSlug,
   );

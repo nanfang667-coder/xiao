@@ -4,6 +4,7 @@ import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { UserStatus } from "@/components/UserStatus";
 import { TeacherCard } from "@/components/TeacherCard";
 import { LinkPagination } from "@/components/LinkPagination";
+import { SeoLocationPicker } from "@/components/SeoLocationPicker";
 import { getCurrentUser } from "@/lib/user-auth";
 import { isActiveMember } from "@/lib/membership";
 import {
@@ -11,7 +12,6 @@ import {
   getTeachersForSeoLocation,
 } from "@/lib/teachers";
 import {
-  FEATURED_SEO_LOCATIONS,
   getSeoLocationBySlug,
   getSeoLocationFromSelection,
   getSeoLocationPath,
@@ -41,11 +41,6 @@ function parsePage(value: string | string[] | undefined): number {
 
 function pageUrl(path: string, page: number): string {
   return page > 1 ? `${path}?page=${page}` : path;
-}
-
-function formatDate(date: Date): string {
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 function jsonLd(value: unknown): string {
@@ -145,9 +140,8 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
     getAvailableSeoLocationSlugs(),
   ]);
 
-  const parentLocation = location.region
-    ? getSeoLocationFromSelection(location.province)
-    : undefined;
+  const provinceLocation = getSeoLocationFromSelection(location.province);
+  const parentLocation = location.region ? provinceLocation : undefined;
   const breadcrumbLocations = parentLocation ? [parentLocation, location] : [location];
   const breadcrumbItems = [
     { "@type": "ListItem", position: 1, name: SITE_NAME, item: SITE_URL },
@@ -158,10 +152,6 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
       item: getSeoLocationUrl(item, SITE_URL),
     })),
   ];
-  const relatedLocations = FEATURED_SEO_LOCATIONS.filter(
-    (item) => item.slug !== location.slug && availableLocationSlugs.has(item.slug),
-  );
-
   return (
     <div className="mx-auto w-full max-w-md flex-1 pb-10">
       <script
@@ -203,29 +193,15 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
           ))}
         </nav>
 
-        <section className="px-4 pt-4">
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <h1 className="text-xl font-bold text-gray-900">{location.name}凤楼</h1>
-            <p className="mt-2 text-sm leading-6 text-gray-600">
-              {SITE_NAME}{location.name}站汇集{location.name}地区公开信息，
-              可查看个人介绍、服务类型、价格与所在地区。
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2 text-xs">
-              <span className="rounded-full bg-pink-50 px-3 py-1.5 text-pink-600">
-                共 {result.total} 条资料
-              </span>
-              {Object.entries(result.typeCounts).map(([type, count]) => (
-                <span key={type} className="rounded-full bg-gray-100 px-3 py-1.5 text-gray-600">
-                  {type} {count}
-                </span>
-              ))}
-              {result.lastModified && (
-                <span className="rounded-full bg-gray-100 px-3 py-1.5 text-gray-600">
-                  更新于 {formatDate(result.lastModified)}
-                </span>
-              )}
-            </div>
-          </div>
+        <h1 className="sr-only">{location.name}凤楼</h1>
+
+        <section aria-label="全部地区" className="px-4 pt-4">
+          <SeoLocationPicker
+            key={provinceLocation?.slug ?? location.province}
+            availableLocationSlugs={[...availableLocationSlugs]}
+            defaultOpen
+            initialProvinceSlug={provinceLocation?.slug}
+          />
         </section>
 
         <section aria-labelledby="location-items-heading" className="px-4 pt-4">
@@ -240,27 +216,6 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
         </section>
 
         <LinkPagination basePath={path} page={result.page} totalPages={result.totalPages} />
-
-        {relatedLocations.length > 0 && (
-          <section aria-labelledby="related-cities-heading" className="px-4 pt-2">
-            <div className="rounded-2xl bg-white p-4 shadow-sm">
-              <h2 id="related-cities-heading" className="text-sm font-bold text-gray-800">
-                其他城市
-              </h2>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {relatedLocations.map((item) => (
-                  <Link
-                    key={item.slug}
-                    href={getSeoLocationPath(item)}
-                    className="rounded-xl bg-pink-50 px-3 py-2 text-center text-sm text-pink-600"
-                  >
-                    {item.name}凤楼
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
       </main>
     </div>
   );
