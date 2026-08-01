@@ -25,17 +25,17 @@ export type AdminUser = {
   banReason: string | null;
 };
 
-// 新增会员统计：近24小时 / 近7天 / 近30天（服务端算好传下来）
-export type NewMemberStats = { day: number; week: number; month: number };
+// 邀请独立访客统计：近24小时 / 近7天 / 近30天（服务端算好传下来）
+export type ReferralVisitorStats = { day: number; week: number; month: number };
 
 type Filter = "all" | "member" | "normal" | "banned";
 
 export function UsersBrowser({
   users,
-  newMemberStats,
+  referralVisitorStats,
 }: {
   users: AdminUser[];
-  newMemberStats: NewMemberStats;
+  referralVisitorStats: ReferralVisitorStats;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
@@ -70,12 +70,12 @@ export function UsersBrowser({
 
   return (
     <>
-      {/* 新增会员统计 */}
+      {/* 邀请独立访客统计 */}
       <div className="mb-3 grid grid-cols-3 gap-2">
         {[
-          { label: "近24小时新增", count: newMemberStats.day },
-          { label: "近7天新增", count: newMemberStats.week },
-          { label: "近30天新增", count: newMemberStats.month },
+          { label: "近24小时独立访客", count: referralVisitorStats.day },
+          { label: "近7天独立访客", count: referralVisitorStats.week },
+          { label: "近30天独立访客", count: referralVisitorStats.month },
         ].map((s) => (
           <div key={s.label} className="rounded-xl bg-white p-3 text-center shadow-sm">
             <div className="text-lg font-bold text-pink-500">{s.count}</div>
