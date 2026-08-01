@@ -29,26 +29,6 @@ const entries = [
     ),
   },
   {
-    label: "VIP升级",
-    href: "/vip",
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 6l4 4 5-6 5 6 4-4v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
-      </svg>
-    ),
-  },
-  {
-    label: "推广赚钱",
-    href: "/promote",
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="9" cy="8" r="3" />
-        <path d="M2 21v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1" />
-        <path d="M17 8h5M19.5 5.5v5" />
-      </svg>
-    ),
-  },
-  {
     label: "发帖",
     icon: (
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -107,9 +87,9 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
         </div>
       </header>
 
-      {/* 功能入口：地区信息 / VIP升级 / 推广赚钱 / 发帖 */}
+      {/* 功能入口：地区信息 / 发帖 */}
       <div className="px-4 pt-4">
-        <div className="grid grid-cols-4 gap-2 rounded-2xl bg-white p-4 shadow-sm">
+        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-4 shadow-sm">
           {entries.map((e) =>
             e.href ? (
               <Link
@@ -145,12 +125,7 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
             className="max-w-xs rounded-2xl bg-white p-5 text-sm leading-relaxed text-gray-700 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <p>
-              为了预防受骗，暂不开放发帖功能，
-              <span className="font-bold text-red-600">
-                我们所有信息都是大网站观察两天挑选出来的优秀帖子。
-              </span>
-            </p>
+            <p className="text-center">发帖功能正在开发中</p>
             <button
               type="button"
               onClick={() => setShowPostNotice(false)}

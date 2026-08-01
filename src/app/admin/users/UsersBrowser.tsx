@@ -14,6 +14,8 @@ export type AdminUser = {
   id: number;
   username: string;
   email: string | null;
+  referralCode: string;
+  referralVisitorCount: number;
   isMember: boolean;
   createdAtLabel: string;
   expiryLabel: string | null; // 仅会员有：「永久会员」或「会员到期：xxxx」
@@ -59,6 +61,7 @@ export function UsersBrowser({
       trimmedSearch &&
       !String(u.id).includes(trimmedSearch) &&
       !u.username.toLowerCase().includes(trimmedSearch) &&
+      !u.referralCode.toLowerCase().includes(trimmedSearch) &&
       !(u.email ?? "").toLowerCase().includes(trimmedSearch)
     )
       return false;
@@ -86,7 +89,7 @@ export function UsersBrowser({
         type="text"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="搜索用户ID / 用户名 / 邮箱"
+        placeholder="搜索用户ID / 用户名 / 邮箱 / 邀请码"
         className="mb-3 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-pink-400"
       />
 
@@ -149,6 +152,9 @@ export function UsersBrowser({
             <div className="mt-1.5 space-y-0.5 text-xs text-gray-400">
               {u.email && <p>📮 {u.email}</p>}
               <p>注册于 {u.createdAtLabel}</p>
+              <p className="font-medium text-pink-500">
+                🔗 邀请码 {u.referralCode} · 独立访客 {u.referralVisitorCount} 人
+              </p>
               {u.isMember && u.expiryLabel && (
                 <p className="text-amber-500">{u.expiryLabel}</p>
               )}

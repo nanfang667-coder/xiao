@@ -54,6 +54,22 @@ model User {
   banReason String?   // 封禁原因
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  referralVisits ReferralVisit[]
+}
+
+// 邀请链接的匿名独立访客。每位浏览器访问同一用户的邀请链接只占一行，
+// visitCount 记录重复访问次数；visitorKey 是按邀请人隔离的匿名哈希，不保存原始 IP。
+model ReferralVisit {
+  id             Int      @id @default(autoincrement())
+  referrerId     Int
+  visitorKey     String
+  visitCount     Int      @default(1)
+  firstVisitedAt DateTime @default(now())
+  lastVisitedAt  DateTime @default(now())
+  referrer       User     @relation(fields: [referrerId], references: [id], onDelete: Cascade)
+
+  @@unique([referrerId, visitorKey])
+  @@index([referrerId, lastVisitedAt])
 }
 
 // 会员订单表。每一行 = 一笔开通会员的订单。

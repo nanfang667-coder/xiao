@@ -32,6 +32,9 @@ export default async function AdminUsersPage() {
   await requireAdmin();
   const rows = await prisma.user.findMany({
     orderBy: { createdAt: "desc" },
+    include: {
+      _count: { select: { referralVisits: true } },
+    },
   });
 
   // 转成安全的展示数据（去掉密码等敏感字段，日期先格式化好）
@@ -39,6 +42,8 @@ export default async function AdminUsersPage() {
     id: u.id,
     username: u.username,
     email: u.email,
+    referralCode: u.referralCode,
+    referralVisitorCount: u._count.referralVisits,
     isMember: u.isMember,
     createdAtLabel: formatDate(u.createdAt),
     expiryLabel: u.isMember

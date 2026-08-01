@@ -1,6 +1,7 @@
 // 推广邀请相关的小助手函数：生成专属邀请码、处理邀请短链跳转。
 
 import { NextRequest, NextResponse } from "next/server";
+import { createHash, randomUUID } from "node:crypto";
 import { prisma } from "./prisma";
 
 // 去掉容易看混的字符（0/O、1/I/L），方便用户口头或手动分享邀请码
@@ -34,6 +35,15 @@ export async function generateUniqueReferralCode(): Promise<string> {
 
 const REF_COOKIE_NAME = "ref_code";
 const REF_COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 天
+const VISITOR_COOKIE_NAME = "ref_visitor_id";
+const VISITOR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 年
+
+function validVisitorId(value: string | undefined): value is string {
+  return Boolean(
+    value &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value),
+  );
+}
 
 // 查到对应用户就记一个 30 天有效的邀请 cookie，然后跳转首页。
 // 真正的绑定发生在"新用户注册"那一刻（见 src/lib/user-auth.ts 的 registerUser）。
@@ -48,11 +58,47 @@ export async function referralRedirect(req: NextRequest, code: string) {
   const res = NextResponse.redirect(`${proto}://${host}/`);
 
   if (referrer) {
+    const existingVisitorId = req.cookies.get(VISITOR_COOKIE_NAME)?.value;
+    const visitorId = validVisitorId(existingVisitorId) ? existingVisitorId : randomUUID();
+    const visitorKey = createHash("sha256")
+      .update(`${referrer.id}:${visitorId}`)
+      .digest("hex");
+
+    // 访问统计失败不能影响原邀请链接继续跳转和绑定注册关系。
+    try {
+      await prisma.referralVisit.upsert({
+        where: {
+          referrerId_visitorKey: {
+            referrerId: referrer.id,
+            visitorKey,
+          },
+        },
+        create: {
+          referrerId: referrer.id,
+          visitorKey,
+        },
+        update: {
+          visitCount: { increment: 1 },
+          lastVisitedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error("Failed to record referral visit", error);
+    }
+
     res.cookies.set(REF_COOKIE_NAME, code, {
       httpOnly: true,
       sameSite: "lax",
       path: "/",
       maxAge: REF_COOKIE_MAX_AGE,
+      secure: proto === "https",
+    });
+    res.cookies.set(VISITOR_COOKIE_NAME, visitorId, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: VISITOR_COOKIE_MAX_AGE,
+      secure: proto === "https",
     });
   }
 
