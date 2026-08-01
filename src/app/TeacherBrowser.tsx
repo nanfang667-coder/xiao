@@ -29,7 +29,18 @@ const entries = [
     ),
   },
   {
+    label: "合作联系",
+    action: "contact" as const,
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="m3 7 9 6 9-6" />
+      </svg>
+    ),
+  },
+  {
     label: "发帖",
+    action: "post" as const,
     icon: (
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 20h9" />
@@ -49,8 +60,7 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
   const city = searchParams.get("city") ?? "全部";
   const page = Number(searchParams.get("page")) || 1;
 
-  // "发帖"提示弹窗的显示状态
-  const [showPostNotice, setShowPostNotice] = useState(false);
+  const [notice, setNotice] = useState<"contact" | "post" | null>(null);
 
   const availableLocationSlugs = getSeoLocationSlugsForRecords(
     teachers,
@@ -87,9 +97,9 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
         </div>
       </header>
 
-      {/* 功能入口：地区信息 / 发帖 */}
+      {/* 功能入口：地区信息 / 合作联系 / 发帖 */}
       <div className="px-4 pt-4">
-        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-4 shadow-sm">
+        <div className="grid grid-cols-3 gap-2 rounded-2xl bg-white p-4 shadow-sm">
           {entries.map((e) =>
             e.href ? (
               <Link
@@ -104,7 +114,7 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
               <button
                 key={e.label}
                 type="button"
-                onClick={() => setShowPostNotice(true)}
+                onClick={() => setNotice(e.action ?? "post")}
                 className="flex flex-col items-center gap-2 py-2 active:scale-95 transition"
               >
                 <span className="text-pink-500">{e.icon}</span>
@@ -115,20 +125,34 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
         </div>
       </div>
 
-      {/* "发帖"提示弹窗 */}
-      {showPostNotice && (
+      {/* 合作联系方式 / "发帖"提示弹窗 */}
+      {notice && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6"
-          onClick={() => setShowPostNotice(false)}
+          onClick={() => setNotice(null)}
         >
           <div
             className="max-w-xs rounded-2xl bg-white p-5 text-sm leading-relaxed text-gray-700 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-center">发帖功能正在开发中</p>
+            {notice === "contact" ? (
+              <div className="text-center">
+                <h2 className="font-bold text-gray-800">合作联系</h2>
+                <div className="mt-3 space-y-2">
+                  <a href="mailto:nanfang667@gmail.com" className="block text-pink-500">
+                    nanfang667@gmail.com
+                  </a>
+                  <a href="mailto:liliws1673@outlook.com" className="block text-pink-500">
+                    liliws1673@outlook.com
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <p className="text-center">发帖功能正在开发中</p>
+            )}
             <button
               type="button"
-              onClick={() => setShowPostNotice(false)}
+              onClick={() => setNotice(null)}
               className="mt-4 w-full rounded-lg bg-pink-500 py-2 text-sm font-bold text-white active:bg-pink-600"
             >
               知道了
