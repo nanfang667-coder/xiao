@@ -72,6 +72,17 @@ model ReferralVisit {
   @@index([referrerId, lastVisitedAt])
 }
 
+// 全站匿名独立访客。直接访问域名和通过邀请链接进入都会记录。
+model SiteVisit {
+  id             Int      @id @default(autoincrement())
+  visitorKey     String   @unique
+  visitCount     Int      @default(1)
+  firstVisitedAt DateTime @default(now())
+  lastVisitedAt  DateTime @default(now())
+
+  @@index([lastVisitedAt])
+}
+
 // 会员订单表。每一行 = 一笔开通会员的订单。
 // 现在支付确认由页面按钮触发；未来接入支付宝/微信后，改由支付回调把 status 置为 paid。
 model Order {

@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { UsersBrowser, type AdminUser, type ReferralVisitorStats } from "./UsersBrowser";
+import { UsersBrowser, type AdminUser, type SiteVisitorStats } from "./UsersBrowser";
 
 // 把日期显示成 2026-07-07 这样的格式
 function formatDate(d: Date): string {
@@ -12,19 +12,19 @@ function formatDate(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-// 邀请独立访客统计：同一浏览器访问同一用户链接只占一条记录。
-// 按最后访问时间统计近期仍通过邀请链接进入网站的访客。
-async function getReferralVisitorStats(): Promise<ReferralVisitorStats> {
+// 全站独立访客统计：直接访问域名和通过邀请链接进入都会记录。
+// 按最后访问时间统计近期访问过公开页面的访客，不包含后台页面。
+async function getSiteVisitorStats(): Promise<SiteVisitorStats> {
   const now = Date.now();
   const DAY_MS = 24 * 60 * 60 * 1000;
   const [day, week, month] = await Promise.all([
-    prisma.referralVisit.count({
+    prisma.siteVisit.count({
       where: { lastVisitedAt: { gte: new Date(now - DAY_MS) } },
     }),
-    prisma.referralVisit.count({
+    prisma.siteVisit.count({
       where: { lastVisitedAt: { gte: new Date(now - 7 * DAY_MS) } },
     }),
-    prisma.referralVisit.count({
+    prisma.siteVisit.count({
       where: { lastVisitedAt: { gte: new Date(now - 30 * DAY_MS) } },
     }),
   ]);
@@ -34,14 +34,14 @@ async function getReferralVisitorStats(): Promise<ReferralVisitorStats> {
 
 export default async function AdminUsersPage() {
   await requireAdmin();
-  const [rows, referralVisitorStats] = await Promise.all([
+  const [rows, siteVisitorStats] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: "desc" },
       include: {
         _count: { select: { referralVisits: true } },
       },
     }),
-    getReferralVisitorStats(),
+    getSiteVisitorStats(),
   ]);
 
   // 转成安全的展示数据（去掉密码等敏感字段，日期先格式化好）
@@ -75,7 +75,7 @@ export default async function AdminUsersPage() {
       </header>
 
       {/* 筛选 + 列表（客户端交互） */}
-      <UsersBrowser users={users} referralVisitorStats={referralVisitorStats} />
+      <UsersBrowser users={users} siteVisitorStats={siteVisitorStats} />
     </div>
   );
 }
