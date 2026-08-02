@@ -44,7 +44,7 @@ export async function generateMetadata({ params }: TeacherPageProps): Promise<Me
     `${name}的${location}地区信息。${intro || "查看个人介绍、价格及相关信息。"}`,
     160,
   );
-  const canonical = `${SITE_URL}/teacher/${teacher.id}`;
+  const canonical = `${SITE_URL}/listing/${teacher.id}`;
 
   return {
     title: { absolute: title },
@@ -84,7 +84,7 @@ export default async function TeacherDetail({ params }: TeacherPageProps) {
       "@type": "ListItem",
       position: seoLocations.length + 2,
       name: teacher.name,
-      item: `${SITE_URL}/teacher/${teacher.id}`,
+      item: `${SITE_URL}/listing/${teacher.id}`,
     },
   ];
 

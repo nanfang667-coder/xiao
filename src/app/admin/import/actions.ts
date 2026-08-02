@@ -63,9 +63,8 @@ async function importOne(cid: number): Promise<{ status: "imported" | "skipped";
   return { status: "imported", id: teacher.id };
 }
 
-export async function importLfgTeacher(formData: FormData) {
+export async function importLfgTeacher(cid: number) {
   await requireAdmin();
-  const cid = Number(formData.get("cid"));
   if (!Number.isSafeInteger(cid) || cid <= 0) throw new Error("无效的信息 ID");
 
   const result = await importOne(cid);

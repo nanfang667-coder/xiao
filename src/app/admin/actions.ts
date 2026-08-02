@@ -155,7 +155,7 @@ export async function updateTeacher(id: number, returnTo: string, formData: Form
   revalidatePath("/");
   revalidatePath("/admin");
   revalidatePath("/admin/teachers");
-  revalidatePath(`/teacher/${id}`);
+  revalidatePath(`/listing/${id}`);
   const safeReturnTo =
     returnTo === "/admin/teachers" || returnTo.startsWith("/admin/teachers?")
       ? returnTo

@@ -56,6 +56,7 @@ export function BulkImportList({
         {items.map((item) => {
           const localId = importedByCid[String(item.cid)];
           const checked = selectedSet.has(item.cid);
+          const importAction = importLfgTeacher.bind(null, item.cid);
           return (
             <div key={item.cid} className="rounded-2xl bg-white p-4 shadow-sm">
               <div className="flex items-center gap-3">
@@ -81,9 +82,7 @@ export function BulkImportList({
                 ) : (
                   <button
                     type="submit"
-                    name="cid"
-                    value={item.cid}
-                    formAction={importLfgTeacher}
+                    formAction={importAction}
                     className="self-center rounded-lg bg-pink-500 px-3 py-2 text-xs font-bold text-white"
                   >
                     导入（2 金币）

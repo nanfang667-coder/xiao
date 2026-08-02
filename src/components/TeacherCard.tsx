@@ -11,7 +11,7 @@ export function TeacherCard({ teacher }: { teacher: TeacherCardItem }) {
 
   return (
     <Link
-      href={`/teacher/${teacher.id}`}
+      href={`/listing/${teacher.id}`}
       className="flex overflow-hidden rounded-2xl bg-white shadow-sm active:scale-[0.99] transition"
     >
       {isImage(teacher.photos[0]) ? (

@@ -5,7 +5,7 @@ export const MEMBERSHIP_PLAN = {
   name: "永久会员",
   price: 38, // 元
   benefits: [
-    "查看老师联系方式（电话 / 微信 / QQ）",
+    "查看详细联系方式（电话 / 微信 / QQ）",
     "永久有效，一次开通终身可用",
   ],
 };

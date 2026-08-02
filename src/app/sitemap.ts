@@ -62,7 +62,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }));
 
   const teacherEntries: MetadataRoute.Sitemap = teachers.map((teacher) => ({
-    url: `${SITE_URL}/teacher/${teacher.id}`,
+    url: `${SITE_URL}/listing/${teacher.id}`,
     lastModified: teacher.createdAt,
     changeFrequency: "weekly",
     priority: 0.6,

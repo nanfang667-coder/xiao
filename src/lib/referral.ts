@@ -15,7 +15,7 @@ const CODE_LENGTH = 3;
 
 // 邀请码直接放在根路径下（如 gp77.top/AB3），这些是已有页面占用的路径名，
 // 邀请码不能跟它们撞上（生成的码全是大写字母/数字，这里转小写做保险比较）
-const RESERVED_PATHS = ["admin", "login", "promote", "r", "register", "teacher", "vip", "uploads"];
+const RESERVED_PATHS = ["admin", "listing", "login", "promote", "r", "register", "teacher", "vip", "uploads"];
 
 function randomCode(): string {
   let code = "";

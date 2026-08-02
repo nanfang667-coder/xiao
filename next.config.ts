@@ -18,6 +18,15 @@ function getLanIPs(): string[] {
 }
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/teacher/:id",
+        destination: "/listing/:id",
+        permanent: true,
+      },
+    ];
+  },
   experimental: {
     serverActions: {
       // 允许上传较大的图片（默认只有 1MB，这里放宽到 15MB）
