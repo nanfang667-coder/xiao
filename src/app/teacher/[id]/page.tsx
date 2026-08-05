@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTeacherById, getTeacherSeoById } from "@/lib/teachers";
+import { formatLocationLabel } from "@/lib/location-label";
 import { getSeoLocationPath, getSeoLocationUrl, getSeoLocationsForRecord } from "@/lib/location-seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site-config";
 import { Gallery } from "./Gallery";
@@ -36,12 +37,11 @@ export async function generateMetadata({ params }: TeacherPageProps): Promise<Me
   }
 
   const name = compactText(teacher.name) || `老师 ${teacher.id}`;
-  const locationParts = [compactText(teacher.city), compactText(teacher.district)].filter(Boolean);
-  const location = locationParts.join("·") || "本地";
+  const location = formatLocationLabel(teacher.city, teacher.district);
   const intro = compactText(teacher.services);
-  const title = `${truncate(`${name}｜${location}地区信息`, 54)} | ${SITE_NAME}`;
+  const title = `${truncate(`${name}｜${location ? `${location}地区信息` : "详细信息"}`, 54)} | ${SITE_NAME}`;
   const description = truncate(
-    `${name}的${location}地区信息。${intro || "查看个人介绍、价格及相关信息。"}`,
+    `${name}的${location ? `${location}地区信息` : "公开信息"}。${intro || "查看个人介绍、价格及相关信息。"}`,
     160,
   );
   const canonical = `${SITE_URL}/listing/${teacher.id}`;
@@ -69,6 +69,7 @@ export default async function TeacherDetail({ params }: TeacherPageProps) {
 
   // 找不到这位老师，就显示 404
   if (!teacher) notFound();
+  const location = formatLocationLabel(teacher.city, teacher.district);
 
   const seoLocations = getSeoLocationsForRecord(teacher.city, teacher.district);
   const mostSpecificLocation = seoLocations.at(-1);
@@ -134,9 +135,9 @@ export default async function TeacherDetail({ params }: TeacherPageProps) {
       <div className="px-4">
         {/* 标题区 */}
         <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
-          <div className="text-xs text-gray-400">
-            📍 {teacher.city} · {teacher.district}
-          </div>
+          {location && (
+            <div className="text-xs text-gray-400">📍 {location}</div>
+          )}
           {mostSpecificLocation && (
             <Link
               href={getSeoLocationPath(mostSpecificLocation)}

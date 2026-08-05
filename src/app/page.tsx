@@ -2,7 +2,11 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound, permanentRedirect } from "next/navigation";
-import { getAvailableSeoLocationSlugs, getTeachersForList } from "@/lib/teachers";
+import {
+  getActiveNationalPromotion,
+  getAvailableSeoLocationSlugs,
+  getTeachersForList,
+} from "@/lib/teachers";
 import { getCurrentUser } from "@/lib/user-auth";
 import { getSeoLocationFromSelection, getSeoLocationPath } from "@/lib/location-seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site-config";
@@ -50,7 +54,10 @@ export default async function Home({ searchParams }: HomeProps) {
   }
 
   // 用不含联系方式的列表数据，避免会员专属信息随源码泄露
-  const teachers = await getTeachersForList();
+  const [teachers, nationalPromotion] = await Promise.all([
+    getTeachersForList(),
+    getActiveNationalPromotion(),
+  ]);
   const user = await getCurrentUser(); // 获取当前登录用户
 
   // TeacherBrowser 用 useSearchParams 读网址里的筛选参数，Next.js 要求套一层 Suspense
@@ -69,7 +76,7 @@ export default async function Home({ searchParams }: HomeProps) {
         }}
       />
       <Suspense>
-        <TeacherBrowser teachers={teachers} user={user} />
+        <TeacherBrowser teachers={teachers} nationalPromotion={nationalPromotion} user={user} />
       </Suspense>
     </>
   );

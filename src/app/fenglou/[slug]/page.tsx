@@ -3,11 +3,13 @@ import Link from "next/link";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { UserStatus } from "@/components/UserStatus";
 import { TeacherCard } from "@/components/TeacherCard";
+import { NationalPromotionCard } from "@/components/NationalPromotionCard";
 import { LinkPagination } from "@/components/LinkPagination";
 import { SeoLocationPicker } from "@/components/SeoLocationPicker";
 import { getCurrentUser } from "@/lib/user-auth";
 import { isActiveMember } from "@/lib/membership";
 import {
+  getActiveNationalPromotion,
   getAvailableSeoLocationSlugs,
   getTeachersForSeoLocation,
 } from "@/lib/teachers";
@@ -135,9 +137,10 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
   }
   if (requestedPage !== result.page) redirect(pageUrl(path, result.page));
 
-  const [user, availableLocationSlugs] = await Promise.all([
+  const [user, availableLocationSlugs, nationalPromotion] = await Promise.all([
     getCurrentUser(),
     getAvailableSeoLocationSlugs(),
+    getActiveNationalPromotion(),
   ]);
 
   const provinceLocation = getSeoLocationFromSelection(location.province);
@@ -204,12 +207,14 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
           />
         </section>
 
+        {nationalPromotion && <NationalPromotionCard teacher={nationalPromotion} />}
+
         <section aria-labelledby="location-items-heading" className="px-4 pt-4">
           <h2 id="location-items-heading" className="mb-3 text-base font-bold text-gray-800">
             {location.name}地区信息
           </h2>
           <div className="flex flex-col gap-3">
-            {result.teachers.map((teacher) => (
+            {result.teachers.filter((teacher) => teacher.id !== nationalPromotion?.id).map((teacher) => (
               <TeacherCard key={teacher.id} teacher={teacher} />
             ))}
           </div>

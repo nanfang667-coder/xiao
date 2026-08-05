@@ -35,6 +35,9 @@ export type Teacher = {
     address: string | null;
   };
   createdAt: Date;
+  isNationallyPromoted: boolean;
+  promotionStartsAt: Date | null;
+  promotionEndsAt: Date | null;
 };
 
 // 把数据库里的一行，转换成页面用的格式
@@ -66,6 +69,9 @@ function toTeacher(row: TeacherRow): Teacher {
       address: row.address,
     },
     createdAt: row.createdAt,
+    isNationallyPromoted: row.isNationallyPromoted,
+    promotionStartsAt: row.promotionStartsAt,
+    promotionEndsAt: row.promotionEndsAt,
   };
 }
 
@@ -87,7 +93,7 @@ export type AdminTeacherFilters = {
 
 export type AdminTeacherListItem = Pick<
   Teacher,
-  "id" | "name" | "city" | "district" | "price" | "photos" | "emoji" | "createdAt"
+  "id" | "name" | "city" | "district" | "price" | "photos" | "emoji" | "createdAt" | "isNationallyPromoted"
 >;
 
 export type AdminTeacherSearchResult = {
@@ -187,6 +193,7 @@ export async function searchTeachersForAdmin(
       photos: true,
       emoji: true,
       createdAt: true,
+      isNationallyPromoted: true,
     },
   });
 
@@ -241,6 +248,57 @@ export type TeacherCardItem = Pick<
 > & {
   address?: string | null;
 };
+
+// Current nationwide placement. Only public card fields are selected so contact details stay private.
+export async function getActiveNationalPromotion(): Promise<TeacherCardItem | null> {
+  const now = new Date();
+  const row = await prisma.teacher.findFirst({
+    where: {
+      isNationallyPromoted: true,
+      AND: [
+        {
+          OR: [
+            { promotionStartsAt: null },
+            { promotionStartsAt: { lte: now } },
+          ],
+        },
+        {
+          OR: [
+            { promotionEndsAt: null },
+            { promotionEndsAt: { gte: now } },
+          ],
+        },
+      ],
+    },
+    orderBy: [
+      { promotionStartsAt: "desc" },
+      { createdAt: "desc" },
+      { id: "desc" },
+    ],
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      city: true,
+      district: true,
+      price: true,
+      services: true,
+      age: true,
+      photos: true,
+      emoji: true,
+      createdAt: true,
+      address: true,
+    },
+  });
+
+  if (!row) return null;
+  return {
+    ...row,
+    id: String(row.id),
+    type: row.type as "\u94a2\u7434" | "\u821e\u8e48",
+    photos: parsePhotos(row.photos),
+  };
+}
 
 export type SeoLocationTeacherResult = {
   teachers: TeacherCardItem[];

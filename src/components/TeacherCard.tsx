@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { isImage } from "@/lib/photo";
+import { formatLocationLabel } from "@/lib/location-label";
 import type { TeacherCardItem } from "@/lib/teachers";
 
 function formatDate(date: Date): string {
@@ -8,6 +9,7 @@ function formatDate(date: Date): string {
 }
 export function TeacherCard({ teacher }: { teacher: TeacherCardItem }) {
   const photoAlt = `${teacher.city}${teacher.district}${teacher.name}的公开照片`;
+  const location = formatLocationLabel(teacher.city, teacher.district);
 
   return (
     <Link
@@ -32,9 +34,9 @@ export function TeacherCard({ teacher }: { teacher: TeacherCardItem }) {
 
       <div className="flex flex-1 flex-col justify-between p-3">
         <div>
-          <span className="text-xs text-gray-400">
-            📍 {teacher.city} · {teacher.district}
-          </span>
+          {location && (
+            <p className="text-xs text-gray-400">📍 {location}</p>
+          )}
           {teacher.address && (
             <p className="mt-0.5 line-clamp-1 text-xs text-gray-400">{teacher.address}</p>
           )}

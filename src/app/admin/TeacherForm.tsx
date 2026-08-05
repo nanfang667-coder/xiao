@@ -5,6 +5,21 @@ import Link from "next/link";
 import { provinces, citiesOfProvince, normalizeProvince, resolveDistrict } from "@/data/locations";
 import { isImage } from "@/lib/photo";
 import type { Teacher } from "@/lib/teachers";
+function toChinaDateTimeLocal(value: Date | null | undefined): string {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+    .format(new Date(value))
+    .replace(" ", "T");
+}
+
 
 // 添加和编辑共用这个表单。
 // action：提交时调用的服务器操作；initial：编辑时传入原有数据；submitLabel：按钮文字。
@@ -17,7 +32,7 @@ export function TeacherForm({
   initial?: Teacher;
   submitLabel: string;
 }) {
-  const [city, setCity] = useState(initial?.city ?? "上海市");
+  const [city, setCity] = useState(initial?.city ?? "");
   const [district, setDistrict] = useState(initial?.district ?? "");
   const districts = citiesOfProvince(city);
 
@@ -31,6 +46,7 @@ export function TeacherForm({
   // 每次累加的文件变化时，重新生成预览图地址，并在下次变化前回收旧的
   useEffect(() => {
     const urls = photoFiles.map((f) => URL.createObjectURL(f));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- object URLs must be replaced and revoked with the file selection.
     setPreviews(urls);
     return () => urls.forEach((u) => URL.revokeObjectURL(u));
   }, [photoFiles]);
@@ -136,11 +152,10 @@ export function TeacherForm({
 
         <div className="flex gap-3">
           <div className="flex-1">
-            <label className={label}>省份</label>
+            <label className={label}>省份（选填）</label>
             <input
               name="city"
               list="province-options"
-              required
               value={city}
               onChange={(e) => setCity(e.target.value)}
               onBlur={(e) => {
@@ -158,11 +173,10 @@ export function TeacherForm({
             </datalist>
           </div>
           <div className="flex-1">
-            <label className={label}>城市</label>
+            <label className={label}>城市（选填）</label>
             <input
               name="district"
               list="district-options"
-              required
               value={district}
               onChange={(e) => setDistrict(e.target.value)}
               onBlur={(e) => {
@@ -250,6 +264,50 @@ export function TeacherForm({
             className={field}
           />
         </div>
+        <fieldset className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+          <legend className="px-1 text-sm font-bold text-amber-900">{"\u5168\u56fd\u63a8\u5e7f"}</legend>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              name="isNationallyPromoted"
+              defaultChecked={initial?.isNationallyPromoted ?? false}
+              className="mt-0.5 h-4 w-4 accent-amber-500"
+            />
+            <span>
+              <span className="block text-sm font-medium text-gray-800">{"\u5728\u5168\u56fd\u63a8\u5e7f\u4f4d\u5c55\u793a"}</span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-gray-500">
+                {"\u5f00\u542f\u540e\u4f1a\u51fa\u73b0\u5728\u9996\u9875\u548c\u6240\u6709\u5730\u533a\u9875\u9876\u90e8\uff0c\u5e76\u6e05\u695a\u6807\u6ce8\u4e3a\u63a8\u5e7f\u5185\u5bb9\u3002"}
+              </span>
+            </span>
+          </label>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="promotionStartsAt" className={label}>{"\u5f00\u59cb\u65f6\u95f4"}</label>
+              <input
+                id="promotionStartsAt"
+                type="datetime-local"
+                name="promotionStartsAt"
+                defaultValue={toChinaDateTimeLocal(initial?.promotionStartsAt)}
+                className={field}
+              />
+            </div>
+            <div>
+              <label htmlFor="promotionEndsAt" className={label}>{"\u7ed3\u675f\u65f6\u95f4"}</label>
+              <input
+                id="promotionEndsAt"
+                type="datetime-local"
+                name="promotionEndsAt"
+                defaultValue={toChinaDateTimeLocal(initial?.promotionEndsAt)}
+                className={field}
+              />
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-amber-800/70">
+            {"\u65f6\u95f4\u7559\u7a7a\u8868\u793a\u7acb\u5373\u5f00\u59cb\u6216\u957f\u671f\u5c55\u793a\uff08\u5317\u4eac\u65f6\u95f4\uff09\u3002"}
+          </p>
+        </fieldset>
+
 
         <div>
           <label className={label}>

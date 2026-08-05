@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { searchTeachersForAdmin } from "@/lib/teachers";
 import { isImage } from "@/lib/photo";
+import { formatLocationLabel } from "@/lib/location-label";
 import { citiesOfProvince, normalizeProvince } from "@/data/locations";
 import { DeleteTeacherButton } from "../DeleteTeacherButton";
 import { AdminTeacherFilters } from "./AdminTeacherFilters";
@@ -186,12 +187,17 @@ export default async function AdminTeachersPage({ searchParams }: { searchParams
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-gray-400">#{teacher.id}</span>
+                {teacher.isNationallyPromoted && (
+                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                    {"\u5168\u56fd\u63a8\u5e7f"}
+                  </span>
+                )}
                 <h2 className="line-clamp-1 text-sm font-semibold text-gray-800">
                   {teacher.name}
                 </h2>
               </div>
               <p className="truncate text-xs text-gray-400">
-                {teacher.city} · {teacher.district} · {teacher.price}
+                {[formatLocationLabel(teacher.city, teacher.district), teacher.price].filter(Boolean).join(" · ")}
               </p>
               <p className="mt-0.5 text-[11px] text-gray-300">
                 添加于 {teacher.createdAt.toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}

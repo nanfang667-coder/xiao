@@ -29,12 +29,16 @@ model Teacher {
   otherContact String? // 其他联系方式（会员可见，可空，如 Telegram/邮箱等）
   address   String? // 详细地址（会员可见，可空，帮学员判断通勤距离）
   createdAt DateTime @default(now()) // 创建时间，自动记录
+  isNationallyPromoted Boolean @default(false) // nationwide promotion switch
+  promotionStartsAt DateTime? // empty means immediately
+  promotionEndsAt DateTime? // empty means no automatic expiry
   source    String?
   sourceId  Int?
 
   @@unique([source, sourceId])
   @@index([city, district, createdAt])
   @@index([createdAt])
+  @@index([isNationallyPromoted, promotionStartsAt, promotionEndsAt])
 }
 
 // 用户表（普通用户）

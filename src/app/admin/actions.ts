@@ -77,8 +77,23 @@ async function deleteUploadedPhotos(photosJson: string) {
 }
 
 // 从表单里提取老师的文字字段
+function parseChinaDateTime(value: FormDataEntryValue | null): Date | null {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text) return null;
+  const parsed = new Date(`${text}:00+08:00`);
+  if (Number.isNaN(parsed.getTime())) throw new Error("\u63a8\u5e7f\u65f6\u95f4\u683c\u5f0f\u4e0d\u6b63\u786e");
+  return parsed;
+}
+
 function extractFields(formData: FormData) {
   const ageRaw = String(formData.get("age") ?? "").trim();
+  const promotionStartsAt = parseChinaDateTime(formData.get("promotionStartsAt"));
+  const promotionEndsAt = parseChinaDateTime(formData.get("promotionEndsAt"));
+
+  if (promotionStartsAt && promotionEndsAt && promotionEndsAt <= promotionStartsAt) {
+    throw new Error("\u63a8\u5e7f\u7ed3\u675f\u65f6\u95f4\u5fc5\u987b\u665a\u4e8e\u5f00\u59cb\u65f6\u95f4");
+  }
+
 
   return {
     name: String(formData.get("name") ?? "").trim(),
@@ -94,6 +109,9 @@ function extractFields(formData: FormData) {
     qq: String(formData.get("qq") ?? "").trim(),
     otherContact: String(formData.get("otherContact") ?? "").trim() || null,
     address: String(formData.get("address") ?? "").trim() || null,
+    isNationallyPromoted: formData.get("isNationallyPromoted") === "on",
+    promotionStartsAt,
+    promotionEndsAt,
   };
 }
 

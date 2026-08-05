@@ -5,9 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { locationNamesMatch } from "@/data/locations";
 import { isActiveMember } from "@/lib/membership";
-import type { TeacherListItem } from "@/lib/teachers";
+import type { TeacherCardItem, TeacherListItem } from "@/lib/teachers";
 import { UserStatus } from "@/components/UserStatus";
 import { TeacherCard } from "@/components/TeacherCard";
+import { NationalPromotionCard } from "@/components/NationalPromotionCard";
 import { Pagination } from "@/components/Pagination";
 import { SeoLocationPicker } from "@/components/SeoLocationPicker";
 import type { User } from "@/lib/user-auth";
@@ -51,7 +52,15 @@ const entries = [
 ];
 
 // 接收从数据库读来的老师列表，负责城市/区筛选与展示
-export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]; user?: User | null }) {
+export function TeacherBrowser({
+  teachers,
+  nationalPromotion,
+  user,
+}: {
+  teachers: TeacherListItem[];
+  nationalPromotion: TeacherCardItem | null;
+  user?: User | null;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -166,6 +175,8 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
         <SeoLocationPicker availableLocationSlugs={[...availableLocationSlugs]} />
       </div>
 
+      {nationalPromotion && <NationalPromotionCard teacher={nationalPromotion} />}
+
       {/* 老师卡片列表 */}
       <div className="flex flex-col gap-3 px-4 pt-4">
         {list.length === 0 && (
@@ -173,7 +184,7 @@ export function TeacherBrowser({ teachers, user }: { teachers: TeacherListItem[]
             该地区暂时还没有公开信息
           </p>
         )}
-        {pageItems.map((t) => (
+        {pageItems.filter((t) => t.id !== nationalPromotion?.id).map((t) => (
           <TeacherCard key={t.id} teacher={t} />
         ))}
       </div>
