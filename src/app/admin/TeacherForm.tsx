@@ -281,6 +281,20 @@ export function TeacherForm({
             </span>
           </label>
 
+          <div className="mt-4">
+            <label htmlFor="promotionOrder" className={label}>{"\u5e7f\u544a\u6392\u5e8f"}</label>
+            <input
+              id="promotionOrder"
+              type="number"
+              name="promotionOrder"
+              min="1"
+              max="9999"
+              defaultValue={initial?.promotionOrder ?? 100}
+              className={field}
+            />
+            <p className="mt-1 text-xs text-amber-800/70">{"\u6570\u5b57\u8d8a\u5c0f\u8d8a\u9760\u524d\uff0c\u4f8b\u5982 1 \u6392\u7b2c\u4e00\u30012 \u6392\u7b2c\u4e8c\uff1b\u672a\u586b\u5199\u9ed8\u8ba4 100\u3002"}</p>
+          </div>
+
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="promotionStartsAt" className={label}>{"\u5f00\u59cb\u65f6\u95f4"}</label>

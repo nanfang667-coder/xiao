@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound, permanentRedirect } from "next/navigation";
 import {
-  getActiveNationalPromotion,
+  getActiveNationalPromotions,
   getAvailableSeoLocationSlugs,
   getTeachersForList,
 } from "@/lib/teachers";
@@ -54,9 +54,9 @@ export default async function Home({ searchParams }: HomeProps) {
   }
 
   // 用不含联系方式的列表数据，避免会员专属信息随源码泄露
-  const [teachers, nationalPromotion] = await Promise.all([
+  const [teachers, nationalPromotions] = await Promise.all([
     getTeachersForList(),
-    getActiveNationalPromotion(),
+    getActiveNationalPromotions(),
   ]);
   const user = await getCurrentUser(); // 获取当前登录用户
 
@@ -76,7 +76,7 @@ export default async function Home({ searchParams }: HomeProps) {
         }}
       />
       <Suspense>
-        <TeacherBrowser teachers={teachers} nationalPromotion={nationalPromotion} user={user} />
+        <TeacherBrowser teachers={teachers} nationalPromotions={nationalPromotions} user={user} />
       </Suspense>
     </>
   );

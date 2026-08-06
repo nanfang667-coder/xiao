@@ -30,6 +30,7 @@ model Teacher {
   address   String? // 详细地址（会员可见，可空，帮学员判断通勤距离）
   createdAt DateTime @default(now()) // 创建时间，自动记录
   isNationallyPromoted Boolean @default(false) // nationwide promotion switch
+  promotionOrder Int @default(100) // smaller numbers appear first
   promotionStartsAt DateTime? // empty means immediately
   promotionEndsAt DateTime? // empty means no automatic expiry
   source    String?
@@ -38,7 +39,7 @@ model Teacher {
   @@unique([source, sourceId])
   @@index([city, district, createdAt])
   @@index([createdAt])
-  @@index([isNationallyPromoted, promotionStartsAt, promotionEndsAt])
+  @@index([isNationallyPromoted, promotionOrder, promotionStartsAt, promotionEndsAt])
 }
 
 // 用户表（普通用户）

@@ -9,7 +9,7 @@ import { SeoLocationPicker } from "@/components/SeoLocationPicker";
 import { getCurrentUser } from "@/lib/user-auth";
 import { isActiveMember } from "@/lib/membership";
 import {
-  getActiveNationalPromotion,
+  getActiveNationalPromotions,
   getAvailableSeoLocationSlugs,
   getTeachersForSeoLocation,
 } from "@/lib/teachers";
@@ -137,11 +137,12 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
   }
   if (requestedPage !== result.page) redirect(pageUrl(path, result.page));
 
-  const [user, availableLocationSlugs, nationalPromotion] = await Promise.all([
+  const [user, availableLocationSlugs, nationalPromotions] = await Promise.all([
     getCurrentUser(),
     getAvailableSeoLocationSlugs(),
-    getActiveNationalPromotion(),
+    getActiveNationalPromotions(),
   ]);
+  const promotionIds = new Set(nationalPromotions.map((promotion) => promotion.id));
 
   const provinceLocation = getSeoLocationFromSelection(location.province);
   const parentLocation = location.region ? provinceLocation : undefined;
@@ -207,14 +208,16 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
           />
         </section>
 
-        {nationalPromotion && <NationalPromotionCard teacher={nationalPromotion} />}
+        {nationalPromotions.map((promotion, index) => (
+          <NationalPromotionCard key={promotion.id} teacher={promotion} showHeader={index === 0} />
+        ))}
 
         <section aria-labelledby="location-items-heading" className="px-4 pt-4">
           <h2 id="location-items-heading" className="mb-3 text-base font-bold text-gray-800">
             {location.name}地区信息
           </h2>
           <div className="flex flex-col gap-3">
-            {result.teachers.filter((teacher) => teacher.id !== nationalPromotion?.id).map((teacher) => (
+            {result.teachers.filter((teacher) => !promotionIds.has(teacher.id)).map((teacher) => (
               <TeacherCard key={teacher.id} teacher={teacher} />
             ))}
           </div>

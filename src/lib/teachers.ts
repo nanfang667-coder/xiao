@@ -36,6 +36,7 @@ export type Teacher = {
   };
   createdAt: Date;
   isNationallyPromoted: boolean;
+  promotionOrder: number;
   promotionStartsAt: Date | null;
   promotionEndsAt: Date | null;
 };
@@ -70,11 +71,11 @@ function toTeacher(row: TeacherRow): Teacher {
     },
     createdAt: row.createdAt,
     isNationallyPromoted: row.isNationallyPromoted,
+    promotionOrder: row.promotionOrder,
     promotionStartsAt: row.promotionStartsAt,
     promotionEndsAt: row.promotionEndsAt,
   };
 }
-
 // 取出所有老师（最新的排前面）
 export async function getAllTeachers(): Promise<Teacher[]> {
   const rows = await prisma.teacher.findMany({
@@ -93,7 +94,7 @@ export type AdminTeacherFilters = {
 
 export type AdminTeacherListItem = Pick<
   Teacher,
-  "id" | "name" | "city" | "district" | "price" | "photos" | "emoji" | "createdAt" | "isNationallyPromoted"
+  "id" | "name" | "city" | "district" | "price" | "photos" | "emoji" | "createdAt" | "isNationallyPromoted" | "promotionOrder"
 >;
 
 export type AdminTeacherSearchResult = {
@@ -194,6 +195,7 @@ export async function searchTeachersForAdmin(
       emoji: true,
       createdAt: true,
       isNationallyPromoted: true,
+      promotionOrder: true,
     },
   });
 
@@ -230,7 +232,9 @@ export async function searchTeachersForAdmin(
 }
 
 // 列表用的老师格式：不含电话/微信/QQ等联系方式（会员专属，不能发到浏览器），但详细地址所有人可见
-export type TeacherListItem = Omit<Teacher, "contact"> & { address: string | null };
+export type TeacherListItem = Omit<Teacher, "contact"> & {
+  address: string | null;
+};
 
 export type TeacherCardItem = Pick<
   Teacher,
@@ -250,9 +254,9 @@ export type TeacherCardItem = Pick<
 };
 
 // Current nationwide placement. Only public card fields are selected so contact details stay private.
-export async function getActiveNationalPromotion(): Promise<TeacherCardItem | null> {
+export async function getActiveNationalPromotions(): Promise<TeacherCardItem[]> {
   const now = new Date();
-  const row = await prisma.teacher.findFirst({
+  const rows = await prisma.teacher.findMany({
     where: {
       isNationallyPromoted: true,
       AND: [
@@ -271,6 +275,7 @@ export async function getActiveNationalPromotion(): Promise<TeacherCardItem | nu
       ],
     },
     orderBy: [
+      { promotionOrder: "asc" },
       { promotionStartsAt: "desc" },
       { createdAt: "desc" },
       { id: "desc" },
@@ -291,13 +296,12 @@ export async function getActiveNationalPromotion(): Promise<TeacherCardItem | nu
     },
   });
 
-  if (!row) return null;
-  return {
+  return rows.map((row) => ({
     ...row,
     id: String(row.id),
     type: row.type as "\u94a2\u7434" | "\u821e\u8e48",
     photos: parsePhotos(row.photos),
-  };
+  }));
 }
 
 export type SeoLocationTeacherResult = {

@@ -3,20 +3,31 @@ import { isImage } from "@/lib/photo";
 import { formatLocationLabel } from "@/lib/location-label";
 import type { TeacherCardItem } from "@/lib/teachers";
 
-export function NationalPromotionCard({ teacher }: { teacher: TeacherCardItem }) {
+export function NationalPromotionCard({
+  teacher,
+  showHeader = true,
+}: {
+  teacher: TeacherCardItem;
+  showHeader?: boolean;
+}) {
   const location = formatLocationLabel(teacher.city, teacher.district);
   return (
-    <section aria-label={"\u5168\u56fd\u63a8\u5e7f"} className="px-4 pt-4">
-      <div className="mb-2 flex items-center justify-between px-0.5">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-800">
-            <span aria-hidden="true">{"\u2726"}</span>
-            {"\u5168\u56fd\u63a8\u5e7f"}
-          </span>
-          <span className="text-xs text-gray-400">{"\u5168\u7ad9\u4f18\u5148\u5c55\u793a"}</span>
+    <section
+      aria-label={"\u5168\u56fd\u63a8\u5e7f"}
+      className="px-4 pt-4"
+    >
+      {showHeader && (
+        <div className="mb-2 flex items-center justify-between px-0.5">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-800">
+              <span aria-hidden="true">{"\u2726"}</span>
+              {"\u5168\u56fd\u63a8\u5e7f"}
+            </span>
+            <span className="text-xs text-gray-400">{"\u5168\u7ad9\u4f18\u5148\u5c55\u793a"}</span>
+          </div>
+          <span className="rounded border border-gray-200 px-1.5 py-0.5 text-[10px] text-gray-400">{"\u5e7f\u544a"}</span>
         </div>
-        <span className="rounded border border-gray-200 px-1.5 py-0.5 text-[10px] text-gray-400">{"\u5e7f\u544a"}</span>
-      </div>
+      )}
 
       <Link
         href={`/listing/${teacher.id}`}

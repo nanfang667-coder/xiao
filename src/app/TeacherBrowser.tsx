@@ -54,11 +54,11 @@ const entries = [
 // 接收从数据库读来的老师列表，负责城市/区筛选与展示
 export function TeacherBrowser({
   teachers,
-  nationalPromotion,
+  nationalPromotions,
   user,
 }: {
   teachers: TeacherListItem[];
-  nationalPromotion: TeacherCardItem | null;
+  nationalPromotions: TeacherCardItem[];
   user?: User | null;
 }) {
   const router = useRouter();
@@ -80,9 +80,12 @@ export function TeacherBrowser({
     router.replace(nextPage > 1 ? `/?page=${nextPage}` : "/", { scroll: false });
   };
 
+  const promotionIds = new Set(nationalPromotions.map((promotion) => promotion.id));
+
   // 根据筛选条件，过滤出要显示的老师
   // 后台省份/城市是自由填写的，需要兼容省市区后缀、上级城市前缀和更细地址。
   const list = teachers.filter((t) => {
+    if (promotionIds.has(t.id)) return false;
     const okProvince = province === "全部" || locationNamesMatch(t.city, province);
     const okCity = city === "全部" || locationNamesMatch(t.district, city);
     return okProvince && okCity;
@@ -175,7 +178,9 @@ export function TeacherBrowser({
         <SeoLocationPicker availableLocationSlugs={[...availableLocationSlugs]} />
       </div>
 
-      {nationalPromotion && <NationalPromotionCard teacher={nationalPromotion} />}
+      {nationalPromotions.map((promotion, index) => (
+        <NationalPromotionCard key={promotion.id} teacher={promotion} showHeader={index === 0} />
+      ))}
 
       {/* 老师卡片列表 */}
       <div className="flex flex-col gap-3 px-4 pt-4">
@@ -184,7 +189,7 @@ export function TeacherBrowser({
             该地区暂时还没有公开信息
           </p>
         )}
-        {pageItems.filter((t) => t.id !== nationalPromotion?.id).map((t) => (
+        {pageItems.map((t) => (
           <TeacherCard key={t.id} teacher={t} />
         ))}
       </div>

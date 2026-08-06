@@ -89,6 +89,11 @@ function extractFields(formData: FormData) {
   const ageRaw = String(formData.get("age") ?? "").trim();
   const promotionStartsAt = parseChinaDateTime(formData.get("promotionStartsAt"));
   const promotionEndsAt = parseChinaDateTime(formData.get("promotionEndsAt"));
+  const promotionOrder = Number(String(formData.get("promotionOrder") ?? "").trim() || "100");
+  if (!Number.isSafeInteger(promotionOrder) || promotionOrder < 1 || promotionOrder > 9999) {
+    throw new Error("\u5e7f\u544a\u6392\u5e8f\u5fc5\u987b\u662f 1 \u5230 9999 \u4e4b\u95f4\u7684\u6574\u6570");
+  }
+
 
   if (promotionStartsAt && promotionEndsAt && promotionEndsAt <= promotionStartsAt) {
     throw new Error("\u63a8\u5e7f\u7ed3\u675f\u65f6\u95f4\u5fc5\u987b\u665a\u4e8e\u5f00\u59cb\u65f6\u95f4");
@@ -110,6 +115,7 @@ function extractFields(formData: FormData) {
     otherContact: String(formData.get("otherContact") ?? "").trim() || null,
     address: String(formData.get("address") ?? "").trim() || null,
     isNationallyPromoted: formData.get("isNationallyPromoted") === "on",
+    promotionOrder,
     promotionStartsAt,
     promotionEndsAt,
   };

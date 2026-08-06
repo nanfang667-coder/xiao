@@ -189,7 +189,7 @@ export default async function AdminTeachersPage({ searchParams }: { searchParams
                 <span className="text-[11px] text-gray-400">#{teacher.id}</span>
                 {teacher.isNationallyPromoted && (
                   <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
-                    {"\u5168\u56fd\u63a8\u5e7f"}
+                    {"\u5168\u56fd\u63a8\u5e7f"} {"\u00b7"} {"\u6392\u5e8f"} {teacher.promotionOrder}
                   </span>
                 )}
                 <h2 className="line-clamp-1 text-sm font-semibold text-gray-800">
