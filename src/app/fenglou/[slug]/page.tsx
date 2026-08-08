@@ -49,10 +49,6 @@ function jsonLd(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
-function compactText(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
-}
-
 function truncate(value: string, maxLength: number): string {
   return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
 }
@@ -75,14 +71,9 @@ export async function generateMetadata({ params, searchParams }: CityPageProps):
   const path = getSeoLocationPath(location);
   const canonical = new URL(pageUrl(path, page), SITE_URL).toString();
   const pageLabel = page > 1 ? `第${page}页` : "";
-  const typeNames = Object.keys(result.typeCounts)
-    .map(compactText)
-    .filter(Boolean)
-    .slice(0, 3);
-  const typeText = typeNames.length > 0 ? typeNames.join("、") : "本地";
   const title = truncate(`${location.name}凤楼${pageLabel}｜${location.name}地区信息`, 60);
   const description = truncate(
-    `${SITE_NAME}${location.name}站收录${result.total}条公开信息，涵盖${typeText}等类型，可查看个人介绍、价格与所在地区。`,
+    `${SITE_NAME}${location.name}站收录${result.total}条公开信息，可查看个人介绍、价格与所在地区。`,
     160,
   );
 

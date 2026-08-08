@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: TeacherPageProps): Promise<Me
     };
   }
 
-  const name = compactText(teacher.name) || `老师 ${teacher.id}`;
+  const name = compactText(teacher.name) || `资料 ${teacher.id}`;
   const location = formatLocationLabel(teacher.city, teacher.district);
   const intro = compactText(teacher.services);
   const title = `${truncate(`${name}｜${location ? `${location}地区信息` : "详细信息"}`, 54)} | ${SITE_NAME}`;
@@ -163,10 +163,10 @@ export default async function TeacherDetail({ params }: TeacherPageProps) {
           <p className="text-sm leading-6 text-gray-600">{teacher.services}</p>
         </section>
 
-        {/* 教学案例/课程记录（有内容才显示） */}
+        {/* 补充说明（有内容才显示） */}
         {teacher.courseNotes && (
           <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
-            <h2 className="mb-2 text-sm font-bold text-gray-800">教学案例 / 课程记录</h2>
+            <h2 className="mb-2 text-sm font-bold text-gray-800">补充说明</h2>
             <p className="whitespace-pre-line text-sm leading-6 text-gray-600">
               {teacher.courseNotes}
             </p>
