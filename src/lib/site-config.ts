@@ -1,4 +1,4 @@
-export const SITE_URL = "https://gp77.top";
+export const SITE_URL = "https://fenglou1.com";
 export const SITE_NAME = "凤楼";
 
 // 地区只要有一条公开资料，就开放访问、进入 Sitemap 并允许搜索引擎收录。

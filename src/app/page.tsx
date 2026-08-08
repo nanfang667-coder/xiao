@@ -70,7 +70,6 @@ export default async function Home({ searchParams }: HomeProps) {
             "@context": "https://schema.org",
             "@type": "WebSite",
             name: SITE_NAME,
-            alternateName: "GP77",
             url: SITE_URL,
           }),
         }}
