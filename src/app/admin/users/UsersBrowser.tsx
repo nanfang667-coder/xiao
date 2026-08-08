@@ -30,6 +30,8 @@ export type SiteVisitorStats = { day: number; week: number; month: number };
 
 type Filter = "all" | "member" | "normal" | "banned";
 
+const HIGH_VISITOR_THRESHOLD = 10;
+
 export function UsersBrowser({
   users,
   siteVisitorStats,
@@ -39,10 +41,14 @@ export function UsersBrowser({
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
+  const [showHighVisitorOnly, setShowHighVisitorOnly] = useState(false);
 
   const memberCount = users.filter((u) => u.isMember).length;
   const normalCount = users.length - memberCount;
   const bannedCount = users.filter((u) => u.isBanned).length;
+  const highVisitorCount = users.filter(
+    (u) => u.referralVisitorCount > HIGH_VISITOR_THRESHOLD,
+  ).length;
 
   const tabs: { key: Filter; label: string; count: number }[] = [
     { key: "all", label: "全部", count: users.length },
@@ -53,20 +59,31 @@ export function UsersBrowser({
 
   const trimmedSearch = search.trim().toLowerCase();
 
-  const list = users.filter((u) => {
-    if (filter === "member" && !u.isMember) return false;
-    if (filter === "normal" && u.isMember) return false;
-    if (filter === "banned" && !u.isBanned) return false;
-    if (
-      trimmedSearch &&
-      !String(u.id).includes(trimmedSearch) &&
-      !u.username.toLowerCase().includes(trimmedSearch) &&
-      !u.referralCode.toLowerCase().includes(trimmedSearch) &&
-      !(u.email ?? "").toLowerCase().includes(trimmedSearch)
-    )
-      return false;
-    return true;
-  });
+  const list = users
+    .filter((u) => {
+      if (filter === "member" && !u.isMember) return false;
+      if (filter === "normal" && u.isMember) return false;
+      if (filter === "banned" && !u.isBanned) return false;
+      if (
+        showHighVisitorOnly &&
+        u.referralVisitorCount <= HIGH_VISITOR_THRESHOLD
+      )
+        return false;
+      if (
+        trimmedSearch &&
+        !String(u.id).includes(trimmedSearch) &&
+        !u.username.toLowerCase().includes(trimmedSearch) &&
+        !u.referralCode.toLowerCase().includes(trimmedSearch) &&
+        !(u.email ?? "").toLowerCase().includes(trimmedSearch)
+      )
+        return false;
+      return true;
+    })
+    .sort((a, b) =>
+      showHighVisitorOnly
+        ? b.referralVisitorCount - a.referralVisitorCount
+        : 0,
+    );
 
   return (
     <>
@@ -94,7 +111,7 @@ export function UsersBrowser({
       />
 
       {/* 筛选标签页（带数量） */}
-      <div className="mb-4 flex gap-2">
+      <div className="mb-3 flex gap-2">
         {tabs.map((t) => (
           <button
             key={t.key}
@@ -116,6 +133,29 @@ export function UsersBrowser({
           </button>
         ))}
       </div>
+
+      {/* 高访客邀请链接快捷筛选；可与用户类型和搜索条件组合使用 */}
+      <button
+        type="button"
+        aria-pressed={showHighVisitorOnly}
+        onClick={() => setShowHighVisitorOnly((current) => !current)}
+        className={`mb-4 flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
+          showHighVisitorOnly
+            ? "border-pink-500 bg-pink-500 text-white shadow"
+            : "border-pink-200 bg-white text-gray-600 shadow-sm"
+        }`}
+      >
+        <span>独立访客 &gt; {HIGH_VISITOR_THRESHOLD}</span>
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs ${
+            showHighVisitorOnly
+              ? "bg-white/20 text-white"
+              : "bg-pink-50 text-pink-500"
+          }`}
+        >
+          {highVisitorCount} 个链接{showHighVisitorOnly ? " · 人数从高到低" : ""}
+        </span>
+      </button>
 
       {/* 用户列表 */}
       <div className="space-y-3">
@@ -152,8 +192,11 @@ export function UsersBrowser({
             <div className="mt-1.5 space-y-0.5 text-xs text-gray-400">
               {u.email && <p>📮 {u.email}</p>}
               <p>注册于 {u.createdAtLabel}</p>
-              <p className="font-medium text-pink-500">
-                🔗 邀请码 {u.referralCode} · 独立访客 {u.referralVisitorCount} 人
+              <p className="flex flex-wrap items-center gap-1.5 font-medium text-pink-500">
+                <span>🔗 邀请码 {u.referralCode}</span>
+                <span className="rounded-full bg-pink-50 px-2 py-0.5">
+                  独立访客 <strong>{u.referralVisitorCount}</strong> 人
+                </span>
               </p>
               {u.isMember && u.expiryLabel && (
                 <p className="text-amber-500">{u.expiryLabel}</p>
