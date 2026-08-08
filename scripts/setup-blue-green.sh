@@ -38,7 +38,7 @@ write_initial_state() {
 }
 
 [[ "$EUID" -eq 0 ]] || die "Run as root"
-for command_name in nginx systemctl pm2 git openssl grep sed mktemp install; do
+for command_name in nginx systemctl pm2 git openssl grep sed mktemp install readlink; do
   require_command "$command_name"
 done
 
@@ -49,6 +49,8 @@ done
 [[ -f "$SOURCE_DIR/prisma/prod.db" ]] || die "Production database not found"
 [[ -d "$SOURCE_DIR/public/uploads" ]] || die "Upload directory not found"
 [[ -f "$NGINX_SITE" ]] || die "Nginx site not found at $NGINX_SITE"
+NGINX_SITE="$(readlink -f -- "$NGINX_SITE")"
+[[ -n "$NGINX_SITE" && -f "$NGINX_SITE" ]] || die "Could not resolve the Nginx site file"
 [[ "$(pm2 pid "$CURRENT_PROCESS" | tr -d '[:space:]')" =~ ^[1-9][0-9]*$ ]] || die "PM2 process $CURRENT_PROCESS is not online"
 
 install -d -m 700 "$DEPLOY_ROOT"
@@ -89,11 +91,11 @@ else
     nginx -t || true
     die "Nginx validation failed; original site configuration restored"
   fi
-  systemctl reload nginx
   log "Nginx now reads its application port from $UPSTREAM_INCLUDE"
 fi
 
 nginx -t
+systemctl reload nginx
 [[ -f "$STATE_FILE" ]] || write_initial_state
 
 install -m 0755 "$SOURCE_DIR/scripts/blue-green-deploy.sh" /usr/local/sbin/hulim-deploy
