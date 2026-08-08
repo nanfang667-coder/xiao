@@ -147,6 +147,8 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
       item: getSeoLocationUrl(item, SITE_URL),
     })),
   ];
+  const canonical = new URL(pageUrl(path, result.page), SITE_URL).toString();
+  const pageOffset = (result.page - 1) * PAGE_SIZE;
   return (
     <div className="mx-auto w-full max-w-md flex-1 pb-10">
       <script
@@ -154,8 +156,27 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
         dangerouslySetInnerHTML={{
           __html: jsonLd({
             "@context": "https://schema.org",
-            "@type": "BreadcrumbList",
-            itemListElement: breadcrumbItems,
+            "@graph": [
+              {
+                "@type": "BreadcrumbList",
+                itemListElement: breadcrumbItems,
+              },
+              {
+                "@type": "CollectionPage",
+                name: `${location.name}凤楼地区信息`,
+                url: canonical,
+                mainEntity: {
+                  "@type": "ItemList",
+                  numberOfItems: result.total,
+                  itemListElement: result.teachers.map((teacher, index) => ({
+                    "@type": "ListItem",
+                    position: pageOffset + index + 1,
+                    name: teacher.name || `资料 ${teacher.id}`,
+                    url: `${SITE_URL}/listing/${teacher.id}`,
+                  })),
+                },
+              },
+            ],
           }),
         }}
       />
@@ -188,8 +209,6 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
           ))}
         </nav>
 
-        <h1 className="sr-only">{location.name}凤楼</h1>
-
         <section aria-label="全部地区" className="px-4 pt-4">
           <SeoLocationPicker
             key={provinceLocation?.slug ?? location.province}
@@ -204,9 +223,9 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
         ))}
 
         <section aria-labelledby="location-items-heading" className="px-4 pt-4">
-          <h2 id="location-items-heading" className="mb-3 text-base font-bold text-gray-800">
-            {location.name}地区信息
-          </h2>
+          <h1 id="location-items-heading" className="mb-3 text-lg font-bold text-gray-900">
+            {location.name}凤楼地区信息
+          </h1>
           <div className="flex flex-col gap-3">
             {result.teachers.filter((teacher) => !promotionIds.has(teacher.id)).map((teacher) => (
               <TeacherCard key={teacher.id} teacher={teacher} />
