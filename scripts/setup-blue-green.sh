@@ -81,7 +81,7 @@ else
   mv -f "$include_tmp" "$UPSTREAM_INCLUDE"
 
   site_tmp="$(mktemp "$(dirname "$NGINX_SITE")/.hulim-site.XXXXXX")"
-  sed -E "s#^[[:space:]]*proxy_pass[[:space:]]+http://(localhost|127\\.0\\.0\\.1):3000;[[:space:]]*$#        include $UPSTREAM_INCLUDE;#" "$NGINX_SITE" > "$site_tmp"
+  sed -E 's#^[[:space:]]*proxy_pass[[:space:]]+http://(localhost|127\.0\.0\.1):3000;[[:space:]]*$#        include '"$UPSTREAM_INCLUDE"';#' "$NGINX_SITE" > "$site_tmp"
   chmod --reference="$NGINX_SITE" "$site_tmp"
   chown --reference="$NGINX_SITE" "$site_tmp"
   mv -f "$site_tmp" "$NGINX_SITE"
