@@ -36,11 +36,14 @@ migration_fingerprint() {
     printf none
     return
   fi
-  find "$directory/prisma/migrations" -type f -print0 \
-    | sort -z \
-    | xargs -0 sha256sum \
-    | sha256sum \
-    | awk '{print $1}'
+  (
+    cd "$directory"
+    find prisma/migrations -type f -print0 \
+      | sort -z \
+      | xargs -0 sha256sum \
+      | sha256sum \
+      | awk '{print $1}'
+  )
 }
 
 write_state() {
