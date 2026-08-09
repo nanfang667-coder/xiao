@@ -1,6 +1,5 @@
 "use client"; // 这个组件有交互（筛选），要在浏览器里运行
 
-import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { locationNamesMatch } from "@/data/locations";
@@ -31,7 +30,7 @@ const entries = [
   },
   {
     label: "合作联系",
-    action: "contact" as const,
+    href: "#contact-notice",
     icon: (
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="5" width="18" height="14" rx="2" />
@@ -41,7 +40,7 @@ const entries = [
   },
   {
     label: "发帖",
-    action: "post" as const,
+    href: "#post-notice",
     icon: (
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 20h9" />
@@ -69,7 +68,6 @@ export function TeacherBrowser({
   const city = searchParams.get("city") ?? "全部";
   const page = Number(searchParams.get("page")) || 1;
 
-  const [notice, setNotice] = useState<"contact" | "post" | null>(null);
 
   const availableLocationSlugs = getSeoLocationSlugsForRecords(
     teachers,
@@ -112,66 +110,59 @@ export function TeacherBrowser({
       {/* 功能入口：地区信息 / 合作联系 / 发帖 */}
       <div className="px-4 pt-4">
         <div className="grid grid-cols-3 gap-2 rounded-2xl bg-white p-4 shadow-sm">
-          {entries.map((e) =>
-            e.href ? (
-              <Link
-                key={e.label}
-                href={e.href}
-                className="flex flex-col items-center gap-2 py-2 active:scale-95 transition"
-              >
-                <span className="text-pink-500">{e.icon}</span>
-                <span className="text-xs font-medium text-gray-700">{e.label}</span>
-              </Link>
-            ) : (
-              <button
-                key={e.label}
-                type="button"
-                onClick={() => setNotice(e.action ?? "post")}
-                className="flex flex-col items-center gap-2 py-2 active:scale-95 transition"
-              >
-                <span className="text-pink-500">{e.icon}</span>
-                <span className="text-xs font-medium text-gray-700">{e.label}</span>
-              </button>
-            )
-          )}
+          {entries.map((entry) => (
+            <Link
+              key={entry.label}
+              href={entry.href}
+              className="flex flex-col items-center gap-2 py-2 transition active:scale-95"
+            >
+              <span className="text-pink-500">{entry.icon}</span>
+              <span className="text-xs font-medium text-gray-700">{entry.label}</span>
+            </Link>
+          ))}
         </div>
       </div>
 
-      {/* 合作联系方式 / "发帖"提示弹窗 */}
-      {notice && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6"
-          onClick={() => setNotice(null)}
-        >
-          <div
-            className="max-w-xs rounded-2xl bg-white p-5 text-sm leading-relaxed text-gray-700 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {notice === "contact" ? (
-              <div className="text-center">
-                <h2 className="font-bold text-gray-800">合作联系</h2>
-                <div className="mt-3 space-y-2">
-                  <a href="mailto:nanfang667@gmail.com" className="block text-pink-500">
-                    nanfang667@gmail.com
-                  </a>
-                  <a href="mailto:liliws1673@outlook.com" className="block text-pink-500">
-                    liliws1673@outlook.com
-                  </a>
-                </div>
-              </div>
-            ) : (
-              <p className="text-center">发帖功能正在开发中</p>
-            )}
-            <button
-              type="button"
-              onClick={() => setNotice(null)}
-              className="mt-4 w-full rounded-lg bg-pink-500 py-2 text-sm font-bold text-white active:bg-pink-600"
-            >
-              知道了
-            </button>
+      {/* 不依赖客户端事件：真实锚点负责打开，清空 hash 负责关闭。 */}
+      <div
+        id="contact-notice"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="contact-notice-title"
+        className="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-6 target:flex"
+      >
+        <a href="#" aria-label="关闭合作联系" className="absolute inset-0" />
+        <div className="relative z-10 w-full max-w-xs rounded-2xl bg-white p-5 text-center text-sm leading-relaxed text-gray-700 shadow-xl">
+          <h2 id="contact-notice-title" className="font-bold text-gray-800">合作联系</h2>
+          <div className="mt-3 space-y-2">
+            <a href="mailto:nanfang667@gmail.com" className="block text-pink-500">
+              nanfang667@gmail.com
+            </a>
+            <a href="mailto:liliws1673@outlook.com" className="block text-pink-500">
+              liliws1673@outlook.com
+            </a>
           </div>
+          <a href="#" className="mt-4 block w-full rounded-lg bg-pink-500 py-2 text-sm font-bold text-white active:bg-pink-600">
+            知道了
+          </a>
         </div>
-      )}
+      </div>
+
+      <div
+        id="post-notice"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="post-notice-title"
+        className="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-6 target:flex"
+      >
+        <a href="#" aria-label="关闭发帖提示" className="absolute inset-0" />
+        <div className="relative z-10 w-full max-w-xs rounded-2xl bg-white p-5 text-sm leading-relaxed text-gray-700 shadow-xl">
+          <p id="post-notice-title" className="text-center">发帖功能正在开发中</p>
+          <a href="#" className="mt-4 block w-full rounded-lg bg-pink-500 py-2 text-center text-sm font-bold text-white active:bg-pink-600">
+            知道了
+          </a>
+        </div>
+      </div>
 
       {/* 全国省市始终显示在选择器中；0条资料的地区为灰色，有第1条后自动开放。 */}
       <div className="px-4 pt-4">
