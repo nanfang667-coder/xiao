@@ -1,23 +1,34 @@
 "use client"; // 要用浏览器历史记录，得在客户端运行
 
+import type { MouseEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-// 用"返回上一页"而不是固定跳首页，这样从筛选过的老师列表点进详情页、
-// 再点返回时，能带着原来的省份/城市筛选结果回去，而不是回到"全部地区"
+// 有可靠的站内来源页时返回原筛选结果；否则链接始终可以回到首页。
 export function BackButton() {
   const router = useRouter();
 
-  const handleBack = () => {
-    if (window.history.length > 1) {
-      router.back();
-    } else {
-      router.push("/");
+  const handleBack = (event: MouseEvent<HTMLAnchorElement>) => {
+    try {
+      const referrer = new URL(document.referrer);
+      const currentPath = window.location.pathname;
+      const canReturnToReferrer =
+        referrer.origin === window.location.origin &&
+        referrer.pathname !== currentPath &&
+        !referrer.pathname.startsWith("/teacher/");
+
+      if (canReturnToReferrer) {
+        event.preventDefault();
+        router.back();
+      }
+    } catch {
+      // 没有可用的站内来源页时，保留下面链接的首页兜底。
     }
   };
 
   return (
-    <button type="button" onClick={handleBack} className="text-pink-500">
+    <Link href="/" onClick={handleBack} className="text-pink-500">
       ← 返回
-    </button>
+    </Link>
   );
 }

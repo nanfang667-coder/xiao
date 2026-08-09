@@ -2,8 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { provinces, citiesOfProvince, normalizeProvince, resolveDistrict } from "@/data/locations";
+import { provinces, citiesOfProvince, normalizeProvince } from "@/data/locations";
 import { isImage } from "@/lib/photo";
+import {
+  imageExtension,
+  MAX_TEACHER_PHOTOS,
+  normalizeTeacherLocation,
+  validateTeacherPhotos,
+} from "@/lib/teacher-input";
 import type { Teacher } from "@/lib/teachers";
 function toChinaDateTimeLocal(value: Date | null | undefined): string {
   if (!value) return "";
@@ -41,6 +47,7 @@ export function TeacherForm({
   const [previews, setPreviews] = useState<string[]>([]);
   const [compressing, setCompressing] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [photoError, setPhotoError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 每次累加的文件变化时，重新生成预览图地址，并在下次变化前回收旧的
@@ -55,9 +62,13 @@ export function TeacherForm({
   // 这样表单提交时读到的才是全部选中的照片，而不是最后一次选/拖的那一张
   useEffect(() => {
     if (!fileInputRef.current) return;
-    const dt = new DataTransfer();
-    photoFiles.forEach((f) => dt.items.add(f));
-    fileInputRef.current.files = dt.files;
+    try {
+      const dt = new DataTransfer();
+      photoFiles.forEach((f) => dt.items.add(f));
+      fileInputRef.current.files = dt.files;
+    } catch {
+      // 提交时还会再次同步并显示错误；这里不让预览流程崩溃。
+    }
   }, [photoFiles]);
 
   // 手机原图动辄几MB到十几MB，多选/多次拖拽累加后很容易超过服务器单次请求大小上限，
@@ -94,10 +105,25 @@ export function TeacherForm({
   // 无论是点击选文件，还是把一批文件一起拖进拖拽区，都走这里——追加而不是替换
   const processFiles = async (files: File[]) => {
     if (files.length === 0) return;
+    setPhotoError("");
+    if (photoFiles.length + files.length > MAX_TEACHER_PHOTOS) {
+      setPhotoError(`一次最多上传 ${MAX_TEACHER_PHOTOS} 张图片`);
+      return;
+    }
+    if (files.some((file) => !imageExtension(file.type))) {
+      setPhotoError("仅支持 JPG、PNG、WebP 和 GIF 图片");
+      return;
+    }
     setCompressing(true);
     try {
       const compressed = await Promise.all(files.map(compressImage));
-      setPhotoFiles((prev) => [...prev, ...compressed]);
+      const nextFiles = [...photoFiles, ...compressed];
+      const validationError = validateTeacherPhotos(nextFiles);
+      if (validationError) {
+        setPhotoError(validationError);
+        return;
+      }
+      setPhotoFiles(nextFiles);
     } finally {
       setCompressing(false);
     }
@@ -107,14 +133,32 @@ export function TeacherForm({
     processFiles(Array.from(e.target.files ?? []));
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setDragActive(false);
-    processFiles(Array.from(e.dataTransfer.files ?? []));
-  };
 
   const removePhoto = (index: number) => {
+    setPhotoError("");
     setPhotoFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    const validationError = validateTeacherPhotos(photoFiles);
+    if (validationError) {
+      event.preventDefault();
+      setPhotoError(validationError);
+      return;
+    }
+    if (!fileInputRef.current || photoFiles.length === 0) return;
+    try {
+      const dt = new DataTransfer();
+      photoFiles.forEach((file) => dt.items.add(file));
+      fileInputRef.current.files = dt.files;
+    } catch {
+      const nativeFiles = Array.from(fileInputRef.current.files ?? []);
+      const nativeValidationError = validateTeacherPhotos(nativeFiles);
+      if (nativeFiles.length === 0 || nativeValidationError) {
+        event.preventDefault();
+        setPhotoError(nativeValidationError ?? "浏览器没有准备好图片文件，请重新选择后再保存");
+      }
+    }
   };
 
   // 第一张会作为列表/详情页的封面图，所以要能调整顺序
@@ -144,7 +188,7 @@ export function TeacherForm({
         <span className="w-10" />
       </div>
 
-      <form action={action} className="space-y-4">
+      <form action={action} onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className={label}>标题</label>
           <input name="name" defaultValue={initial?.name} className={field} />
@@ -178,15 +222,17 @@ export function TeacherForm({
               name="district"
               list="district-options"
               value={district}
-              onChange={(e) => setDistrict(e.target.value)}
+              onChange={(e) => {
+                const normalized = normalizeTeacherLocation(city, e.target.value);
+                setCity(normalized.city);
+                setDistrict(normalized.district);
+              }}
               onBlur={(e) => {
                 // 粘贴/输完区县名后，自动带出它属于哪个省份，并补全漏写的"市/区"等后缀
                 // （否则存的是"深圳"、筛选列表里是"深圳市"，前台按城市搜索会搜不到）
-                const resolved = resolveDistrict(e.target.value);
-                if (resolved) {
-                  setCity(resolved.province);
-                  setDistrict(resolved.district);
-                }
+                const normalized = normalizeTeacherLocation(city, e.target.value);
+                setCity(normalized.city);
+                setDistrict(normalized.district);
               }}
               placeholder="可直接粘贴，如：徐汇区"
               className={field}
@@ -328,32 +374,36 @@ export function TeacherForm({
             照片（可多选，也可以一次拖拽好几张进来）
             {compressing && <span className="ml-2 text-xs font-normal text-pink-500">压缩中...</span>}
           </label>
-          <input
-            ref={fileInputRef}
-            type="file"
-            name="photos"
-            accept="image/*"
-            multiple
-            onChange={handleFiles}
-            className="hidden"
-          />
           <div
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragActive(true);
-            }}
-            onDragLeave={() => setDragActive(false)}
-            onDrop={handleDrop}
-            className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed py-8 text-center transition-colors ${
+            className={`relative flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed py-8 text-center transition-colors ${
               dragActive
                 ? "border-pink-400 bg-pink-50"
                 : "border-gray-200 bg-gray-50 active:bg-gray-100"
             }`}
           >
+            <input
+              ref={fileInputRef}
+              type="file"
+              name="photos"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              multiple
+              aria-label="选择或拖拽照片"
+              onChange={handleFiles}
+              onDragEnter={() => setDragActive(true)}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={() => setDragActive(false)}
+              className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+            />
             <span className="text-sm font-medium text-pink-500">点击选择照片</span>
-            <span className="mt-1 text-xs text-gray-400">或把照片拖到这个框里（可一次拖多张）</span>
+            <span className="mt-1 text-xs text-gray-400">
+              或把照片拖到这个框里（最多 {MAX_TEACHER_PHOTOS} 张）
+            </span>
           </div>
+          {photoError && (
+            <p role="alert" className="mt-2 text-sm text-red-600">
+              {photoError}
+            </p>
+          )}
 
           {/* 新选择的照片预览：左上角是顺序号，第1张会作为封面图；
               可点右上角 × 移除，或用左右箭头调整这张图排第几 */}

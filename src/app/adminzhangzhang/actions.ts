@@ -8,6 +8,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { emojiFor, defaultGradients } from "@/lib/photo";
+import {
+  imageExtension,
+  normalizeTeacherLocation,
+  validateTeacherPhotos,
+} from "@/lib/teacher-input";
 
 // ========== 登录 / 登出 ==========
 
@@ -42,13 +47,17 @@ export async function logout() {
 
 // 把上传的图片文件存到 public/uploads/ 下，返回它们的网址（如 /uploads/xxx.jpg）
 async function savePhotos(files: File[]): Promise<string[]> {
+  const nonEmptyFiles = files.filter((file) => file && file.size > 0);
+  const validationError = validateTeacherPhotos(nonEmptyFiles);
+  if (validationError) throw new Error(validationError);
+
   const urls: string[] = [];
   const dir = path.join(process.cwd(), "public", "uploads");
   await mkdir(dir, { recursive: true }); // 确保文件夹存在
 
-  for (const file of files) {
-    if (!file || file.size === 0) continue; // 跳过空的
-    const ext = path.extname(file.name) || ".jpg";
+  for (const file of nonEmptyFiles) {
+    const ext = imageExtension(file.type);
+    if (!ext) throw new Error("不支持的图片格式");
     const filename = `${crypto.randomUUID()}${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(path.join(dir, filename), buffer);
@@ -101,11 +110,16 @@ function extractFields(formData: FormData) {
   }
 
 
+  const location = normalizeTeacherLocation(
+    String(formData.get("city") ?? ""),
+    String(formData.get("district") ?? ""),
+  );
+
   return {
     name: String(formData.get("name") ?? "").trim(),
     type: String(formData.get("type") ?? "钢琴"),
-    city: String(formData.get("city") ?? "").trim(),
-    district: String(formData.get("district") ?? "").trim(),
+    city: location.city,
+    district: location.district,
     price: String(formData.get("price") ?? "").trim(),
     services: String(formData.get("services") ?? "").trim(),
     courseNotes: String(formData.get("courseNotes") ?? "").trim(),
