@@ -68,7 +68,7 @@ export default async function AdminUsersPage() {
     <div className="mx-auto w-full max-w-md flex-1 px-4 pb-10">
       {/* 顶部栏 */}
       <header className="sticky top-0 z-10 -mx-4 mb-4 flex items-center gap-3 bg-gradient-to-r from-pink-500 to-rose-500 px-4 py-4 text-white shadow-md">
-        <Link href="/admin" className="text-white/90">
+        <Link href="/adminzhangzhang" className="text-white/90">
           ← 返回
         </Link>
         <h1 className="text-lg font-bold">用户管理</h1>

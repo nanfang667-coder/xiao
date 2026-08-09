@@ -135,7 +135,7 @@ export function TeacherForm({
   return (
     <div className="mx-auto w-full max-w-md flex-1 px-4 pb-10 pt-4">
       <div className="mb-4 flex items-center justify-between">
-        <Link href="/admin/teachers" className="text-pink-500">
+        <Link href="/adminzhangzhang/teachers" className="text-pink-500">
           ← 返回
         </Link>
         <h1 className="text-base font-bold text-gray-900">

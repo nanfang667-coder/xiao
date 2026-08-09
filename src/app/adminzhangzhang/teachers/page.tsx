@@ -36,7 +36,7 @@ function pageHref(
   if (filters.query) params.set("q", filters.query);
   if (page > 1) params.set("page", String(page));
   const queryString = params.toString();
-  return queryString ? `/admin/teachers?${queryString}` : "/admin/teachers";
+  return queryString ? `/adminzhangzhang/teachers?${queryString}` : "/adminzhangzhang/teachers";
 }
 
 function Pagination({
@@ -139,7 +139,7 @@ export default async function AdminTeachersPage({ searchParams }: { searchParams
   return (
     <div className="mx-auto w-full max-w-md flex-1 px-4 pb-10">
       <header className="sticky top-0 z-10 -mx-4 mb-4 flex items-center gap-3 bg-gradient-to-r from-pink-500 to-rose-500 px-4 py-4 text-white shadow-md">
-        <Link href="/admin" className="text-white/90">
+        <Link href="/adminzhangzhang" className="text-white/90">
           ← 返回
         </Link>
         <h1 className="text-lg font-bold">老师管理</h1>
@@ -147,13 +147,13 @@ export default async function AdminTeachersPage({ searchParams }: { searchParams
 
       <div className="mb-4 grid grid-cols-2 gap-2">
         <Link
-          href="/admin/new"
+          href="/adminzhangzhang/new"
           className="flex items-center justify-center rounded-xl bg-pink-500 py-2.5 text-sm font-bold text-white active:bg-pink-600"
         >
           ＋ 添加老师
         </Link>
         <Link
-          href="/admin/import"
+          href="/adminzhangzhang/import"
           className="flex items-center justify-center rounded-xl border border-pink-200 bg-white py-2.5 text-sm font-bold text-pink-600 active:bg-pink-50"
         >
           批量导入
@@ -223,7 +223,7 @@ export default async function AdminTeachersPage({ searchParams }: { searchParams
 
             <div className="flex flex-none gap-2">
               <Link
-                href={`/admin/${teacher.id}/edit?returnTo=${encodeURIComponent(returnTo)}`}
+                href={`/adminzhangzhang/${teacher.id}/edit?returnTo=${encodeURIComponent(returnTo)}`}
                 className="rounded-lg border border-gray-200 px-3 py-1 text-xs text-gray-600 active:bg-gray-50"
               >
                 编辑

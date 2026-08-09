@@ -12,6 +12,6 @@ export async function isAdmin(): Promise<boolean> {
 // 要求必须是管理员，否则跳转到登录页（保护后台页面用）
 export async function requireAdmin(): Promise<void> {
   if (!(await isAdmin())) {
-    redirect("/admin/login");
+    redirect("/adminzhangzhang/login");
   }
 }

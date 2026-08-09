@@ -18,21 +18,21 @@ export default async function AdminDashboard() {
 
   const modules = [
     {
-      href: "/admin/teachers",
+      href: "/adminzhangzhang/teachers",
       icon: "🎹",
       title: "老师管理",
       desc: "添加、编辑、删除老师信息",
       count: `${teacherCount} 位老师`,
     },
     {
-      href: "/admin/users",
+      href: "/adminzhangzhang/users",
       icon: "👤",
       title: "用户管理",
       desc: "查看用户、开通/取消会员",
       count: `${userCount} 个用户`,
     },
     {
-      href: "/admin/withdrawals",
+      href: "/adminzhangzhang/withdrawals",
       icon: "💸",
       title: "提现审核",
       desc: "推广佣金提现申请，人工转账后标记发放",

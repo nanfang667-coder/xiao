@@ -69,9 +69,9 @@ export async function importLfgTeacher(cid: number) {
 
   const result = await importOne(cid);
   revalidatePath("/");
-  revalidatePath("/admin");
-  revalidatePath("/admin/teachers");
-  redirect(`/admin/${result.id}/edit`);
+  revalidatePath("/adminzhangzhang");
+  revalidatePath("/adminzhangzhang/teachers");
+  redirect(`/adminzhangzhang/${result.id}/edit`);
 }
 
 export async function importSelectedLfgTeachers(formData: FormData) {
@@ -100,11 +100,11 @@ export async function importSelectedLfgTeachers(formData: FormData) {
   }
 
   revalidatePath("/");
-  revalidatePath("/admin");
-  revalidatePath("/admin/teachers");
-  revalidatePath("/admin/import");
+  revalidatePath("/adminzhangzhang");
+  revalidatePath("/adminzhangzhang/teachers");
+  revalidatePath("/adminzhangzhang/import");
 
   const rawPage = Number(formData.get("page"));
   const page = Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
-  redirect(`/admin/import?page=${page}&imported=${imported}&skipped=${skipped}&failed=${failed}`);
+  redirect(`/adminzhangzhang/import?page=${page}&imported=${imported}&skipped=${skipped}&failed=${failed}`);
 }

@@ -7,7 +7,7 @@ export function SiteVisitTracker() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (pathname.startsWith("/admin")) return;
+    if (pathname.startsWith("/adminzhangzhang")) return;
 
     void fetch("/api/visits", {
       method: "POST",

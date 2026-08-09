@@ -16,7 +16,7 @@ export async function login(formData: FormData) {
 
   // 密码不对，回到登录页并带上错误提示
   if (password !== process.env.ADMIN_PASSWORD) {
-    redirect("/admin/login?error=1");
+    redirect("/adminzhangzhang/login?error=1");
   }
 
   // 密码正确，写入登录凭证 Cookie（有效期 7 天）
@@ -28,13 +28,13 @@ export async function login(formData: FormData) {
     maxAge: 60 * 60 * 24 * 7,
   });
 
-  redirect("/admin");
+  redirect("/adminzhangzhang");
 }
 
 export async function logout() {
   const store = await cookies();
   store.delete("admin_session");
-  redirect("/admin/login");
+  redirect("/adminzhangzhang/login");
 }
 
 // ========== 保存上传的图片 ==========
@@ -142,9 +142,9 @@ export async function createTeacher(formData: FormData) {
 
   // 通知相关页面刷新缓存
   revalidatePath("/");
-  revalidatePath("/admin");
-  revalidatePath("/admin/teachers");
-  redirect("/admin/teachers");
+  revalidatePath("/adminzhangzhang");
+  revalidatePath("/adminzhangzhang/teachers");
+  redirect("/adminzhangzhang/teachers");
 }
 
 export async function updateTeacher(id: number, returnTo: string, formData: FormData) {
@@ -177,13 +177,13 @@ export async function updateTeacher(id: number, returnTo: string, formData: Form
   });
 
   revalidatePath("/");
-  revalidatePath("/admin");
-  revalidatePath("/admin/teachers");
+  revalidatePath("/adminzhangzhang");
+  revalidatePath("/adminzhangzhang/teachers");
   revalidatePath(`/listing/${id}`);
   const safeReturnTo =
-    returnTo === "/admin/teachers" || returnTo.startsWith("/admin/teachers?")
+    returnTo === "/adminzhangzhang/teachers" || returnTo.startsWith("/adminzhangzhang/teachers?")
       ? returnTo
-      : "/admin/teachers";
+      : "/adminzhangzhang/teachers";
   redirect(safeReturnTo);
 }
 
@@ -193,8 +193,8 @@ export async function deleteTeacher(id: number) {
   await prisma.teacher.delete({ where: { id } });
   if (existing) await deleteUploadedPhotos(existing.photos); // 顺带清理图片文件
   revalidatePath("/");
-  revalidatePath("/admin");
-  revalidatePath("/admin/teachers");
+  revalidatePath("/adminzhangzhang");
+  revalidatePath("/adminzhangzhang/teachers");
 }
 
 // ========== 用户管理 ==========
@@ -218,7 +218,7 @@ export async function grantMembership(id: number, formData: FormData) {
     },
   });
 
-  revalidatePath("/admin/users");
+  revalidatePath("/adminzhangzhang/users");
 }
 
 // 取消会员
@@ -228,7 +228,7 @@ export async function revokeMembership(id: number) {
     where: { id },
     data: { isMember: false, membershipExpiresAt: null },
   });
-  revalidatePath("/admin/users");
+  revalidatePath("/adminzhangzhang/users");
 }
 
 // 封禁用户（管理员手动封禁；批量注册触发的自动封禁见 src/lib/user-auth.ts）
@@ -238,7 +238,7 @@ export async function banUser(id: number) {
     where: { id },
     data: { isBanned: true, bannedAt: new Date(), banReason: "管理员手动封禁" },
   });
-  revalidatePath("/admin/users");
+  revalidatePath("/adminzhangzhang/users");
 }
 
 // 解封用户
@@ -248,7 +248,7 @@ export async function unbanUser(id: number) {
     where: { id },
     data: { isBanned: false, bannedAt: null, banReason: null },
   });
-  revalidatePath("/admin/users");
+  revalidatePath("/adminzhangzhang/users");
 }
 
 // 删除用户
@@ -264,7 +264,7 @@ export async function deleteUser(id: number) {
   await prisma.order.deleteMany({ where: { userId: id } });
   await prisma.user.updateMany({ where: { referredBy: id }, data: { referredBy: null } }); // 避免遗留悬空引用
   await prisma.user.delete({ where: { id } });
-  revalidatePath("/admin/users");
+  revalidatePath("/adminzhangzhang/users");
 }
 
 // ========== 推广提现管理 ==========
@@ -276,7 +276,7 @@ export async function markWithdrawalPaid(id: number) {
     where: { id },
     data: { status: "paid", paidAt: new Date() },
   });
-  revalidatePath("/admin/withdrawals");
+  revalidatePath("/adminzhangzhang/withdrawals");
 }
 
 // 驳回提现申请：解除关联的佣金记录，恢复用户的可提现余额
@@ -292,5 +292,5 @@ export async function rejectWithdrawal(id: number) {
       data: { status: "rejected" },
     });
   });
-  revalidatePath("/admin/withdrawals");
+  revalidatePath("/adminzhangzhang/withdrawals");
 }

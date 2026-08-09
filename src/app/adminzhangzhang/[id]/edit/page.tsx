@@ -16,9 +16,9 @@ export default async function EditTeacherPage({
   const query = await searchParams;
   const rawReturnTo = Array.isArray(query.returnTo) ? query.returnTo[0] : query.returnTo;
   const returnTo =
-    rawReturnTo === "/admin/teachers" || rawReturnTo?.startsWith("/admin/teachers?")
+    rawReturnTo === "/adminzhangzhang/teachers" || rawReturnTo?.startsWith("/adminzhangzhang/teachers?")
       ? rawReturnTo
-      : "/admin/teachers";
+      : "/adminzhangzhang/teachers";
   const teacher = await getTeacherById(id);
   if (!teacher) notFound();
 

@@ -76,7 +76,7 @@ export function BulkImportList({
                   <p className="mt-1 text-xs text-gray-400">cid {item.cid} · 地区 {item.shi_id}</p>
                 </div>
                 {localId ? (
-                  <Link href={`/admin/${localId}/edit`} className="self-center rounded-lg bg-gray-100 px-3 py-2 text-xs text-gray-600">
+                  <Link href={`/adminzhangzhang/${localId}/edit`} className="self-center rounded-lg bg-gray-100 px-3 py-2 text-xs text-gray-600">
                     已导入
                   </Link>
                 ) : (
