@@ -8,7 +8,7 @@ STATE_FILE="$DEPLOY_ROOT/active.env"
 UPSTREAM_INCLUDE="${UPSTREAM_INCLUDE:-/etc/nginx/conf.d/hulim-upstream.inc}"
 TARGET_REF="${1:-origin/main}"
 HEALTH_PATH="${HEALTH_PATH:-/}"
-DATABASE_FILE="${DATABASE_FILE:-dev.db}"
+DATABASE_RELATIVE_PATH="prisma/prisma/prod.db"
 HEALTH_HOST="${HEALTH_HOST:-fenglou1.com}"
 DRAIN_SECONDS="${DRAIN_SECONDS:-10}"
 
@@ -97,12 +97,12 @@ for command_name in git npm npx pm2 curl nginx systemctl flock tar sha256sum awk
   require_command "$command_name"
 done
 
+[[ "$SOURCE_DIR" == /* && "$DEPLOY_ROOT" == /* ]] || die "Deployment paths must be absolute"
 [[ -d "$SOURCE_DIR/.git" ]] || die "Git repository not found at $SOURCE_DIR"
 [[ -f "$STATE_FILE" && ! -L "$STATE_FILE" ]] || die "Run setup-blue-green.sh first"
 [[ -f "$UPSTREAM_INCLUDE" ]] || die "Nginx upstream include is missing"
 [[ -f "$SOURCE_DIR/.env" ]] || die "Shared .env is missing"
-[[ "$DATABASE_FILE" =~ ^[A-Za-z0-9._-]+\.db$ ]] || die "Invalid shared database filename"
-[[ -f "$SOURCE_DIR/prisma/$DATABASE_FILE" ]] || die "Shared production database is missing"
+[[ -f "$SOURCE_DIR/$DATABASE_RELATIVE_PATH" ]] || die "Shared production database is missing at $SOURCE_DIR/$DATABASE_RELATIVE_PATH"
 [[ -d "$SOURCE_DIR/public/uploads" ]] || die "Shared upload directory is missing"
 
 exec 9>"$DEPLOY_ROOT/deploy.lock"
@@ -137,8 +137,10 @@ mkdir -p "$NEW_RELEASE"
 git -C "$SOURCE_DIR" archive "$TARGET_REVISION" | tar -x -C "$NEW_RELEASE"
 
 ln -s "$SOURCE_DIR/.env" "$NEW_RELEASE/.env"
-rm -f -- "$NEW_RELEASE/prisma/$DATABASE_FILE"
-ln -s "$SOURCE_DIR/prisma/$DATABASE_FILE" "$NEW_RELEASE/prisma/$DATABASE_FILE"
+release_database="$NEW_RELEASE/$DATABASE_RELATIVE_PATH"
+mkdir -p "$(dirname "$release_database")"
+rm -f -- "$release_database"
+ln -s "$SOURCE_DIR/$DATABASE_RELATIVE_PATH" "$release_database"
 if [[ -e "$NEW_RELEASE/public/uploads" ]]; then
   mv "$NEW_RELEASE/public/uploads" "$NEW_RELEASE/uploads.repository"
 fi
@@ -170,16 +172,20 @@ NODE_ENV=production NEXT_DEPLOYMENT_ID="$TARGET_REVISION" \
 
 log "Waiting for the new application to become healthy"
 healthy=0
+health_status=000
 for _ in $(seq 1 45); do
-  if curl --fail --silent --show-error --max-time 3 \
+  if health_status="$(curl --fail --silent --show-error --max-time 3 \
     --output /dev/null \
-    "http://127.0.0.1:$NEW_PORT$HEALTH_PATH"; then
-    healthy=1
-    break
+    --write-out '%{http_code}' \
+    "http://127.0.0.1:$NEW_PORT$HEALTH_PATH")"; then
+    if [[ "$health_status" =~ ^[23][0-9][0-9]$ ]]; then
+      healthy=1
+      break
+    fi
   fi
   sleep 1
 done
-[[ "$healthy" -eq 1 ]] || die "New application failed its health check"
+[[ "$healthy" -eq 1 ]] || die "New application failed its home-page health check (last HTTP status: $health_status); Nginx was not switched"
 
 UPSTREAM_BACKUP="$(mktemp "$DEPLOY_ROOT/.upstream-backup.XXXXXX")"
 cp -a "$UPSTREAM_INCLUDE" "$UPSTREAM_BACKUP"

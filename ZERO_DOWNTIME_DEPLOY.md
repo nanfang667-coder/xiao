@@ -7,11 +7,13 @@ while the previous release continues serving traffic.
 The deployment preserves the existing files without printing their contents:
 
 - `/opt/hulim/.env`
-- `/opt/hulim/prisma/dev.db`
+- `/opt/hulim/prisma/prisma/prod.db`
 - `/opt/hulim/public/uploads`
 
-The shared `.env` must contain `DATABASE_URL="file:./dev.db"`, because Prisma
-resolves this SQLite path relative to `prisma/schema.prisma`.
+The shared `.env` must keep `DATABASE_URL="file:./prisma/prod.db"`. Prisma
+resolves that SQLite path relative to `prisma/schema.prisma`, so every release
+provides `prisma/prisma/prod.db` as a symbolic link to the production database
+at `/opt/hulim/prisma/prisma/prod.db`.
 
 ## One-time setup
 
@@ -52,7 +54,9 @@ hulim-deploy <commit-sha>
 
 - Existing `.env`, SQLite data, and uploads are shared, never recreated.
 - Concurrent deployments are rejected with a file lock.
-- A failed health check leaves Nginx on the previous release.
+- The new release must pass the database-backed home-page health check before
+  Nginx is changed. Any HTTP error, including 500, leaves Nginx on the previous
+  release.
 - Nginx validation or post-switch verification failure triggers rollback.
 - Any Prisma migration change aborts blue-green deployment. Schema changes need
   a separately reviewed maintenance deployment because the old and new code
