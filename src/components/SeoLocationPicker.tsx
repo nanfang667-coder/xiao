@@ -80,7 +80,7 @@ export function SeoLocationPicker({
       className="group rounded-2xl bg-white p-4 shadow-sm"
       open={defaultOpen || undefined}
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-200 [&::-webkit-details-marker]:hidden">
         <span className="truncate text-sm font-bold text-gray-800">
           📍 {initialGroup?.province.province ?? "全部地区"}
         </span>
@@ -92,10 +92,13 @@ export function SeoLocationPicker({
 
       {initialGroup ? (
         <div className="mt-4">
-          <Link href="/fenglou" className="mb-3 inline-block text-xs text-gray-400 hover:text-pink-500">
-            ‹ 重新选择省份
-          </Link>
-          <div className="grid grid-cols-3 gap-x-3 gap-y-3">
+          <details className="peer">
+            <summary className="inline-block cursor-pointer list-none text-xs text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-200 [&::-webkit-details-marker]:hidden">
+              ‹ 重新选择省份
+            </summary>
+            {provinceOptions}
+          </details>
+          <div className="mt-3 grid grid-cols-3 gap-x-3 gap-y-3 peer-open:hidden">
             {regionOption(initialGroup.province, "全部")}
             {initialGroup.regions.map((region) => regionOption(region))}
           </div>
