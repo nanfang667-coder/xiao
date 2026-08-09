@@ -8,7 +8,7 @@ import {
   type SeoLocation,
 } from "@/lib/location-seo";
 
-type PickerView = "provinces" | "regions" | null;
+type PickerView = "provinces" | "regions";
 
 type SeoLocationPickerProps = {
   availableLocationSlugs: string[];
@@ -28,9 +28,7 @@ export function SeoLocationPicker({
   const initialGroup = SEO_LOCATION_GROUPS.find(
     (group) => group.province.slug === initialProvinceSlug,
   );
-  const [view, setView] = useState<PickerView>(
-    defaultOpen ? (initialGroup ? "regions" : "provinces") : null,
-  );
+  const [view, setView] = useState<PickerView>(initialGroup ? "regions" : "provinces");
   const [selectedProvinceSlug, setSelectedProvinceSlug] = useState(
     initialGroup?.province.slug ?? "",
   );
@@ -41,14 +39,6 @@ export function SeoLocationPicker({
   const chooseProvince = (provinceSlug: string) => {
     setSelectedProvinceSlug(provinceSlug);
     setView("regions");
-  };
-
-  const togglePicker = () => {
-    if (view) {
-      setView(null);
-      return;
-    }
-    setView(selectedGroup ? "regions" : "provinces");
   };
 
   const regionOption = (
@@ -77,20 +67,19 @@ export function SeoLocationPicker({
   };
 
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
+    <details
+      className="group rounded-2xl bg-white p-4 shadow-sm"
+      open={defaultOpen || undefined}
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <span className="truncate text-sm font-bold text-gray-800">
           📍 {selectedGroup?.province.province ?? "全部地区"}
         </span>
-        <button
-          type="button"
-          onClick={togglePicker}
-          className="flex-none rounded-full border border-pink-400 px-4 py-1.5 text-sm text-pink-500 active:bg-pink-50"
-          aria-expanded={Boolean(view)}
-        >
-          {view ? "收起" : "选择地区"}
-        </button>
-      </div>
+        <span className="flex-none rounded-full border border-pink-400 px-4 py-1.5 text-sm text-pink-500 active:bg-pink-50">
+          <span className="group-open:hidden">选择地区</span>
+          <span className="hidden group-open:inline">收起</span>
+        </span>
+      </summary>
 
       {view === "provinces" && (
         <div className="mt-4 grid grid-cols-3 gap-x-3 gap-y-3">
@@ -141,6 +130,6 @@ export function SeoLocationPicker({
           </div>
         </div>
       )}
-    </div>
+    </details>
   );
 }
