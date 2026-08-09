@@ -53,6 +53,15 @@ function truncate(value: string, maxLength: number): string {
   return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
 }
 
+function getLocationDisplayName(
+  location: NonNullable<ReturnType<typeof getSeoLocationBySlug>>,
+): string {
+  if (!location.region) return location.name;
+
+  const provinceLocation = getSeoLocationFromSelection(location.province);
+  return provinceLocation ? `${provinceLocation.name}${location.name}` : location.name;
+}
+
 export async function generateMetadata({ params, searchParams }: CityPageProps): Promise<Metadata> {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const location = getSeoLocationBySlug(slug);
@@ -70,10 +79,11 @@ export async function generateMetadata({ params, searchParams }: CityPageProps):
   const page = result.page;
   const path = getSeoLocationPath(location);
   const canonical = new URL(pageUrl(path, page), SITE_URL).toString();
-  const pageLabel = page > 1 ? `第${page}页` : "";
-  const title = truncate(`${location.name}凤楼${pageLabel}｜${location.name}地区信息`, 60);
+  const locationDisplayName = getLocationDisplayName(location);
+  const pageLabel = page > 1 ? ` - 第${page}页` : "";
+  const title = truncate(`${locationDisplayName}凤楼${pageLabel}｜本地公开信息`, 60);
   const description = truncate(
-    `${SITE_NAME}${location.name}站收录${result.total}条公开信息，可查看个人介绍、价格与所在地区。`,
+    `${locationDisplayName}现有${result.total}条公开信息，按最新发布时间排列，可查看个人介绍、价格和所在地区。`,
     160,
   );
 
@@ -136,6 +146,7 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
   const promotionIds = new Set(nationalPromotions.map((promotion) => promotion.id));
 
   const provinceLocation = getSeoLocationFromSelection(location.province);
+  const locationDisplayName = getLocationDisplayName(location);
   const parentLocation = location.region ? provinceLocation : undefined;
   const breadcrumbLocations = parentLocation ? [parentLocation, location] : [location];
   const breadcrumbItems = [
@@ -163,7 +174,7 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
               },
               {
                 "@type": "CollectionPage",
-                name: `${location.name}凤楼地区信息`,
+                name: `${locationDisplayName}凤楼`,
                 url: canonical,
                 mainEntity: {
                   "@type": "ItemList",
@@ -224,7 +235,7 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
 
         <section aria-labelledby="location-items-heading" className="px-4 pt-4">
           <h1 id="location-items-heading" className="mb-3 text-lg font-bold text-gray-900">
-            {location.name}凤楼地区信息
+            {locationDisplayName}凤楼{result.page > 1 ? ` - 第${result.page}页` : ""}
           </h1>
           <div className="flex flex-col gap-3">
             {result.teachers.filter((teacher) => !promotionIds.has(teacher.id)).map((teacher) => (
