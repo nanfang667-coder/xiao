@@ -151,9 +151,10 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
   const breadcrumbLocations = parentLocation ? [parentLocation, location] : [location];
   const breadcrumbItems = [
     { "@type": "ListItem", position: 1, name: SITE_NAME, item: SITE_URL },
+    { "@type": "ListItem", position: 2, name: "全国地区", item: `${SITE_URL}/fenglou` },
     ...breadcrumbLocations.map((item, index) => ({
       "@type": "ListItem",
-      position: index + 2,
+      position: index + 3,
       name: `${item.name}凤楼`,
       item: getSeoLocationUrl(item, SITE_URL),
     })),
@@ -206,6 +207,12 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
           <Link href="/" className="hover:text-pink-500">
             首页
           </Link>
+          <span className="flex items-center gap-1">
+            <span aria-hidden="true">›</span>
+            <Link href="/fenglou" className="hover:text-pink-500">
+              全国地区
+            </Link>
+          </span>
           {breadcrumbLocations.map((item) => (
             <span key={item.slug} className="flex items-center gap-1">
               <span aria-hidden="true">›</span>

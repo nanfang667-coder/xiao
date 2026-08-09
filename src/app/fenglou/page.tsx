@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/user-auth";
 import { isActiveMember } from "@/lib/membership";
 import { SITE_NAME, SITE_URL } from "@/lib/site-config";
 import { getAvailableSeoLocationSlugs } from "@/lib/teachers";
+import { getSeoLocationUrl, SEO_LOCATION_GROUPS } from "@/lib/location-seo";
 
 const DIRECTORY_URL = `${SITE_URL}/fenglou`;
 
@@ -32,6 +33,11 @@ export default async function FenglouDirectoryPage() {
     getCurrentUser(),
     getAvailableSeoLocationSlugs(),
   ]);
+  const availableSlugs = new Set(availableLocationSlugs);
+  const availableLocations = SEO_LOCATION_GROUPS.flatMap((group) => [
+    group.province,
+    ...group.regions,
+  ]).filter((location) => availableSlugs.has(location.slug));
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 pb-10">
@@ -40,10 +46,29 @@ export default async function FenglouDirectoryPage() {
         dangerouslySetInnerHTML={{
           __html: jsonLd({
             "@context": "https://schema.org",
-            "@type": "BreadcrumbList",
-            itemListElement: [
-              { "@type": "ListItem", position: 1, name: SITE_NAME, item: SITE_URL },
-              { "@type": "ListItem", position: 2, name: "全国地区", item: DIRECTORY_URL },
+            "@graph": [
+              {
+                "@type": "BreadcrumbList",
+                itemListElement: [
+                  { "@type": "ListItem", position: 1, name: SITE_NAME, item: SITE_URL },
+                  { "@type": "ListItem", position: 2, name: "全国地区", item: DIRECTORY_URL },
+                ],
+              },
+              {
+                "@type": "CollectionPage",
+                name: "全国凤楼地区导航",
+                url: DIRECTORY_URL,
+                mainEntity: {
+                  "@type": "ItemList",
+                  numberOfItems: availableLocations.length,
+                  itemListElement: availableLocations.map((location, index) => ({
+                    "@type": "ListItem",
+                    position: index + 1,
+                    name: `${location.name}凤楼`,
+                    url: getSeoLocationUrl(location, SITE_URL),
+                  })),
+                },
+              },
             ],
           }),
         }}
