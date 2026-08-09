@@ -7,6 +7,8 @@ import {
   VISITOR_COOKIE_NAME,
 } from "@/lib/visitor";
 
+const ADMIN_PATH_PREFIX = "/adminzhangzhang";
+
 function isSameOrigin(req: NextRequest): boolean {
   const host = req.headers.get("host");
   const origin = req.headers.get("origin");
@@ -22,9 +24,29 @@ function isSameOrigin(req: NextRequest): boolean {
   return req.headers.get("sec-fetch-site") === "same-origin";
 }
 
+function isAdminPageRequest(req: NextRequest): boolean {
+  const referer = req.headers.get("referer");
+  if (!referer) return false;
+
+  try {
+    const url = new URL(referer);
+    return (
+      url.host === req.nextUrl.host &&
+      (url.pathname === ADMIN_PATH_PREFIX ||
+        url.pathname.startsWith(`${ADMIN_PATH_PREFIX}/`))
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: NextRequest) {
   if (!isSameOrigin(req)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (isAdminPageRequest(req)) {
+    return new NextResponse(null, { status: 204 });
   }
 
   const existingVisitorId = req.cookies.get(VISITOR_COOKIE_NAME)?.value;
