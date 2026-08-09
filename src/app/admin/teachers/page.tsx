@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
-import { searchTeachersForAdmin } from "@/lib/teachers";
+import { searchTeachersForAdmin, type AdminTeacherListItem } from "@/lib/teachers";
 import { isImage } from "@/lib/photo";
 import { formatLocationLabel } from "@/lib/location-label";
 import { citiesOfProvince, normalizeProvince } from "@/data/locations";
@@ -13,6 +13,17 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 function firstValue(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
+function promotionStatus(teacher: AdminTeacherListItem, now: Date) {
+  if (!teacher.isNationallyPromoted) return null;
+  if (teacher.promotionStartsAt && teacher.promotionStartsAt > now) {
+    return { label: "待开始", className: "bg-blue-50 text-blue-700" };
+  }
+  if (teacher.promotionEndsAt && teacher.promotionEndsAt < now) {
+    return { label: "已过期", className: "bg-gray-100 text-gray-500" };
+  }
+  return { label: "生效中", className: "bg-emerald-50 text-emerald-700" };
 }
 
 function pageHref(
@@ -123,6 +134,7 @@ export default async function AdminTeachersPage({ searchParams }: { searchParams
   });
   const activeFilters = { province, city, query };
   const returnTo = pageHref(activeFilters, result.page);
+  const now = new Date();
 
   return (
     <div className="mx-auto w-full max-w-md flex-1 px-4 pb-10">
@@ -188,8 +200,13 @@ export default async function AdminTeachersPage({ searchParams }: { searchParams
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-gray-400">#{teacher.id}</span>
                 {teacher.isNationallyPromoted && (
-                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
-                    {"\u5168\u56fd\u63a8\u5e7f"} {"\u00b7"} {"\u6392\u5e8f"} {teacher.promotionOrder}
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                      promotionStatus(teacher, now)?.className
+                    }`}
+                  >
+                    {"\u5168\u56fd\u63a8\u5e7f"} {"\u00b7"} {promotionStatus(teacher, now)?.label} {"\u00b7"}{" "}
+                    {"\u6392\u5e8f"} {teacher.promotionOrder}
                   </span>
                 )}
                 <h2 className="line-clamp-1 text-sm font-semibold text-gray-800">

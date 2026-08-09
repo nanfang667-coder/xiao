@@ -94,7 +94,18 @@ export type AdminTeacherFilters = {
 
 export type AdminTeacherListItem = Pick<
   Teacher,
-  "id" | "name" | "city" | "district" | "price" | "photos" | "emoji" | "createdAt" | "isNationallyPromoted" | "promotionOrder"
+  | "id"
+  | "name"
+  | "city"
+  | "district"
+  | "price"
+  | "photos"
+  | "emoji"
+  | "createdAt"
+  | "isNationallyPromoted"
+  | "promotionOrder"
+  | "promotionStartsAt"
+  | "promotionEndsAt"
 >;
 
 export type AdminTeacherSearchResult = {
@@ -196,6 +207,8 @@ export async function searchTeachersForAdmin(
       createdAt: true,
       isNationallyPromoted: true,
       promotionOrder: true,
+      promotionStartsAt: true,
+      promotionEndsAt: true,
     },
   });
 
