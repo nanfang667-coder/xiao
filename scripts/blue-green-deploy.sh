@@ -138,9 +138,9 @@ ln -s "$SOURCE_DIR/.env" "$NEW_RELEASE/.env"
 rm -f -- "$NEW_RELEASE/prisma/prod.db"
 ln -s "$SOURCE_DIR/prisma/prod.db" "$NEW_RELEASE/prisma/prod.db"
 if [[ -e "$NEW_RELEASE/public/uploads" ]]; then
-  mv "$NEW_RELEASE/public/uploads" "$NEW_RELEASE/public/uploads.repository"
+  mv "$NEW_RELEASE/public/uploads" "$NEW_RELEASE/uploads.repository"
 fi
-ln -s "$SOURCE_DIR/public/uploads" "$NEW_RELEASE/public/uploads"
+mkdir -p "$NEW_RELEASE/public/uploads"
 
 ACTIVE_MIGRATIONS="$(migration_fingerprint "$ACTIVE_RELEASE")"
 TARGET_MIGRATIONS="$(migration_fingerprint "$NEW_RELEASE")"
@@ -155,6 +155,9 @@ log "Installing dependencies and building away from the live application"
   npx prisma generate
   NEXT_DEPLOYMENT_ID="$TARGET_REVISION" npm run build
 )
+
+rmdir -- "$NEW_RELEASE/public/uploads"
+ln -s "$SOURCE_DIR/public/uploads" "$NEW_RELEASE/public/uploads"
 
 pm2 delete "$NEW_PROCESS" >/dev/null 2>&1 || true
 NODE_ENV=production NEXT_DEPLOYMENT_ID="$TARGET_REVISION" \
