@@ -7,8 +7,11 @@ while the previous release continues serving traffic.
 The deployment preserves the existing files without printing their contents:
 
 - `/opt/hulim/.env`
-- `/opt/hulim/prisma/prod.db`
+- `/opt/hulim/prisma/dev.db`
 - `/opt/hulim/public/uploads`
+
+The shared `.env` must contain `DATABASE_URL="file:./dev.db"`, because Prisma
+resolves this SQLite path relative to `prisma/schema.prisma`.
 
 ## One-time setup
 
@@ -36,8 +39,8 @@ hulim-deploy
 ```
 
 The script fetches `origin/main`, builds a separate release, starts it on the
-inactive port, checks `/robots.txt`, switches Nginx atomically, verifies HTTPS,
-then drains and removes the old PM2 process.
+inactive port, checks the database-backed home page, switches Nginx atomically,
+verifies the public HTTPS home page, then drains and removes the old PM2 process.
 
 To deploy a reviewed commit other than `origin/main`:
 

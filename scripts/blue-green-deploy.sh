@@ -7,7 +7,8 @@ RELEASES_DIR="$DEPLOY_ROOT/releases"
 STATE_FILE="$DEPLOY_ROOT/active.env"
 UPSTREAM_INCLUDE="${UPSTREAM_INCLUDE:-/etc/nginx/conf.d/hulim-upstream.inc}"
 TARGET_REF="${1:-origin/main}"
-HEALTH_PATH="${HEALTH_PATH:-/robots.txt}"
+HEALTH_PATH="${HEALTH_PATH:-/}"
+DATABASE_FILE="${DATABASE_FILE:-dev.db}"
 HEALTH_HOST="${HEALTH_HOST:-fenglou1.com}"
 DRAIN_SECONDS="${DRAIN_SECONDS:-10}"
 
@@ -100,7 +101,8 @@ done
 [[ -f "$STATE_FILE" && ! -L "$STATE_FILE" ]] || die "Run setup-blue-green.sh first"
 [[ -f "$UPSTREAM_INCLUDE" ]] || die "Nginx upstream include is missing"
 [[ -f "$SOURCE_DIR/.env" ]] || die "Shared .env is missing"
-[[ -f "$SOURCE_DIR/prisma/prod.db" ]] || die "Shared production database is missing"
+[[ "$DATABASE_FILE" =~ ^[A-Za-z0-9._-]+\.db$ ]] || die "Invalid shared database filename"
+[[ -f "$SOURCE_DIR/prisma/$DATABASE_FILE" ]] || die "Shared production database is missing"
 [[ -d "$SOURCE_DIR/public/uploads" ]] || die "Shared upload directory is missing"
 
 exec 9>"$DEPLOY_ROOT/deploy.lock"
@@ -135,8 +137,8 @@ mkdir -p "$NEW_RELEASE"
 git -C "$SOURCE_DIR" archive "$TARGET_REVISION" | tar -x -C "$NEW_RELEASE"
 
 ln -s "$SOURCE_DIR/.env" "$NEW_RELEASE/.env"
-rm -f -- "$NEW_RELEASE/prisma/prod.db"
-ln -s "$SOURCE_DIR/prisma/prod.db" "$NEW_RELEASE/prisma/prod.db"
+rm -f -- "$NEW_RELEASE/prisma/$DATABASE_FILE"
+ln -s "$SOURCE_DIR/prisma/$DATABASE_FILE" "$NEW_RELEASE/prisma/$DATABASE_FILE"
 if [[ -e "$NEW_RELEASE/public/uploads" ]]; then
   mv "$NEW_RELEASE/public/uploads" "$NEW_RELEASE/uploads.repository"
 fi
@@ -170,8 +172,8 @@ log "Waiting for the new application to become healthy"
 healthy=0
 for _ in $(seq 1 45); do
   if curl --fail --silent --show-error --max-time 3 \
-    "http://127.0.0.1:$NEW_PORT$HEALTH_PATH" \
-    | grep -Fq 'Sitemap: https://fenglou1.com/sitemap.xml'; then
+    --output /dev/null \
+    "http://127.0.0.1:$NEW_PORT$HEALTH_PATH"; then
     healthy=1
     break
   fi
@@ -188,9 +190,9 @@ systemctl reload nginx
 
 log "Verifying the public Nginx route after the atomic switch"
 curl --noproxy '*' --fail --silent --show-error --max-time 15 \
+  --output /dev/null \
   --resolve "$HEALTH_HOST:443:127.0.0.1" \
-  "https://$HEALTH_HOST$HEALTH_PATH" \
-  | grep -Fq 'Sitemap: https://fenglou1.com/sitemap.xml'
+  "https://$HEALTH_HOST$HEALTH_PATH"
 
 write_state
 DEPLOYMENT_SUCCEEDED=1
