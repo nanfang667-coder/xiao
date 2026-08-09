@@ -1,7 +1,10 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
+import type { MouseEvent } from "react";
+
 // 通用分页控件：上一页 / 页码 / 下一页。
-// page 从 1 开始；totalPages 为总页数；onChange 切换页码。
+// 链接保证 JavaScript 未加载时仍可翻页；水合完成后使用 onChange 无刷新切换。
 export function Pagination({
   page,
   totalPages,
@@ -11,75 +14,108 @@ export function Pagination({
   totalPages: number;
   onChange: (page: number) => void;
 }) {
-  // 只有一页（或没有内容）时不显示
+  const searchParams = useSearchParams();
+
   if (totalPages <= 1) return null;
 
-  // 计算要显示的页码：当前页附近最多 5 个
   const pages: number[] = [];
   const start = Math.max(1, Math.min(page - 2, totalPages - 4));
   const end = Math.min(totalPages, start + 4);
   for (let i = start; i <= end; i++) pages.push(i);
 
-  const btn =
+  const itemClass =
     "flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm transition";
 
-  return (
-    <div className="flex items-center justify-center gap-1.5 py-6">
-      {/* 上一页 */}
-      <button
-        onClick={() => onChange(page - 1)}
-        disabled={page <= 1}
-        className={`${btn} border border-gray-200 text-gray-600 disabled:opacity-40 active:bg-gray-50`}
-      >
-        ‹
-      </button>
+  const hrefForPage = (targetPage: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (targetPage === 1) {
+      params.delete("page");
+    } else {
+      params.set("page", String(targetPage));
+    }
+    const query = params.toString();
+    return query ? `/?${query}` : "/";
+  };
 
-      {/* 前面省略号 */}
+  const handlePageClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    targetPage: number,
+  ) => {
+    event.preventDefault();
+    onChange(targetPage);
+  };
+
+  const pageLink = (
+    targetPage: number,
+    label?: "上一页" | "下一页",
+    key?: number,
+  ) => (
+    <a
+      key={key}
+      href={hrefForPage(targetPage)}
+      onClick={(event) => handlePageClick(event, targetPage)}
+      className={`${itemClass} ${
+        label ? "border border-gray-200" : ""
+      } text-gray-600 active:bg-gray-50`}
+      aria-label={label}
+    >
+      {label ? (label === "上一页" ? "‹" : "›") : targetPage}
+    </a>
+  );
+
+  return (
+    <nav aria-label="分页导航" className="flex items-center justify-center gap-1.5 py-6">
+      {page > 1 ? (
+        pageLink(page - 1, "上一页")
+      ) : (
+        <span
+          aria-disabled="true"
+          aria-label="上一页"
+          className={`${itemClass} border border-gray-200 text-gray-600 opacity-40`}
+        >
+          ‹
+        </span>
+      )}
+
       {start > 1 && (
         <>
-          <button onClick={() => onChange(1)} className={`${btn} text-gray-600 active:bg-gray-50`}>
-            1
-          </button>
+          {pageLink(1)}
           {start > 2 && <span className="px-1 text-gray-400">…</span>}
         </>
       )}
 
-      {/* 页码 */}
-      {pages.map((p) => (
-        <button
-          key={p}
-          onClick={() => onChange(p)}
-          className={`${btn} ${
-            p === page
-              ? "bg-pink-500 font-bold text-white"
-              : "text-gray-600 active:bg-gray-50"
-          }`}
-        >
-          {p}
-        </button>
-      ))}
+      {pages.map((targetPage) =>
+        targetPage === page ? (
+          <span
+            key={targetPage}
+            aria-current="page"
+            className={`${itemClass} bg-pink-500 font-bold text-white`}
+          >
+            {targetPage}
+          </span>
+        ) : (
+          pageLink(targetPage, undefined, targetPage)
+        ),
+      )}
 
-      {/* 后面省略号 */}
       {end < totalPages && (
         <>
           {end < totalPages - 1 && <span className="px-1 text-gray-400">…</span>}
-          <button
-            onClick={() => onChange(totalPages)}
-            className={`${btn} text-gray-600 active:bg-gray-50`}
-          >
-            {totalPages}
-          </button>
+          {pageLink(totalPages)}
         </>
       )}
 
-      {/* 下一页 */}
-      <button
-        onClick={() => onChange(page + 1)}
-        disabled={page >= totalPages}
-        className={`${btn} border border-gray-200 text-gray-600 disabled:opacity-40 active:bg-gray-50`}
-      >
-        ›
-      </button>
-    </div>
+      {page < totalPages ? (
+        pageLink(page + 1, "下一页")
+      ) : (
+        <span
+          aria-disabled="true"
+          aria-label="下一页"
+          className={`${itemClass} border border-gray-200 text-gray-600 opacity-40`}
+        >
+          ›
+        </span>
+      )}
+    </nav>
   );
 }
