@@ -1,14 +1,9 @@
-"use client";
-
-import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   getSeoLocationPath,
   SEO_LOCATION_GROUPS,
   type SeoLocation,
 } from "@/lib/location-seo";
-
-type PickerView = "provinces" | "regions";
 
 type SeoLocationPickerProps = {
   availableLocationSlugs: string[];
@@ -21,25 +16,10 @@ export function SeoLocationPicker({
   defaultOpen = false,
   initialProvinceSlug,
 }: SeoLocationPickerProps) {
-  const availableSlugs = useMemo(
-    () => new Set(availableLocationSlugs),
-    [availableLocationSlugs],
-  );
+  const availableSlugs = new Set(availableLocationSlugs);
   const initialGroup = SEO_LOCATION_GROUPS.find(
     (group) => group.province.slug === initialProvinceSlug,
   );
-  const [view, setView] = useState<PickerView>(initialGroup ? "regions" : "provinces");
-  const [selectedProvinceSlug, setSelectedProvinceSlug] = useState(
-    initialGroup?.province.slug ?? "",
-  );
-  const selectedGroup = SEO_LOCATION_GROUPS.find(
-    (group) => group.province.slug === selectedProvinceSlug,
-  );
-
-  const chooseProvince = (provinceSlug: string) => {
-    setSelectedProvinceSlug(provinceSlug);
-    setView("regions");
-  };
 
   const regionOption = (
     location: SeoLocation,
@@ -66,6 +46,35 @@ export function SeoLocationPicker({
     );
   };
 
+  const provinceOptions = (
+    <div className="mt-4 grid grid-cols-3 gap-x-3 gap-y-3">
+      <Link href="/" className="text-sm font-bold text-pink-500">
+        全部
+      </Link>
+      {SEO_LOCATION_GROUPS.map((group) => {
+        const available = availableSlugs.has(group.province.slug);
+        return available ? (
+          <Link
+            key={group.province.slug}
+            href={getSeoLocationPath(group.province)}
+            className="truncate text-left text-sm text-gray-800 transition hover:text-pink-500"
+          >
+            {group.province.province}
+          </Link>
+        ) : (
+          <span
+            key={group.province.slug}
+            aria-disabled="true"
+            title="暂无公开信息，增加第1条后自动开放"
+            className="truncate text-left text-sm text-gray-300"
+          >
+            {group.province.province}
+          </span>
+        );
+      })}
+    </div>
+  );
+
   return (
     <details
       className="group rounded-2xl bg-white p-4 shadow-sm"
@@ -73,7 +82,7 @@ export function SeoLocationPicker({
     >
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
         <span className="truncate text-sm font-bold text-gray-800">
-          📍 {selectedGroup?.province.province ?? "全部地区"}
+          📍 {initialGroup?.province.province ?? "全部地区"}
         </span>
         <span className="flex-none rounded-full border border-pink-400 px-4 py-1.5 text-sm text-pink-500 active:bg-pink-50">
           <span className="group-open:hidden">选择地区</span>
@@ -81,54 +90,18 @@ export function SeoLocationPicker({
         </span>
       </summary>
 
-      {view === "provinces" && (
-        <div className="mt-4 grid grid-cols-3 gap-x-3 gap-y-3">
-          <Link href="/" className="text-sm font-bold text-pink-500">
-            全部
-          </Link>
-          {SEO_LOCATION_GROUPS.map((group) => {
-            const available = availableSlugs.has(group.province.slug);
-            if (available) {
-              return (
-                <Link
-                  key={group.province.slug}
-                  href={getSeoLocationPath(group.province)}
-                  className="truncate text-left text-sm text-gray-800 transition hover:text-pink-500"
-                >
-                  {group.province.province}
-                </Link>
-              );
-            }
-
-            return (
-              <button
-                key={group.province.slug}
-                type="button"
-                onClick={() => chooseProvince(group.province.slug)}
-                className="truncate text-left text-sm text-gray-400 transition hover:text-pink-500"
-                aria-label={`选择${group.province.province}`}
-              >
-                {group.province.province}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {view === "regions" && selectedGroup && (
+      {initialGroup ? (
         <div className="mt-4">
-          <button
-            type="button"
-            onClick={() => setView("provinces")}
-            className="mb-3 text-xs text-gray-400 hover:text-pink-500"
-          >
+          <Link href="/fenglou" className="mb-3 inline-block text-xs text-gray-400 hover:text-pink-500">
             ‹ 重新选择省份
-          </button>
+          </Link>
           <div className="grid grid-cols-3 gap-x-3 gap-y-3">
-            {regionOption(selectedGroup.province, "全部")}
-            {selectedGroup.regions.map((region) => regionOption(region))}
+            {regionOption(initialGroup.province, "全部")}
+            {initialGroup.regions.map((region) => regionOption(region))}
           </div>
         </div>
+      ) : (
+        provinceOptions
       )}
     </details>
   );
