@@ -5,7 +5,7 @@ import os from "os";
 // 手机用局域网 IP 访问开发服务器时，Next.js 默认会把它当作"跨域"拦截掉开发资源
 // （热重载连接等），导致页面按钮等交互失效——把这些 IP 加入白名单即可解决。
 function getLanIPs(): string[] {
-  const ips: string[] = [];
+  const ips: string[] = ["localhost", "127.0.0.1"];
   const interfaces = os.networkInterfaces();
   for (const name in interfaces) {
     for (const iface of interfaces[name] ?? []) {
