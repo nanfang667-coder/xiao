@@ -8,6 +8,7 @@ import { SITE_NAME, SITE_URL } from "@/lib/site-config";
 import { Gallery } from "./Gallery";
 import { SafetyNotice } from "./SafetyNotice";
 import { BackButton } from "./BackButton";
+import { TeacherViewTracker } from "./TeacherViewTracker";
 
 type TeacherPageProps = {
   params: Promise<{ id: string }>;
@@ -91,6 +92,7 @@ export default async function TeacherDetail({ params }: TeacherPageProps) {
 
   return (
     <div className="mx-auto w-full max-w-md flex-1 pb-10">
+      <TeacherViewTracker teacherId={Number(teacher.id)} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

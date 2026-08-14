@@ -106,7 +106,9 @@ export type AdminTeacherListItem = Pick<
   | "promotionOrder"
   | "promotionStartsAt"
   | "promotionEndsAt"
->;
+> & {
+  viewCount: number;
+};
 
 export type AdminTeacherSearchResult = {
   teachers: AdminTeacherListItem[];
@@ -204,6 +206,7 @@ export async function searchTeachersForAdmin(
       price: true,
       photos: true,
       emoji: true,
+      viewCount: true,
       createdAt: true,
       isNationallyPromoted: true,
       promotionOrder: true,

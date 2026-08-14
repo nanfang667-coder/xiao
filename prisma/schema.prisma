@@ -35,6 +35,7 @@ model Teacher {
   promotionEndsAt DateTime? // empty means no automatic expiry
   source    String?
   sourceId  Int?
+  viewCount Int      @default(0)
 
   @@unique([source, sourceId])
   @@index([city, district, createdAt])

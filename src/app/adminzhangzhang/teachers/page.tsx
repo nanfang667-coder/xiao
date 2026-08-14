@@ -197,6 +197,9 @@ export default async function AdminTeachersPage({ searchParams }: { searchParams
             )}
 
             <div className="min-w-0 flex-1">
+              <p className="mb-0.5 text-[11px] font-medium text-sky-600">
+                {"\uD83D\uDC41\uFE0F"} {"\u9605\u89c8"} {teacher.viewCount.toLocaleString("zh-CN")} {"\u6B21"}
+              </p>
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-gray-400">#{teacher.id}</span>
                 {teacher.isNationallyPromoted && (
