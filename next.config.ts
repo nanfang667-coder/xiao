@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import os from "os";
+import { securityHeaders } from "./src/lib/security-headers";
 
 // 自动列出当前所有局域网 IP（每次连不同 WiFi/热点会变，启动时重新检测即可，无需手动改）。
 // 手机用局域网 IP 访问开发服务器时，Next.js 默认会把它当作"跨域"拦截掉开发资源
@@ -18,6 +19,14 @@ function getLanIPs(): string[] {
 }
 
 const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: securityHeaders(),
+      },
+    ];
+  },
   async redirects() {
     return [
       {

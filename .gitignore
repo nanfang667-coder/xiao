@@ -29,6 +29,19 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
+*.err
+
+# runtime data
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+/backups/
+/public/uploads/*
+!/public/uploads/.gitkeep
 
 # env files (can opt-in for committing if needed)
 .env*

@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "./prisma";
+import { getTrustedSiteOrigin } from "./site-config";
 import {
   getOrCreateVisitorId,
   hashVisitorKey,
@@ -46,12 +47,10 @@ const REF_COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 天
 export async function referralRedirect(req: NextRequest, code: string) {
   const referrer = await prisma.user.findUnique({ where: { referralCode: code } });
 
-  // 不能直接用 req.url 拼跳转地址：开发环境用 `-H 0.0.0.0` 启动时，
-  // req.url 里的域名是绑定地址 0.0.0.0，而不是浏览器访问时用的域名，
-  // 会导致跳转到打不开的 http://0.0.0.0:3000/。改用请求头里的真实 Host。
-  const host = req.headers.get("host") ?? "localhost:3000";
-  const proto = req.headers.get("x-forwarded-proto") ?? "http";
-  const res = NextResponse.redirect(`${proto}://${host}/`);
+  // Never construct security-sensitive redirects from attacker-controlled Host headers.
+  const siteOrigin = getTrustedSiteOrigin();
+  const res = NextResponse.redirect(new URL("/", siteOrigin));
+  const secureCookies = new URL(siteOrigin).protocol === "https:";
 
   if (referrer) {
     const existingVisitorId = req.cookies.get(VISITOR_COOKIE_NAME)?.value;
@@ -85,14 +84,14 @@ export async function referralRedirect(req: NextRequest, code: string) {
       sameSite: "lax",
       path: "/",
       maxAge: REF_COOKIE_MAX_AGE,
-      secure: proto === "https",
+      secure: secureCookies,
     });
     res.cookies.set(VISITOR_COOKIE_NAME, visitorId, {
       httpOnly: true,
       sameSite: "lax",
       path: "/",
       maxAge: VISITOR_COOKIE_MAX_AGE,
-      secure: proto === "https",
+      secure: secureCookies,
     });
   }
 

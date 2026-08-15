@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
 import { generateUniqueReferralCode } from "@/lib/referral";
+import { userSessionCookieOptions } from "@/lib/user-session-cookie";
 import type { User as UserRow } from "@prisma/client";
 
 const REF_COOKIE_NAME = "ref_code"; // 与 /r/[code] 路由里写的 cookie 同名
@@ -51,7 +52,6 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 const COOKIE_NAME = "user_token";
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 天
 
 // 生成 JWT（包含用户基本信息）
 function createToken(user: UserRow): string {
@@ -242,12 +242,7 @@ export async function loginUser(input: LoginInput): Promise<User> {
   // 生成 JWT 并写入 Cookie
   const token = createToken(user);
   const store = await cookies();
-  store.set(COOKIE_NAME, token, {
-    httpOnly: true, // 前端 JS 读不到，更安全
-    sameSite: "lax",
-    path: "/",
-    maxAge: COOKIE_MAX_AGE,
-  });
+  store.set(COOKIE_NAME, token, userSessionCookieOptions());
 
   // 返回用户信息
   return {
@@ -276,10 +271,5 @@ export async function refreshSession(): Promise<void> {
 
   const token = createToken(user);
   const store = await cookies();
-  store.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: COOKIE_MAX_AGE,
-  });
+  store.set(COOKIE_NAME, token, userSessionCookieOptions());
 }

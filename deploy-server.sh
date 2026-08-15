@@ -47,12 +47,26 @@ echo "   ✓ npm 依赖已安装"
 # 5. 配置环境变量
 echo "5️⃣  配置环境变量..."
 JWT_SECRET=$(openssl rand -base64 32)
-ADMIN_SESSION_SECRET=$(openssl rand -base64 32)
+
+# 管理员密码不提供默认值，避免新部署意外使用公开的共享密码。
+if [[ -z "${ADMIN_PASSWORD:-}" ]]; then
+    read -r -s -p "请输入管理员密码（至少 12 个字符）: " ADMIN_PASSWORD
+    echo
+fi
+
+if [[ ${#ADMIN_PASSWORD} -lt 12 || "$ADMIN_PASSWORD" == "admin888" ]]; then
+    echo "❌ 管理员密码必须至少 12 个字符，且不能使用旧默认密码。"
+    exit 1
+fi
+
+if [[ "$ADMIN_PASSWORD" == *$'\n'* || "$ADMIN_PASSWORD" == *$'\r'* || "$ADMIN_PASSWORD" == *"'"* ]]; then
+    echo "❌ 管理员密码不能包含换行符或单引号。"
+    exit 1
+fi
 
 cat > .env << EOF
 DATABASE_URL="file:./prisma/prod.db"
-ADMIN_PASSWORD="admin888"
-ADMIN_SESSION_SECRET="$ADMIN_SESSION_SECRET"
+ADMIN_PASSWORD='$ADMIN_PASSWORD'
 JWT_SECRET="$JWT_SECRET"
 WITHDRAWALS_ENABLED="false"
 EOF
@@ -92,7 +106,7 @@ echo "📍 应用信息："
 echo "   - 目录: $APP_DIR"
 echo "   - 端口: $APP_PORT (localhost:3000)"
 echo "   - 数据库: $APP_DIR/prisma/prod.db"
-echo "   - 管理员: /admin/login (密码: admin888)"
+echo "   - 管理员: /adminzhangzhang/login（使用部署时提供的密码）"
 echo ""
 echo "🔧 常用命令："
 echo "   pm2 logs hulim           # 查看日志"
@@ -101,7 +115,7 @@ echo "   pm2 restart hulim        # 重启应用"
 echo "   pm2 stop hulim           # 停止应用"
 echo ""
 echo "⚠️  重要提醒："
-echo "   1. 修改 .env 中的 ADMIN_PASSWORD（当前是默认 admin888）"
+echo "   1. 妥善保存管理员密码和 .env，切勿提交到代码仓库"
 echo "   2. 配置 Nginx 反向代理（80/443 → localhost:3000）"
 echo "   3. 配置 SSL 证书（Let's Encrypt）"
 echo "   4. DNS 解析 fenglou1.com 到此服务器 IP"

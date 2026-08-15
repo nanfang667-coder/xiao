@@ -10,6 +10,25 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// 管理员会话只保存随机令牌的哈希；浏览器中的原始令牌可单独撤销。
+model AdminSession {
+  tokenHash String   @id
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+// Admin login failure counters store only irreversible keys, never raw IP addresses.
+model AdminLoginRateLimit {
+  keyHash   String   @id
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
 // 一张"老师"表。每一行 = 一位老师。
 model Teacher {
   id        Int      @id @default(autoincrement()) // 自动编号，1、2、3……

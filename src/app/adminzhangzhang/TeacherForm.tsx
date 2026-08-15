@@ -332,7 +332,7 @@ export function TeacherForm({
             ref={fileInputRef}
             type="file"
             name="photos"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp"
             multiple
             onChange={handleFiles}
             className="hidden"
@@ -352,7 +352,9 @@ export function TeacherForm({
             }`}
           >
             <span className="text-sm font-medium text-pink-500">点击选择照片</span>
-            <span className="mt-1 text-xs text-gray-400">或把照片拖到这个框里（可一次拖多张）</span>
+            <span className="mt-1 text-xs text-gray-400">
+              支持 JPEG、PNG、WebP；最多 8 张，单张不超过 5MB
+            </span>
           </div>
 
           {/* 新选择的照片预览：左上角是顺序号，第1张会作为封面图；

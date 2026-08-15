@@ -15,8 +15,7 @@
 ```bash
 # 环境变量 (.env)
 DATABASE_URL="file:./dev.db"           # SQLite 数据库路径
-ADMIN_PASSWORD="admin888"              # 后台管理密码
-ADMIN_SESSION_SECRET="..."             # 管理员会话密钥
+ADMIN_PASSWORD="<至少12位的独立密码>"   # 后台管理密码
 JWT_SECRET="..."                       # JWT 签名密钥
 ```
 

@@ -1,19 +1,18 @@
 // 我的推广页：展示专属邀请链接、邀请数据、佣金明细，并可申请提现（USDT）。
 
 import Link from "next/link";
-import { headers } from "next/headers";
 import { requireUser } from "@/lib/user-auth";
 import { prisma } from "@/lib/prisma";
+import { getTrustedSiteOrigin } from "@/lib/site-config";
 import { COMMISSION_RATE, withdrawalsEnabled, withdrawMethodLabel } from "@/lib/membership";
 import { CopyButton } from "./CopyButton";
 import { WithdrawForm } from "./WithdrawForm";
 
-// 根据当前访问的域名拼出邀请链接，跟着实际部署域名自动变化
+// 使用受信任的站点域名生成邀请链接，避免 Host 头污染分享内容。
 // 不带协议头（不显示 https://），微信/短信里的链接识别、浏览器直接输入都能正常打开
-async function getReferralLink(code: string): Promise<string> {
-  const h = await headers();
-  const host = h.get("host") ?? "localhost:3000";
-  return `${host}/${code}`;
+function getReferralLink(code: string): string {
+  const host = new URL(getTrustedSiteOrigin()).host;
+  return `${host}/${encodeURIComponent(code)}`;
 }
 
 function formatDate(d: Date): string {
@@ -37,7 +36,7 @@ export default async function PromotePage({
   const me = await prisma.user.findUnique({ where: { id: user.id } });
   if (!me) return null;
 
-  const referralLink = await getReferralLink(me.referralCode);
+  const referralLink = getReferralLink(me.referralCode);
 
   const [invitedCount, paidCount, totalAgg, availableAgg, recentCommissions, recentWithdrawals] =
     await Promise.all([

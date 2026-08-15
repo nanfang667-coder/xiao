@@ -1,12 +1,14 @@
-// 管理员身份校验：通过一个名为 admin_session 的 Cookie 判断是否已登录。
+// 管理员身份校验：Cookie 只保存随机会话令牌，数据库只保存其哈希。
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { validateAdminSession } from "@/lib/admin-session";
+import { ADMIN_SESSION_COOKIE_NAME } from "@/lib/admin-session-token";
 
 // 是否为已登录的管理员
 export async function isAdmin(): Promise<boolean> {
   const store = await cookies();
-  return store.get("admin_session")?.value === process.env.ADMIN_SESSION_SECRET;
+  return validateAdminSession(store.get(ADMIN_SESSION_COOKIE_NAME)?.value);
 }
 
 // 要求必须是管理员，否则跳转到登录页（保护后台页面用）

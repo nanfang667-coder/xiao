@@ -7,15 +7,21 @@ export default async function AdminLoginPage({
 }) {
   const { error } = await searchParams;
 
+  const errorMessage =
+    error === "rate-limit"
+      ? "登录尝试次数过多，请在 15 分钟后重试"
+      : error
+        ? "密码不正确，请重试"
+        : null;
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6">
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h1 className="text-lg font-bold text-gray-900">后台管理登录</h1>
         <p className="mt-1 text-sm text-gray-500">请输入管理员密码</p>
 
-        {error && (
+        {errorMessage && (
           <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
-            密码不正确，请重试
+            {errorMessage}
           </p>
         )}
 
