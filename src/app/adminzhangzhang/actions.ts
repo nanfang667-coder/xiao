@@ -8,7 +8,10 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { emojiFor, defaultGradients } from "@/lib/photo";
-import { saveUploadedPhotos } from "@/lib/image-upload";
+import {
+  getSelectedPhotoFiles,
+  saveUploadedPhotos,
+} from "@/lib/image-upload";
 import { createAdminSession, revokeAdminSession } from "@/lib/admin-session";
 import {
   canAttemptAdminLogin,
@@ -178,9 +181,7 @@ export async function createTeacher(formData: FormData) {
   await requireAdmin();
   const fields = extractFields(formData);
 
-  const files = formData
-    .getAll("photos")
-    .filter((f): f is File => f instanceof File);
+  const files = getSelectedPhotoFiles(formData);
   const uploaded = await saveUploadedPhotos(files);
   // 没上传图片就用默认占位色块
   const photos = uploaded.length > 0 ? uploaded : defaultGradients(fields.type);
@@ -208,9 +209,7 @@ export async function updateTeacher(
   await requireAdmin();
   const fields = extractFields(formData);
 
-  const files = formData
-    .getAll("photos")
-    .filter((f): f is File => f instanceof File);
+  const files = getSelectedPhotoFiles(formData);
   const uploaded = await saveUploadedPhotos(files);
 
   // 如果这次没上传新图片，就保留原来的图片

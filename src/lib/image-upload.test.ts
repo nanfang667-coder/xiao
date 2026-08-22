@@ -5,7 +5,29 @@ import path from "node:path";
 import test from "node:test";
 import sharp from "sharp";
 // @ts-expect-error Node's type-stripping test runner requires the explicit .ts extension.
-import { ImageUploadError, MAX_PHOTO_COUNT, MAX_PHOTO_SIZE_BYTES, saveUploadedPhotos } from "./image-upload.ts";
+import { getSelectedPhotoFiles, ImageUploadError, MAX_PHOTO_COUNT, MAX_PHOTO_SIZE_BYTES, saveUploadedPhotos } from "./image-upload.ts";
+
+test("ignores the empty file submitted when no photo is selected", () => {
+  const formData = new FormData();
+  formData.append(
+    "photos",
+    new File([], "", { type: "application/octet-stream" }),
+  );
+
+  assert.deepEqual(getSelectedPhotoFiles(formData), []);
+});
+
+test("ignores a zero-byte placeholder even when the runtime gives it a name", () => {
+  const formData = new FormData();
+  formData.append("photos", new File([], "blob", { type: "application/octet-stream" }));
+
+  assert.deepEqual(getSelectedPhotoFiles(formData), []);
+});
+
+test("the image normalizer still rejects a direct empty file", async () => {
+  const empty = new File([], "empty.jpg", { type: "image/jpeg" });
+  await assert.rejects(() => saveUploadedPhotos([empty]), /空文件/);
+});
 
 test("decodes and re-encodes an allowed image as JPEG", async () => {
   const targetDir = await mkdtemp(path.join(os.tmpdir(), "hulim-upload-"));

@@ -91,3 +91,12 @@ export async function saveUploadedPhotos(
 
   return writtenFiles.map((filename) => `/uploads/${filename}`);
 }
+
+export function getSelectedPhotoFiles(formData: FormData): File[] {
+  return formData
+    .getAll("photos")
+    .filter(
+      (entry): entry is File =>
+        entry instanceof File && entry.size > 0,
+    );
+}
