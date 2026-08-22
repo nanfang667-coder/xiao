@@ -8,6 +8,7 @@ import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
 import { generateUniqueReferralCode } from "@/lib/referral";
 import { userSessionCookieOptions } from "@/lib/user-session-cookie";
+import { GENERIC_LOGIN_ERROR } from "@/lib/user-auth-input";
 import type { User as UserRow } from "@prisma/client";
 
 const REF_COOKIE_NAME = "ref_code"; // 与 /r/[code] 路由里写的 cookie 同名
@@ -37,6 +38,8 @@ export type LoginInput = {
 // ========== 密码哈希 ==========
 
 const SALT_ROUNDS = 10;
+const DUMMY_PASSWORD_HASH =
+  "$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.";
 
 // 加密密码（注册时调用）
 export async function hashPassword(password: string): Promise<string> {
@@ -225,18 +228,14 @@ export async function loginUser(input: LoginInput): Promise<User> {
       : { username: input.usernameOrEmail },
   });
 
-  if (!user) {
-    throw new Error("用户不存在");
-  }
-
-  if (user.isBanned) {
-    throw new Error("该账号已被封禁，如有疑问请联系管理员");
-  }
-
-  // 验证密码
-  const valid = await verifyPassword(input.password, user.passwordHash);
-  if (!valid) {
-    throw new Error("密码不正确");
+  // 不存在、被封禁和密码错误都执行一次 bcrypt 并返回同一提示，
+  // 避免通过响应内容或明显时间差判断账号状态。
+  const valid = await verifyPassword(
+    input.password,
+    user?.passwordHash ?? DUMMY_PASSWORD_HASH,
+  );
+  if (!user || user.isBanned || !valid) {
+    throw new Error(GENERIC_LOGIN_ERROR);
   }
 
   // 生成 JWT 并写入 Cookie

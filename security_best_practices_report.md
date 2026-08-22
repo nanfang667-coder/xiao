@@ -2,11 +2,11 @@
 
 ## Executive summary
 
-This review covers the repository's Next.js 16.2.10, React 19, TypeScript/JavaScript, Prisma, authentication, payment, referral, upload, and deployment code. It is primarily a static review, supplemented by a user-authorized, privacy-minimized inspection of the local `prisma/dev.db` for test-data classification and a user-authorized production build that loaded `.env` without printing its values. No logs, backups, uploaded files, production records, or live third-party APIs were inspected, and no raw personal values were reported.
+This review covers the repository's Next.js 16.2.10, React 19, TypeScript/JavaScript, Prisma, authentication, payment, referral, upload, and deployment code. It is primarily a static review, supplemented by a user-authorized, privacy-minimized inspection of the local `prisma/dev.db` for test-data classification and a user-authorized production build that loaded `.env` without printing its values. No production logs, backup contents, uploaded-file contents, production records, or live third-party APIs were inspected, and no raw personal values were reported.
 
-After the SEC-002 administrator-login remediation, SEC-003 test-data confirmation, SEC-004 upload hardening, SEC-005 administrator-session remediation, SEC-006 user-cookie hardening, SEC-007 trusted-origin remediation, and SEC-008 browser-header remediation, the review has **1 open medium-severity**, **1 low-severity**, and **1 informational accepted-risk** item. No confirmed critical or high-severity vulnerability remains. The most urgent item is:
+After the SEC-002 administrator-login remediation, SEC-003 test-data confirmation, SEC-004 upload hardening, SEC-005 administrator-session remediation, SEC-006 user-cookie hardening, SEC-007 trusted-origin remediation, SEC-008 browser-header remediation, and SEC-009 public-authentication remediation, the review has **1 low-severity** and **1 informational accepted-risk** item. No confirmed critical, high, or open medium-severity vulnerability remains. The most urgent open item is:
 
-1. Public-authentication inputs still need bounded runtime schemas and generic failure responses.
+1. Process-local public-authentication throttles and easily inflated public counters still need shared or edge-backed abuse controls.
 
 The payment path has several strong controls: provider responses and callbacks are signed and validated, merchant/order/amount values are checked, payment URLs require HTTPS, order ownership is checked, and fulfillment is transactionally idempotent.
 
@@ -94,22 +94,23 @@ The payment path has several strong controls: provider responses and callbacks a
 - **Location:** `next.config.ts:3,22-29`; `src/lib/security-headers.ts:1-19`; `src/lib/security-headers.test.ts:1-32`
 - **Resolution:** All application responses now receive `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, and a restrictive camera/microphone/geolocation `Permissions-Policy`. CSP enforces `base-uri 'self'`, `object-src 'none'`, `frame-ancestors 'none'`, and `form-action 'self'`; production also enables `upgrade-insecure-requests`.
 - **CSP scope:** The enforced policy intentionally omits `script-src` for now because the application has inline JSON-LD and retains static rendering. A nonce policy would require dynamic rendering, while adding `unsafe-inline` would weaken the intended protection. Strict script CSP remains optional defense-in-depth work rather than an open baseline-header vulnerability.
-- **Verification:** Two focused tests, targeted ESLint, `tsc --noEmit`, and the Next.js production build passed. A live local homepage request returned HTTP 200 with all five configured headers, and its development CSP correctly omitted HTTPS upgrading.
+- **Verification:** Two focused tests, targeted ESLint, `tsc --noEmit`, and the Next.js production build passed. A live local homepage request returned HTTP 200 with all five configured headers, and its development CSP correctly omitted HTTPS upgrading. On 2026-08-22, the deployed `8df3aca` production homepage returned HTTP 200 with the enforced CSP, `nosniff`, `DENY`, referrer, and permissions headers.
 - **Remaining hardening:** If strict script CSP becomes a requirement, implement and benchmark a nonce-based dynamic-rendering design or wait for a stable hash/SRI approach; do not enable `unsafe-inline` as a shortcut.
 - **Reopen condition:** Re-evaluate if pages must be embeddable, cross-origin forms are introduced, or infrastructure overrides these headers with weaker values.
 
-## Medium severity
+## Resolved finding with deferred hardening
 
-### SEC-009 — Public authentication and stored form inputs lack bounded runtime schemas
+### SEC-009 — Public authentication inputs are bounded and failures are generic
 
 - **Rule ID:** NEXT-INPUT-001
-- **Severity:** Medium
-- **Location:** `src/app/user-actions.ts:19-42,60-70`; `src/lib/user-auth.ts:217-240`; `src/app/adminzhangzhang/actions.ts:89-122`
-- **Evidence:** Registration only checks presence and a six-character password minimum; username/password maximum lengths and normalized character rules are absent. Login returns different messages for unknown user, banned user, and bad password. Many persisted teacher fields are converted to strings without length bounds or schema validation.
-- **Impact:** Unbounded inputs can cause avoidable CPU/storage/UI abuse, bcrypt edge cases, and oversized stored records. Distinct login errors permit account enumeration. TypeScript types do not validate network input at runtime.
-- **Fix:** Add centralized runtime schemas with explicit minimum/maximum lengths, normalized formats, allowed enum values, and file/count limits. Use a modern password policy with a reasonable maximum byte length. Return one generic authentication failure message while keeping detailed, redacted server-side diagnostics.
-- **Mitigation:** Apply request/body limits at Nginx and add database constraints where appropriate.
-- **Status note:** The user chose to defer teacher-profile field length limits. Public registration/login bounds and generic authentication failure responses remain open under this finding.
+- **Severity:** Resolved for public authentication (formerly Medium); administrator-only teacher-field bounds remain deferred.
+- **Location:** `src/lib/user-auth-input.ts`; `src/lib/user-auth-input.test.ts`; `src/app/user-actions.ts`; `src/lib/user-auth.ts`; `src/app/login/page.tsx`; `src/app/register/page.tsx`
+- **Resolution:** Registration now uses centralized runtime validation: usernames are NFKC-normalized, restricted to 2–32 Unicode letters/numbers plus `.`, `_`, and `-`, and new passwords require at least 8 characters while remaining within bcrypt's 72-byte input boundary. Login identifiers are capped at 254 characters and passwords at 72 UTF-8 bytes. Existing accounts with shorter legacy passwords remain able to log in.
+- **Enumeration resistance:** Unknown, banned, and wrong-password accounts return the same generic message. A missing account is checked against a fixed dummy bcrypt hash so the response does not skip the expensive comparison. Unexpected registration exceptions are replaced with a generic failure rather than exposing database or implementation details.
+- **Browser alignment:** Login and registration fields expose matching `minLength`/`maxLength` and `autocomplete` attributes for usability; server validation remains authoritative.
+- **Verification:** Five focused input-validation tests, targeted ESLint, `tsc --noEmit`, and the Next.js production build passed.
+- **Deferred hardening:** The user chose to defer length schemas for administrator-managed teacher profile fields. These fields remain protected by administrator authorization but can still store oversized values if a privileged administrator submits them.
+- **Reopen condition:** Re-evaluate if another public registration/login entry point is added, email registration becomes user-facing, bcrypt is replaced, or the password byte limit changes.
 - **False positive notes:** Prisma parameterizes these writes and React escapes normal JSX output, so this finding is not evidence of SQL injection or direct XSS.
 
 ## Low severity
@@ -138,8 +139,8 @@ The payment path has several strong controls: provider responses and callbacks a
 
 ## Review limitations
 
-- No `.env`, database, log, backup, upload, or production record contents were inspected.
-- No live production endpoint, Nginx configuration, CDN/WAF configuration, or response headers were queried.
+- No `.env` values, production database records, production logs, backup contents, or uploaded-file contents were inspected.
+- No production Nginx, CDN, or WAF configuration was read; only public HTTP status codes and response headers were queried.
 - No live payment/provider request was made.
 - No online dependency/advisory lookup or `npm audit` request was performed.
 - Git history was not scanned for historical secrets or deleted data.

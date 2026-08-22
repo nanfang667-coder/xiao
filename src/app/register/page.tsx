@@ -4,6 +4,12 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/user-auth";
 import { register } from "../user-actions";
+import {
+  PASSWORD_MAX_BYTES,
+  PASSWORD_MIN_LENGTH,
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
+} from "@/lib/user-auth-input";
 
 export default async function RegisterPage({
   searchParams,
@@ -51,9 +57,14 @@ export default async function RegisterPage({
               name="username"
               placeholder="请输入用户名"
               required
+              minLength={USERNAME_MIN_LENGTH}
+              maxLength={USERNAME_MAX_LENGTH}
+              autoComplete="username"
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-pink-400"
             />
-            <p className="mt-1 text-xs text-gray-400">用于登录的用户名，不能重复</p>
+            <p className="mt-1 text-xs text-gray-400">
+              {USERNAME_MIN_LENGTH}–{USERNAME_MAX_LENGTH} 个字符，可使用中文、字母、数字、点、下划线或短横线
+            </p>
           </div>
 
           <div>
@@ -65,10 +76,14 @@ export default async function RegisterPage({
               name="password"
               placeholder="请输入密码"
               required
-              minLength={6}
+              minLength={PASSWORD_MIN_LENGTH}
+              maxLength={PASSWORD_MAX_BYTES}
+              autoComplete="new-password"
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-pink-400"
             />
-            <p className="mt-1 text-xs text-gray-400">至少6位字符</p>
+            <p className="mt-1 text-xs text-gray-400">
+              至少 {PASSWORD_MIN_LENGTH} 位字符
+            </p>
           </div>
 
           <div>
@@ -80,7 +95,9 @@ export default async function RegisterPage({
               name="confirmPassword"
               placeholder="请再次输入密码"
               required
-              minLength={6}
+              minLength={PASSWORD_MIN_LENGTH}
+              maxLength={PASSWORD_MAX_BYTES}
+              autoComplete="new-password"
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-pink-400"
             />
           </div>

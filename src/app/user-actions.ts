@@ -2,6 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { registerUser, loginUser, logoutUser } from "@/lib/user-auth";
+import {
+  GENERIC_LOGIN_ERROR,
+  validateLoginForm,
+  validateRegistrationForm,
+} from "@/lib/user-auth-input";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/request-ip";
 
@@ -16,30 +21,27 @@ export async function register(formData: FormData) {
     redirect(`/register?error=${encodeURIComponent("注册过于频繁，请1小时后再试")}`);
   }
 
-  const username = String(formData.get("username") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
-  const confirmPassword = String(formData.get("confirmPassword") ?? "");
-
-  // 简单验证（中文需 encodeURIComponent，否则直接进 Location 头会报非法字符 500）
-  if (!username || !password || !confirmPassword) {
-    redirect(`/register?error=${encodeURIComponent("请填写所有字段")}`);
+  const validation = validateRegistrationForm(formData);
+  if (!validation.success) {
+    redirect(`/register?error=${encodeURIComponent(validation.error)}`);
   }
-
-  if (password.length < 6) {
-    redirect(`/register?error=${encodeURIComponent("密码至少6位")}`);
-  }
-
-  if (password !== confirmPassword) {
-    redirect(`/register?error=${encodeURIComponent("两次输入的密码不一致")}`);
-  }
+  const { username, password } = validation.data;
 
   try {
     await registerUser({ username, password }, ip);
     // 注册成功后自动登录
     await loginUser({ usernameOrEmail: username, password });
-  } catch (error: any) {
-    // 显示具体错误信息
-    redirect(`/register?error=${encodeURIComponent(error.message)}`);
+  } catch (error) {
+    const message =
+      error instanceof Error &&
+      [
+        "用户名已存在",
+        "邮箱已被注册",
+        "检测到批量注册，账号已被限制，请联系管理员",
+      ].includes(error.message)
+        ? error.message
+        : "注册失败，请稍后重试";
+    redirect(`/register?error=${encodeURIComponent(message)}`);
   }
 
   // 成功后跳首页。必须放在 try/catch 之外：
@@ -57,17 +59,15 @@ export async function login(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent("尝试次数过多，请15分钟后再试")}`);
   }
 
-  const usernameOrEmail = String(formData.get("usernameOrEmail") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
-
-  if (!usernameOrEmail || !password) {
-    redirect(`/login?error=${encodeURIComponent("请填写账号和密码")}`);
+  const validation = validateLoginForm(formData);
+  if (!validation.success) {
+    redirect(`/login?error=${encodeURIComponent(validation.error)}`);
   }
 
   try {
-    await loginUser({ usernameOrEmail, password });
-  } catch (error: any) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    await loginUser(validation.data);
+  } catch {
+    redirect(`/login?error=${encodeURIComponent(GENERIC_LOGIN_ERROR)}`);
   }
 
   // 成功后跳首页（放在 try/catch 之外，避免 redirect 的 NEXT_REDIRECT 异常被 catch 吞掉）

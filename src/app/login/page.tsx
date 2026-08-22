@@ -4,6 +4,10 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/user-auth";
 import { login } from "../user-actions";
+import {
+  LOGIN_IDENTIFIER_MAX_LENGTH,
+  PASSWORD_MAX_BYTES,
+} from "@/lib/user-auth-input";
 
 export default async function LoginPage({
   searchParams,
@@ -49,6 +53,8 @@ export default async function LoginPage({
               name="usernameOrEmail"
               placeholder="请输入用户名或邮箱"
               required
+              maxLength={LOGIN_IDENTIFIER_MAX_LENGTH}
+              autoComplete="username"
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-pink-400"
             />
             <p className="mt-1 text-xs text-gray-400">支持用户名或邮箱登录</p>
@@ -63,6 +69,8 @@ export default async function LoginPage({
               name="password"
               placeholder="请输入密码"
               required
+              maxLength={PASSWORD_MAX_BYTES}
+              autoComplete="current-password"
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-pink-400"
             />
           </div>
