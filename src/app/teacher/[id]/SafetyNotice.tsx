@@ -18,7 +18,8 @@ export function SafetyNotice() {
         onClick={(e) => e.stopPropagation()}
       >
         <p>
-          凡是要求提前转账、押金的都可能是骗子，保护好个人财产，
+          <span className="font-bold text-red-600">不要裸聊、刷单，</span>
+          凡是要求提前转账、押金的可能是骗子，保护好客人财产。
           <span className="font-bold text-red-600">
             对方近期可能较忙，建议提前几天预约。
           </span>
