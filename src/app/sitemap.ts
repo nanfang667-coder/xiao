@@ -13,6 +13,10 @@ type SitemapTeacher = {
   district: string;
   createdAt: Date;
 };
+type SitemapMerchant = {
+  id: number;
+  updatedAt: Date;
+};
 
 function newestDate(current: Date | undefined, candidate: Date): Date {
   return !current || candidate > current ? candidate : current;
@@ -28,6 +32,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       district: true,
       createdAt: true,
     },
+    orderBy: { id: "asc" },
+  });
+  const merchants: SitemapMerchant[] = await prisma.merchant.findMany({
+    where: { isPublished: true },
+    select: { id: true, updatedAt: true },
     orderBy: { id: "asc" },
   });
 
@@ -50,6 +59,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       });
     }
   }
+  for (const merchant of merchants) {
+    siteLastModified = newestDate(siteLastModified, merchant.updatedAt);
+  }
 
   const locationEntries: MetadataRoute.Sitemap = [...locationStats.values()]
     .filter((entry) => entry.count >= MIN_ACCESSIBLE_LOCATION_RECORDS)
@@ -67,6 +79,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "weekly",
     priority: 0.6,
   }));
+  const merchantEntries: MetadataRoute.Sitemap = merchants.map((merchant) => ({
+    url: `${SITE_URL}/spa/${merchant.id}`,
+    lastModified: merchant.updatedAt,
+    changeFrequency: "weekly",
+    priority: 0.6,
+  }));
 
   return [
     {
@@ -81,7 +99,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.9,
     },
+    {
+      url: `${SITE_URL}/spa`,
+      ...(siteLastModified ? { lastModified: siteLastModified } : {}),
+      changeFrequency: "daily",
+      priority: 0.8,
+    },
     ...locationEntries,
     ...teacherEntries,
+    ...merchantEntries,
   ];
 }

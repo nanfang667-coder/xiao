@@ -14,8 +14,10 @@ import { SeoLocationPicker } from "@/components/SeoLocationPicker";
 import type { User } from "@/lib/user-auth";
 import { getSeoLocationSlugsForRecords } from "@/lib/location-seo";
 import { MIN_ACCESSIBLE_LOCATION_RECORDS, SITE_NAME } from "@/lib/site-config";
+import type { PublicPartnerLink } from "@/lib/partner-links";
 
 const PAGE_SIZE = 10; // 每页展示 10 条
+
 
 // 功能入口配置（仿照 App 首页图标区）
 const entries = [
@@ -30,7 +32,19 @@ const entries = [
     ),
   },
   {
-    label: "合作联系",
+    label: "商家SPA",
+    href: "/spa",
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 10h18" />
+        <path d="M5 10v10h14V10" />
+        <path d="m4 10 2-6h12l2 6" />
+        <path d="M9 20v-6h6v6" />
+      </svg>
+    ),
+  },
+  {
+    label: "合作发帖",
     action: "contact" as const,
     icon: (
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -39,26 +53,19 @@ const entries = [
       </svg>
     ),
   },
-  {
-    label: "发帖",
-    action: "post" as const,
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 20h9" />
-        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-      </svg>
-    ),
-  },
+
 ];
 
 // 接收从数据库读来的老师列表，负责城市/区筛选与展示
 export function TeacherBrowser({
   teachers,
   nationalPromotions,
+  partnerLinks,
   user,
 }: {
   teachers: TeacherListItem[];
   nationalPromotions: TeacherCardItem[];
+  partnerLinks: PublicPartnerLink[];
   user?: User | null;
 }) {
   const router = useRouter();
@@ -69,7 +76,7 @@ export function TeacherBrowser({
   const city = searchParams.get("city") ?? "全部";
   const page = Number(searchParams.get("page")) || 1;
 
-  const [notice, setNotice] = useState<"contact" | "post" | null>(null);
+  const [notice, setNotice] = useState<"contact" | null>(null);
 
   const availableLocationSlugs = getSeoLocationSlugsForRecords(
     teachers,
@@ -109,7 +116,7 @@ export function TeacherBrowser({
         </div>
       </header>
 
-      {/* 功能入口：地区信息 / 合作联系 / 发帖 */}
+      {/* 功能入口：地区信息 / 商家SPA / 合作发帖 */}
       <div className="px-4 pt-4">
         <div className="grid grid-cols-3 gap-2 rounded-2xl bg-white p-4 shadow-sm">
           {entries.map((e) =>
@@ -126,7 +133,7 @@ export function TeacherBrowser({
               <button
                 key={e.label}
                 type="button"
-                onClick={() => setNotice(e.action ?? "post")}
+                onClick={() => setNotice(e.action ?? "contact")}
                 className="flex flex-col items-center gap-2 py-2 active:scale-95 transition"
               >
                 <span className="text-pink-500">{e.icon}</span>
@@ -137,7 +144,7 @@ export function TeacherBrowser({
         </div>
       </div>
 
-      {/* 合作联系方式 / "发帖"提示弹窗 */}
+      {/* 合作发帖联系方式 */}
       {notice && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6"
@@ -147,21 +154,18 @@ export function TeacherBrowser({
             className="max-w-xs rounded-2xl bg-white p-5 text-sm leading-relaxed text-gray-700 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            {notice === "contact" ? (
-              <div className="text-center">
-                <h2 className="font-bold text-gray-800">合作联系</h2>
-                <div className="mt-3 space-y-2">
-                  <a href="mailto:nanfang667@gmail.com" className="block text-pink-500">
-                    nanfang667@gmail.com
-                  </a>
-                  <a href="mailto:liliws1673@outlook.com" className="block text-pink-500">
-                    liliws1673@outlook.com
-                  </a>
-                </div>
+            <div className="text-center">
+              <h2 className="font-bold text-gray-800">合作发帖</h2>
+              <p className="mt-2 text-xs text-gray-500">如需合作或发布信息，请通过以下邮箱联系</p>
+              <div className="mt-3 space-y-2">
+                <a href="mailto:nanfang667@gmail.com" className="block text-pink-500">
+                  nanfang667@gmail.com
+                </a>
+                <a href="mailto:liliws1673@outlook.com" className="block text-pink-500">
+                  liliws1673@outlook.com
+                </a>
               </div>
-            ) : (
-              <p className="text-center">发帖功能正在开发中</p>
-            )}
+            </div>
             <button
               type="button"
               onClick={() => setNotice(null)}
@@ -196,6 +200,41 @@ export function TeacherBrowser({
 
       {/* 分页控件 */}
       <Pagination page={current} totalPages={totalPages} onChange={setPage} />
+
+      {partnerLinks.length > 0 && (
+        <section className="mx-4 mt-5 rounded-2xl bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-gray-800">合作伙伴</h2>
+              <p className="mt-0.5 text-xs text-gray-400">优质网站推荐</p>
+            </div>
+            <span className="rounded-full bg-pink-50 px-2.5 py-1 text-xs text-pink-500">友情链接</span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {partnerLinks.map((partner) => (
+              <a
+                key={partner.id}
+                href={partner.url}
+                target="_blank"
+                rel={
+                  partner.linkType === "sponsored"
+                    ? "sponsored nofollow noopener noreferrer"
+                    : "noopener noreferrer"
+                }
+                className="flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5 active:bg-pink-50"
+              >
+                <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-pink-50 text-sm text-pink-500">🔗</span>
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-semibold text-gray-700">{partner.name}</span>
+                  {partner.description && (
+                    <span className="mt-0.5 block truncate text-[11px] text-gray-400">{partner.description}</span>
+                  )}
+                </span>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

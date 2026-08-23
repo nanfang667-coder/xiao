@@ -10,6 +10,7 @@ import {
 import { getCurrentUser } from "@/lib/user-auth";
 import { getSeoLocationFromSelection, getSeoLocationPath } from "@/lib/location-seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site-config";
+import { getPublishedPartnerLinks } from "@/lib/partner-links";
 import { TeacherBrowser } from "./TeacherBrowser";
 
 type HomeProps = {
@@ -54,9 +55,10 @@ export default async function Home({ searchParams }: HomeProps) {
   }
 
   // 用不含联系方式的列表数据，避免会员专属信息随源码泄露
-  const [teachers, nationalPromotions] = await Promise.all([
+  const [teachers, nationalPromotions, partnerLinks] = await Promise.all([
     getTeachersForList(),
     getActiveNationalPromotions(),
+    getPublishedPartnerLinks(),
   ]);
   const user = await getCurrentUser(); // 获取当前登录用户
 
@@ -75,7 +77,7 @@ export default async function Home({ searchParams }: HomeProps) {
         }}
       />
       <Suspense>
-        <TeacherBrowser teachers={teachers} nationalPromotions={nationalPromotions} user={user} />
+        <TeacherBrowser teachers={teachers} nationalPromotions={nationalPromotions} partnerLinks={partnerLinks} user={user} />
       </Suspense>
     </>
   );

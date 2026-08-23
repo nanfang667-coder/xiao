@@ -10,8 +10,10 @@ export default async function AdminDashboard() {
   await requireAdmin(); // 未登录会被挡下
 
   // 各模块的数据量，显示在入口卡片上
-  const [teacherCount, userCount, pendingWithdrawals] = await Promise.all([
+  const [teacherCount, merchantCount, partnerCount, userCount, pendingWithdrawals] = await Promise.all([
     prisma.teacher.count(),
+    prisma.merchant.count(),
+    prisma.partnerLink.count(),
     prisma.user.count(),
     prisma.withdrawal.count({ where: { status: "pending" } }),
   ]);
@@ -23,6 +25,20 @@ export default async function AdminDashboard() {
       title: "老师管理",
       desc: "添加、编辑、删除老师信息",
       count: `${teacherCount} 位老师`,
+    },
+    {
+      href: "/adminzhangzhang/merchants",
+      icon: "🏪",
+      title: "商家管理",
+      desc: "添加、排序、公开或隐藏SPA商家",
+      count: `${merchantCount} 个商家`,
+    },
+    {
+      href: "/adminzhangzhang/partners",
+      icon: "🔗",
+      title: "合作伙伴管理",
+      desc: "添加、排序、公开或隐藏友情链接",
+      count: `${partnerCount} 个伙伴`,
     },
     {
       href: "/adminzhangzhang/users",
