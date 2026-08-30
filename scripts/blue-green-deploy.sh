@@ -157,8 +157,7 @@ if [[ -e "$NEW_RELEASE/public/uploads" ]]; then
   mv "$NEW_RELEASE/public/uploads" "$NEW_RELEASE/uploads.repository"
 fi
 mkdir -p "$NEW_RELEASE/public/uploads"
-mkdir -p "$NEW_RELEASE/storage"
-ln -s "$ALLEY_DETAIL_STORAGE_DIR" "$NEW_RELEASE/storage/alley-detail"
+mkdir -p "$NEW_RELEASE/storage/alley-detail"
 
 ACTIVE_MIGRATIONS="$(migration_fingerprint "$ACTIVE_RELEASE")"
 TARGET_MIGRATIONS="$(migration_fingerprint "$NEW_RELEASE")"
@@ -184,6 +183,8 @@ log "Installing dependencies and building away from the live application"
 
 rmdir -- "$NEW_RELEASE/public/uploads"
 ln -s "$SOURCE_DIR/public/uploads" "$NEW_RELEASE/public/uploads"
+rmdir -- "$NEW_RELEASE/storage/alley-detail"
+ln -s "$ALLEY_DETAIL_STORAGE_DIR" "$NEW_RELEASE/storage/alley-detail"
 
 pm2 delete "$NEW_PROCESS" >/dev/null 2>&1 || true
 NODE_ENV=production NEXT_DEPLOYMENT_ID="$TARGET_REVISION" \
