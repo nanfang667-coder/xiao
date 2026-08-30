@@ -183,14 +183,13 @@ export function AlleyForm({
         </div>
 
         <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
-          <label className={label}>列表封面图（公开，只能 1 张）</label>
+          <label className={label}>列表封面图（选填，公开，最多 1 张）</label>
           <input
             id="alley-cover-photo"
             ref={coverInputRef}
             type="file"
             name="coverPhoto"
             accept="image/jpeg,image/png,image/webp"
-            required={!initial}
             onChange={(event) => selectCoverFiles(event.target.files ?? [])}
             className="sr-only"
           />
@@ -239,7 +238,9 @@ export function AlleyForm({
         </div>
 
         <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
-          <label className={label}>详情图片（仅会员可见，最多 8 张）</label>
+          <label className={label}>
+            详情图片（选填，仅会员可见，最多 8 张）
+          </label>
           <input
             id="alley-detail-photos"
             ref={detailInputRef}
@@ -247,7 +248,6 @@ export function AlleyForm({
             name="detailPhotos"
             accept="image/jpeg,image/png,image/webp"
             multiple
-            required={!initial}
             onChange={(event) => selectDetailFiles(event.target.files ?? [])}
             className="sr-only"
           />

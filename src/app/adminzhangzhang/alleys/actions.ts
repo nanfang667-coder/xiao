@@ -74,8 +74,7 @@ export async function createAlley(formData: FormData) {
   const fields = extractFields(formData);
   const coverFiles = selectedFiles(formData, "coverPhoto");
   const detailFiles = selectedFiles(formData, "detailPhotos");
-  if (coverFiles.length !== 1) throw new Error("请上传 1 张列表封面图");
-  if (detailFiles.length === 0) throw new Error("请至少上传 1 张会员详情图片");
+  if (coverFiles.length > 1) throw new Error("列表封面图最多上传 1 张");
 
   let coverUrls: string[] = [];
   let detailNames: string[] = [];
@@ -85,7 +84,7 @@ export async function createAlley(formData: FormData) {
     const alley = await prisma.alleyPost.create({
       data: {
         ...fields,
-        coverPhoto: coverUrls[0],
+        coverPhoto: coverUrls[0] ?? "",
         detailPhotos: JSON.stringify(detailNames),
       },
     });

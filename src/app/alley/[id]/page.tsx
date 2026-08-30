@@ -107,20 +107,22 @@ export default async function AlleyDetailPage({
               </p>
             </section>
 
-            <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
-              <h2 className="text-base font-bold text-gray-900">详情图片</h2>
-              <div className="mt-3 space-y-3">
-                {memberDetail.detailPhotos.map((photo, index) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={photo}
-                    src={photo}
-                    alt={`${alley.title}详情图片 ${index + 1}`}
-                    className="w-full rounded-xl object-cover"
-                  />
-                ))}
-              </div>
-            </section>
+            {memberDetail.detailPhotos.length > 0 && (
+              <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
+                <h2 className="text-base font-bold text-gray-900">详情图片</h2>
+                <div className="mt-3 space-y-3">
+                  {memberDetail.detailPhotos.map((photo, index) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={photo}
+                      src={photo}
+                      alt={`${alley.title}详情图片 ${index + 1}`}
+                      className="w-full rounded-xl object-cover"
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
           </>
         ) : (
           <section className="mt-4 rounded-2xl border border-amber-200 bg-white p-4 shadow-sm">

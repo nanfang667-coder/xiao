@@ -102,12 +102,14 @@ export default async function AlleyPage({ searchParams }: AlleyPageProps) {
               href={`/alley/${alley.id}`}
               className="flex overflow-hidden rounded-2xl bg-white shadow-sm transition active:scale-[0.99]"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={alley.coverPhoto}
-                alt={`${alley.title}列表封面`}
-                className="h-28 w-28 flex-none object-cover"
-              />
+              {alley.coverPhoto && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={alley.coverPhoto}
+                  alt={`${alley.title}列表封面`}
+                  className="h-28 w-28 flex-none object-cover"
+                />
+              )}
               <div className="min-w-0 flex-1 p-3">
                 {location && (
                   <p className="text-xs text-gray-400">📍 {location}</p>
