@@ -57,6 +57,8 @@ NGINX_SITE="$(readlink -f -- "$NGINX_SITE")"
 install -d -m 700 "$DEPLOY_ROOT"
 install -d -m 700 "$DEPLOY_ROOT/releases"
 install -d -m 700 "$BACKUP_DIR"
+install -d -m 700 "$SOURCE_DIR/storage"
+install -d -m 700 "$SOURCE_DIR/storage/alley-detail"
 
 if ! grep -q '^NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=' "$SOURCE_DIR/.env"; then
   log "Adding one persistent Server Actions encryption key to the existing .env"

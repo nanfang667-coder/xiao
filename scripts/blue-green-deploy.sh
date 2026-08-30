@@ -9,6 +9,7 @@ UPSTREAM_INCLUDE="${UPSTREAM_INCLUDE:-/etc/nginx/conf.d/hulim-upstream.inc}"
 TARGET_REF="${1:-origin/main}"
 HEALTH_PATH="${HEALTH_PATH:-/}"
 DATABASE_RELATIVE_PATH="prisma/prisma/prod.db"
+ALLEY_DETAIL_STORAGE_DIR="$SOURCE_DIR/storage/alley-detail"
 HEALTH_HOST="${HEALTH_HOST:-fenglou1.com}"
 DRAIN_SECONDS="${DRAIN_SECONDS:-10}"
 ALLOW_DATABASE_MIGRATIONS="${ALLOW_DATABASE_MIGRATIONS:-0}"
@@ -118,6 +119,15 @@ source "$STATE_FILE"
 [[ "$ACTIVE_RELEASE" == "$SOURCE_DIR" || "$ACTIVE_RELEASE" == "$RELEASES_DIR/"* ]] || die "Invalid active release path"
 [[ "$(pm2 pid "$ACTIVE_PROCESS" | tr -d '[:space:]')" =~ ^[1-9][0-9]*$ ]] || die "Active PM2 process is not online"
 
+mkdir -p "$ALLEY_DETAIL_STORAGE_DIR"
+chmod 700 "$SOURCE_DIR/storage" "$ALLEY_DETAIL_STORAGE_DIR"
+log "Recovering private alley images from retained releases"
+for previous_storage in "$RELEASES_DIR"/*/storage/alley-detail; do
+  if [[ -d "$previous_storage" && ! -L "$previous_storage" ]]; then
+    cp -a -n "$previous_storage"/. "$ALLEY_DETAIL_STORAGE_DIR"/
+  fi
+done
+
 log "Fetching origin/main without modifying the live checkout"
 git -C "$SOURCE_DIR" fetch --prune origin main
 TARGET_REVISION="$(git -C "$SOURCE_DIR" rev-parse --verify "$TARGET_REF^{commit}")"
@@ -147,6 +157,8 @@ if [[ -e "$NEW_RELEASE/public/uploads" ]]; then
   mv "$NEW_RELEASE/public/uploads" "$NEW_RELEASE/uploads.repository"
 fi
 mkdir -p "$NEW_RELEASE/public/uploads"
+mkdir -p "$NEW_RELEASE/storage"
+ln -s "$ALLEY_DETAIL_STORAGE_DIR" "$NEW_RELEASE/storage/alley-detail"
 
 ACTIVE_MIGRATIONS="$(migration_fingerprint "$ACTIVE_RELEASE")"
 TARGET_MIGRATIONS="$(migration_fingerprint "$NEW_RELEASE")"

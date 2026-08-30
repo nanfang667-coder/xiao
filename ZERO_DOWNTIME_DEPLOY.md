@@ -9,11 +9,16 @@ The deployment preserves the existing files without printing their contents:
 - `/opt/hulim/.env`
 - `/opt/hulim/prisma/prisma/prod.db`
 - `/opt/hulim/public/uploads`
+- `/opt/hulim/storage/alley-detail`
 
 The shared `.env` must keep `DATABASE_URL="file:./prisma/prod.db"`. Prisma
 resolves that SQLite path relative to `prisma/schema.prisma`, so every release
 provides `prisma/prisma/prod.db` as a symbolic link to the production database
 at `/opt/hulim/prisma/prisma/prod.db`.
+
+Private alley detail images are recovered from retained releases into the
+shared storage directory before each deployment. Every new release links to
+that directory, so later blue-green switches do not lose uploaded images.
 
 ## One-time setup
 
