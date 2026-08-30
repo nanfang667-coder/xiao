@@ -1,7 +1,11 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
-import { getSeoLocationsForRecord, getSeoLocationUrl } from "@/lib/location-seo";
+import {
+  getSeoLocationsForRecord,
+  getSeoLocationUrl,
+} from "@/lib/location-seo";
 import { MIN_ACCESSIBLE_LOCATION_RECORDS, SITE_URL } from "@/lib/site-config";
+import { ALLEY_PUBLIC_ENABLED } from "@/lib/feature-flags";
 
 // Sitemap metadata routes are cached by default. Generate this one per request so
 // newly created, updated, or deleted teachers are reflected immediately.
@@ -14,6 +18,10 @@ type SitemapTeacher = {
   createdAt: Date;
 };
 type SitemapMerchant = {
+  id: number;
+  updatedAt: Date;
+};
+type SitemapAlley = {
   id: number;
   updatedAt: Date;
 };
@@ -39,6 +47,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     select: { id: true, updatedAt: true },
     orderBy: { id: "asc" },
   });
+  const alleys: SitemapAlley[] = ALLEY_PUBLIC_ENABLED
+    ? await prisma.alleyPost.findMany({
+        where: { isPublished: true },
+        select: { id: true, updatedAt: true },
+        orderBy: { id: "asc" },
+      })
+    : [];
 
   const locationStats = new Map<
     string,
@@ -49,7 +64,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   for (const teacher of teachers) {
     siteLastModified = newestDate(siteLastModified, teacher.createdAt);
 
-    for (const location of getSeoLocationsForRecord(teacher.city, teacher.district)) {
+    for (const location of getSeoLocationsForRecord(
+      teacher.city,
+      teacher.district,
+    )) {
       const url = getSeoLocationUrl(location, SITE_URL);
       const existing = locationStats.get(url);
       locationStats.set(url, {
@@ -61,6 +79,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
   for (const merchant of merchants) {
     siteLastModified = newestDate(siteLastModified, merchant.updatedAt);
+  }
+  for (const alley of alleys) {
+    siteLastModified = newestDate(siteLastModified, alley.updatedAt);
   }
 
   const locationEntries: MetadataRoute.Sitemap = [...locationStats.values()]
@@ -85,6 +106,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "weekly",
     priority: 0.6,
   }));
+  const alleyEntries: MetadataRoute.Sitemap = alleys.map((alley) => ({
+    url: `${SITE_URL}/alley/${alley.id}`,
+    lastModified: alley.updatedAt,
+    changeFrequency: "weekly",
+    priority: 0.6,
+  }));
 
   return [
     {
@@ -99,14 +126,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.9,
     },
+    ...(ALLEY_PUBLIC_ENABLED
+      ? [
+          {
+            url: `${SITE_URL}/alley`,
+            ...(siteLastModified ? { lastModified: siteLastModified } : {}),
+            changeFrequency: "daily" as const,
+            priority: 0.8,
+          },
+        ]
+      : []),
     {
       url: `${SITE_URL}/spa`,
       ...(siteLastModified ? { lastModified: siteLastModified } : {}),
       changeFrequency: "daily",
       priority: 0.8,
     },
+    {
+      url: `${SITE_URL}/safety`,
+      changeFrequency: "yearly",
+      priority: 0.5,
+    },
     ...locationEntries,
     ...teacherEntries,
     ...merchantEntries,
+    ...alleyEntries,
   ];
 }

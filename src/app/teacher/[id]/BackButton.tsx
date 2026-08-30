@@ -16,7 +16,7 @@ export function BackButton() {
   };
 
   return (
-    <button type="button" onClick={handleBack} className="text-pink-500">
+    <button type="button" onClick={handleBack} className="text-white/90">
       ← 返回
     </button>
   );

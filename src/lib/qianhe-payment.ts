@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { PayMethodKey } from "@/lib/membership";
+import { SITE_URL } from "@/lib/site-config";
 
 const QIANHE_API_ORIGIN = "https://qianhe.jkosiuwn.xyz";
 const MAX_RESPONSE_BYTES = 64 * 1024;
@@ -42,11 +43,12 @@ function merchantConfig() {
   };
 }
 
+const WAY_CODE_ENVIRONMENT_NAMES: Record<PayMethodKey, string> = {
+  alipay: "QIANHE_ALIPAY_WAY_CODE",
+};
+
 function wayCode(payMethod: PayMethodKey): string {
-  const environmentNames: Record<PayMethodKey, string> = {
-    alipay: "QIANHE_ALIPAY_WAY_CODE",
-  };
-  return requiredEnv(environmentNames[payMethod]);
+  return requiredEnv(WAY_CODE_ENVIRONMENT_NAMES[payMethod]);
 }
 
 export function assertQianheConfiguration(payMethod: PayMethodKey): void {
@@ -55,8 +57,16 @@ export function assertQianheConfiguration(payMethod: PayMethodKey): void {
   paymentSiteOrigin();
 }
 
+export function assertQianheStartupConfiguration(): void {
+  merchantConfig();
+  for (const environmentName of Object.values(WAY_CODE_ENVIRONMENT_NAMES)) {
+    requiredEnv(environmentName);
+  }
+  paymentSiteOrigin();
+}
+
 export function paymentSiteOrigin(): string {
-  const configured = process.env.PAYMENT_SITE_URL?.trim() || "https://gp77.top";
+  const configured = process.env.PAYMENT_SITE_URL?.trim() || SITE_URL;
   let url: URL;
   try {
     url = new URL(configured);
@@ -69,11 +79,29 @@ export function paymentSiteOrigin(): string {
     url.protocol === "http:" &&
     (url.hostname === "localhost" || url.hostname === "127.0.0.1");
   if (url.protocol !== "https:" && !localDevelopment) {
-    throw new PaymentProviderError("PAYMENT_SITE_URL must use HTTPS", "configuration");
+    throw new PaymentProviderError(
+      "PAYMENT_SITE_URL must use HTTPS",
+      "configuration",
+    );
   }
   if (url.username || url.password) {
     throw new PaymentProviderError(
       "PAYMENT_SITE_URL must not contain credentials",
+      "configuration",
+    );
+  }
+  if (url.pathname !== "/" || url.search || url.hash) {
+    throw new PaymentProviderError(
+      "PAYMENT_SITE_URL must be an origin without a path, query, or fragment",
+      "configuration",
+    );
+  }
+  if (
+    process.env.NODE_ENV === "production" &&
+    url.origin !== new URL(SITE_URL).origin
+  ) {
+    throw new PaymentProviderError(
+      "PAYMENT_SITE_URL must match the canonical production site origin",
       "configuration",
     );
   }
@@ -82,7 +110,10 @@ export function paymentSiteOrigin(): string {
 
 function signableEntries(params: JsonRecord): [string, string][] {
   return Object.entries(params)
-    .filter(([key, value]) => key !== "sign" && value !== null && value !== undefined && value !== "")
+    .filter(
+      ([key, value]) =>
+        key !== "sign" && value !== null && value !== undefined && value !== "",
+    )
     .map(([key, value]) => {
       if (!["string", "number", "boolean"].includes(typeof value)) {
         throw new PaymentProviderError(`Unsupported signed field: ${key}`);
@@ -100,8 +131,13 @@ export function createQianheSignature(params: JsonRecord, key: string): string {
   return createHash("md5").update(plaintext, "utf8").digest("hex");
 }
 
-function signatureMatches(params: JsonRecord, signature: unknown, key: string): boolean {
-  if (typeof signature !== "string" || !/^[a-fA-F0-9]{32}$/.test(signature)) return false;
+function signatureMatches(
+  params: JsonRecord,
+  signature: unknown,
+  key: string,
+): boolean {
+  if (typeof signature !== "string" || !/^[a-fA-F0-9]{32}$/.test(signature))
+    return false;
   const expected = createQianheSignature(params, key);
   return timingSafeEqual(
     Buffer.from(expected, "ascii"),
@@ -125,7 +161,8 @@ function nonEmptyString(value: unknown, field: string): string {
 
 function boundedString(value: unknown, field: string, maxLength = 255): string {
   const parsed = nonEmptyString(value, field);
-  if (parsed.length > maxLength) throw new PaymentProviderError(`Invalid ${field}`);
+  if (parsed.length > maxLength)
+    throw new PaymentProviderError(`Invalid ${field}`);
   return parsed;
 }
 
@@ -145,7 +182,8 @@ function safeInteger(value: unknown, field: string): number {
 function timestamp(value: unknown, field: string): Date {
   const milliseconds = safeInteger(value, field);
   const date = new Date(milliseconds);
-  if (Number.isNaN(date.getTime())) throw new PaymentProviderError(`Invalid ${field}`);
+  if (Number.isNaN(date.getTime()))
+    throw new PaymentProviderError(`Invalid ${field}`);
   return date;
 }
 
@@ -175,11 +213,17 @@ async function postJson(path: string, body: JsonRecord): Promise<JsonRecord> {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch {
-    throw new PaymentProviderError("Payment provider is unavailable", "unavailable");
+    throw new PaymentProviderError(
+      "Payment provider is unavailable",
+      "unavailable",
+    );
   }
 
   if (!response.ok) {
-    throw new PaymentProviderError("Payment provider request failed", "unavailable");
+    throw new PaymentProviderError(
+      "Payment provider request failed",
+      "unavailable",
+    );
   }
   const text = await response.text();
   if (text.length > MAX_RESPONSE_BYTES) {
@@ -195,7 +239,10 @@ async function postJson(path: string, body: JsonRecord): Promise<JsonRecord> {
 
 function verifiedResponseData(payload: JsonRecord, key: string): JsonRecord {
   if (safeInteger(payload.code, "code") !== 0) {
-    throw new PaymentProviderError("Payment provider rejected the request", "rejected");
+    throw new PaymentProviderError(
+      "Payment provider rejected the request",
+      "rejected",
+    );
   }
   const data = record(payload.data, "response data");
   if (!signatureMatches(data, payload.sign, key)) {

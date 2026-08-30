@@ -6,12 +6,15 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/user-auth";
 import { payMethodLabel } from "@/lib/membership";
 import { refreshPaymentStatus } from "../../actions";
+import { PAYMENT_FEATURE_ENABLED } from "@/lib/feature-flags";
 
 function safePaymentUrl(value: string | null): string | null {
   if (!value) return null;
   try {
     const url = new URL(value);
-    return url.protocol === "https:" && !url.username && !url.password ? url.toString() : null;
+    return url.protocol === "https:" && !url.username && !url.password
+      ? url.toString()
+      : null;
   } catch {
     return null;
   }
@@ -24,6 +27,8 @@ export default async function PayPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ check?: string }>;
 }) {
+  if (!PAYMENT_FEATURE_ENABLED) notFound();
+
   const { id } = await params;
   const { check } = await searchParams;
   const orderId = Number(id);
@@ -66,7 +71,9 @@ export default async function PayPage({
           </div>
           <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-3 text-sm">
             <span className="text-gray-500">应付金额</span>
-            <span className="text-xl font-bold text-rose-500">¥{order.amount}</span>
+            <span className="text-xl font-bold text-rose-500">
+              ¥{order.amount}
+            </span>
           </div>
         </div>
       </div>
@@ -122,9 +129,9 @@ export default async function PayPage({
           取消，返回
         </Link>
         <p className="mt-4 text-center text-xs text-gray-500">
-          遇到支付问题，请联系
-          <a href="mailto:nanfang667@gmail.com" className="ml-1 text-pink-500">
-            nanfang667@gmail.com
+          遇到支付问题，请联系邮箱
+          <a href="mailto:fenglou176@gmail.com" className="ml-1 text-pink-500">
+            fenglou176@gmail.com
           </a>
         </p>
       </div>

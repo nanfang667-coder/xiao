@@ -25,8 +25,8 @@ export type AdminUser = {
   banReason: string | null;
 };
 
-// 全站独立访客统计：近24小时 / 近7天 / 近30天（服务端算好传下来）
-export type SiteVisitorStats = { day: number; week: number; month: number };
+// Site-wide unique visitors: rolling 24 hours / all time / rolling 30 days.
+export type SiteVisitorStats = { day: number; total: number; month: number };
 
 type Filter = "all" | "member" | "normal" | "banned";
 
@@ -80,9 +80,7 @@ export function UsersBrowser({
       return true;
     })
     .sort((a, b) =>
-      showHighVisitorOnly
-        ? b.referralVisitorCount - a.referralVisitorCount
-        : 0,
+      showHighVisitorOnly ? b.referralVisitorCount - a.referralVisitorCount : 0,
     );
 
   return (
@@ -91,10 +89,13 @@ export function UsersBrowser({
       <div className="mb-3 grid grid-cols-3 gap-2">
         {[
           { label: "近24小时", count: siteVisitorStats.day },
-          { label: "近7天", count: siteVisitorStats.week },
           { label: "近30天", count: siteVisitorStats.month },
+          { label: "\u603b\u5171", count: siteVisitorStats.total },
         ].map((s) => (
-          <div key={s.label} className="rounded-xl bg-white p-3 text-center shadow-sm">
+          <div
+            key={s.label}
+            className="rounded-xl bg-white p-3 text-center shadow-sm"
+          >
             <div className="text-lg font-bold text-pink-500">{s.count}</div>
             <div className="mt-0.5 text-xs text-gray-400">{s.label}</div>
           </div>
@@ -153,7 +154,8 @@ export function UsersBrowser({
               : "bg-pink-50 text-pink-500"
           }`}
         >
-          {highVisitorCount} 个链接{showHighVisitorOnly ? " · 人数从高到低" : ""}
+          {highVisitorCount} 个链接
+          {showHighVisitorOnly ? " · 人数从高到低" : ""}
         </span>
       </button>
 

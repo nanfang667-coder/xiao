@@ -5,17 +5,22 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/user-auth";
 import { MEMBERSHIP_PLAN, isActiveMember } from "@/lib/membership";
 import { VipPurchase } from "./VipPurchase";
+import { notFound } from "next/navigation";
+import { PAYMENT_FEATURE_ENABLED } from "@/lib/feature-flags";
 
 export default async function VipPage({
   searchParams,
 }: {
   searchParams: Promise<{ paid?: string; paymentError?: string }>;
 }) {
+  if (!PAYMENT_FEATURE_ENABLED) notFound();
+
   const { paid, paymentError } = await searchParams;
   const user = await getCurrentUser();
   const isMember = isActiveMember(user);
   const paymentErrorMessages: Record<string, string> = {
-    configuration: "本地支付配置不完整，请检查商户号、密钥和通道编码后重启项目。",
+    configuration:
+      "本地支付配置不完整，请检查商户号、密钥和通道编码后重启项目。",
     unavailable: "暂时无法连接支付平台，请稍后重试；本次没有扣款。",
     rejected: "支付平台拒绝了下单请求，请核对商户状态和支付宝通道配置。",
     invalid_response: "支付平台返回内容未通过安全校验，本次没有扣款。",
@@ -50,13 +55,24 @@ export default async function VipPage({
           <div className="text-3xl">👑</div>
           <div className="mt-2 text-xl font-bold">{MEMBERSHIP_PLAN.name}</div>
           <div className="mt-1 text-sm text-white/90">
-            {isMember ? "您已是尊贵会员，权益已全部解锁" : "一次开通，终身畅享全部权益"}
+            {isMember
+              ? "您已是尊贵会员，权益已全部解锁"
+              : "一次开通，终身畅享全部权益"}
           </div>
-          <div className="mt-3 flex items-baseline gap-1">
+          <div className="mt-3 flex flex-wrap items-baseline gap-1.5">
+            <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-bold">
+              限时价
+            </span>
             <span className="text-sm">¥</span>
             <span className="text-4xl font-bold">{MEMBERSHIP_PLAN.price}</span>
             <span className="text-sm text-white/80">/ 永久</span>
+            <span className="ml-1 text-xs text-white/70 line-through">
+              原价 ¥{MEMBERSHIP_PLAN.originalPrice}
+            </span>
           </div>
+          <p className="mt-3 text-xs leading-5 text-white/85">
+            用户新增过多，现在改为付费会员模式，会员费用将用于网站日常维护和信息持续更新，感谢您的支持。
+          </p>
         </div>
       </div>
 
@@ -66,7 +82,10 @@ export default async function VipPage({
           <h2 className="mb-3 text-sm font-bold text-gray-800">会员权益</h2>
           <ul className="space-y-2.5">
             {MEMBERSHIP_PLAN.benefits.map((b) => (
-              <li key={b} className="flex items-center gap-2 text-sm text-gray-700">
+              <li
+                key={b}
+                className="flex items-center gap-2 text-sm text-gray-700"
+              >
                 <span className="flex h-5 w-5 flex-none items-center justify-center rounded-full bg-amber-100 text-xs text-amber-600">
                   ✓
                 </span>
@@ -81,7 +100,9 @@ export default async function VipPage({
       {isMember ? (
         <div className="px-4 pt-6 text-center">
           <div className="mb-2 text-3xl">✅</div>
-          <p className="text-sm text-gray-500">您已开通永久会员，尽情浏览吧～</p>
+          <p className="text-sm text-gray-500">
+            您已开通永久会员，尽情浏览吧～
+          </p>
           <Link
             href="/"
             className="mt-4 inline-block rounded-full bg-pink-500 px-8 py-2.5 text-sm font-bold text-white active:bg-pink-600"

@@ -4,9 +4,11 @@
 export const MEMBERSHIP_PLAN = {
   name: "永久会员",
   price: 38, // 元
+  originalPrice: 58, // 元
   benefits: [
-    "查看详细联系方式（电话 / 微信 / QQ）",
+    "查看全站联系方式（电话 / 微信 / QQ）",
     "永久有效，一次开通终身可用",
+    "查看暗巷详细介绍与会员图片",
   ],
 };
 
@@ -56,7 +58,7 @@ export function isActiveMember(
   user:
     | { isMember?: boolean; membershipExpiresAt?: Date | string | null }
     | null
-    | undefined
+    | undefined,
 ): boolean {
   if (!user?.isMember) return false;
   if (!user.membershipExpiresAt) return true; // 永久会员

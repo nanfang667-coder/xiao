@@ -40,6 +40,7 @@ yarn-error.log*
 *.sqlite3
 *.sqlite3-*
 /backups/
+/storage/
 /public/uploads/*
 !/public/uploads/.gitkeep
 

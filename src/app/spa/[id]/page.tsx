@@ -18,25 +18,40 @@ function truncate(value: string, maxLength: number): string {
   return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
 }
 
-export async function generateMetadata({ params }: MerchantPageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: MerchantPageProps): Promise<Metadata> {
   const { id } = await params;
   const merchant = await getPublishedMerchantById(id);
-  if (!merchant) return { title: "商家不存在", robots: { index: false, follow: false } };
+  if (!merchant)
+    return { title: "商家不存在", robots: { index: false, follow: false } };
 
   const location = formatLocationLabel(merchant.city, merchant.district);
   const title = `${truncate(`${merchant.name}｜${location || "商家SPA"}`, 54)} | ${SITE_NAME}`;
-  const description = truncate(compactText(merchant.description || merchant.services), 160);
+  const description = truncate(
+    compactText(merchant.description || merchant.services),
+    160,
+  );
   const canonical = `${SITE_URL}/spa/${merchant.id}`;
 
   return {
     title: { absolute: title },
     description,
     alternates: { canonical },
-    openGraph: { title, description, url: canonical, siteName: SITE_NAME, locale: "zh_CN", type: "website" },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      siteName: SITE_NAME,
+      locale: "zh_CN",
+      type: "website",
+    },
   };
 }
 
-export default async function MerchantDetailPage({ params }: MerchantPageProps) {
+export default async function MerchantDetailPage({
+  params,
+}: MerchantPageProps) {
   const { id } = await params;
   const merchant = await getPublishedMerchantById(id);
   if (!merchant) notFound();
@@ -51,28 +66,45 @@ export default async function MerchantDetailPage({ params }: MerchantPageProps) 
 
   return (
     <div className="mx-auto w-full max-w-md flex-1 pb-10">
-      <div className="sticky top-0 z-10 flex items-center gap-3 bg-white/90 px-4 py-3 shadow-sm backdrop-blur">
-        <Link href="/spa" className="text-pink-500">← 商家SPA</Link>
-      </div>
+      <header className="sticky top-0 z-10 flex items-center gap-3 bg-gradient-to-r from-pink-500 to-rose-500 px-4 py-4 text-white shadow-md">
+        <Link href="/spa" className="text-white/90">
+          ← 返回
+        </Link>
+        <h1 className="text-lg font-bold">商家SPA</h1>
+      </header>
 
-      <Gallery photos={merchant.photos} emoji="🏪" alt={`${location}${merchant.name}的商家照片`} />
+      <Gallery
+        photos={merchant.photos}
+        emoji="🏪"
+        alt={`${location}${merchant.name}的商家照片`}
+      />
 
       <div className="px-4">
         <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
           {location && <p className="text-xs text-gray-400">📍 {location}</p>}
-          <h1 className="mt-2 text-lg font-bold text-gray-900">{merchant.name}</h1>
-          {merchant.price && <p className="mt-2 text-xl font-bold text-rose-500">{merchant.price}</p>}
+          <h1 className="mt-2 text-lg font-bold text-gray-900">
+            {merchant.name}
+          </h1>
+          {merchant.price && (
+            <p className="mt-2 text-xl font-bold text-rose-500">
+              {merchant.price}
+            </p>
+          )}
         </section>
 
         <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
           <h2 className="mb-2 text-sm font-bold text-gray-800">服务项目</h2>
-          <p className="whitespace-pre-line text-sm leading-6 text-gray-600">{merchant.services}</p>
+          <p className="whitespace-pre-line text-sm leading-6 text-gray-600">
+            {merchant.services}
+          </p>
         </section>
 
         {merchant.description && (
           <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
             <h2 className="mb-2 text-sm font-bold text-gray-800">商家介绍</h2>
-            <p className="whitespace-pre-line text-sm leading-6 text-gray-600">{merchant.description}</p>
+            <p className="whitespace-pre-line text-sm leading-6 text-gray-600">
+              {merchant.description}
+            </p>
           </section>
         )}
 
@@ -90,7 +122,9 @@ export default async function MerchantDetailPage({ params }: MerchantPageProps) 
               {contacts.map(([label, value]) => (
                 <div key={label} className="flex items-start gap-3 text-sm">
                   <span className="w-10 flex-none text-gray-400">{label}</span>
-                  <span className="break-all font-medium text-gray-700">{value}</span>
+                  <span className="break-all font-medium text-gray-700">
+                    {value}
+                  </span>
                 </div>
               ))}
             </div>

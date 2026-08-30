@@ -126,7 +126,10 @@ function locationVariants(value: string): string[] {
   return [...new Set([trimmed, normalized].filter(Boolean))];
 }
 
-function locationFilter(field: "city" | "district", value: string): Prisma.TeacherWhereInput {
+function locationFilter(
+  field: "city" | "district",
+  value: string,
+): Prisma.TeacherWhereInput {
   return {
     OR: locationVariants(value).map((variant) => ({
       [field]: { contains: variant },
@@ -134,14 +137,19 @@ function locationFilter(field: "city" | "district", value: string): Prisma.Teach
   };
 }
 
-function findCanonicalLocation(value: string, options: string[]): string | undefined {
+function findCanonicalLocation(
+  value: string,
+  options: string[],
+): string | undefined {
   return options.find((option) => locationNamesMatch(value, option));
 }
 
 function parsePhotos(photosJson: string): string[] {
   try {
     const photos = JSON.parse(photosJson);
-    return Array.isArray(photos) ? photos.filter((photo): photo is string => typeof photo === "string") : [];
+    return Array.isArray(photos)
+      ? photos.filter((photo): photo is string => typeof photo === "string")
+      : [];
   } catch {
     return [];
   }
@@ -158,7 +166,9 @@ export async function searchTeachersForAdmin(
     const numericId = Number(query);
     baseConditions.push({
       OR: [
-        ...(Number.isSafeInteger(numericId) && numericId > 0 ? [{ id: numericId }] : []),
+        ...(Number.isSafeInteger(numericId) && numericId > 0
+          ? [{ id: numericId }]
+          : []),
         { name: { contains: query } },
         { phone: { contains: query } },
         { wechat: { contains: query } },
@@ -219,11 +229,15 @@ export async function searchTeachersForAdmin(
     provinces.map((province) => [province, 0]),
   );
   for (const group of provinceGroups) {
-    const province = normalizeProvince(group.city) ?? findCanonicalLocation(group.city, provinces);
+    const province =
+      normalizeProvince(group.city) ??
+      findCanonicalLocation(group.city, provinces);
     if (province) provinceCounts[province] += group._count._all;
   }
 
-  const cityOptions = filters.province ? citiesOfProvince(filters.province) : [];
+  const cityOptions = filters.province
+    ? citiesOfProvince(filters.province)
+    : [];
   const cityCounts: Record<string, number> = Object.fromEntries(
     cityOptions.map((city) => [city, 0]),
   );
@@ -239,18 +253,16 @@ export async function searchTeachersForAdmin(
       photos: parsePhotos(row.photos),
     })),
     total,
-    allLocationTotal: provinceGroups.reduce((sum, group) => sum + group._count._all, 0),
+    allLocationTotal: provinceGroups.reduce(
+      (sum, group) => sum + group._count._all,
+      0,
+    ),
     page,
     totalPages,
     provinceCounts,
     cityCounts,
   };
 }
-
-// 列表用的老师格式：不含电话/微信/QQ等联系方式（会员专属，不能发到浏览器），但详细地址所有人可见
-export type TeacherListItem = Omit<Teacher, "contact"> & {
-  address: string | null;
-};
 
 export type TeacherCardItem = Pick<
   Teacher,
@@ -269,27 +281,26 @@ export type TeacherCardItem = Pick<
   address?: string | null;
 };
 
+function activeNationalPromotionWhere(now: Date): Prisma.TeacherWhereInput {
+  return {
+    isNationallyPromoted: true,
+    AND: [
+      {
+        OR: [{ promotionStartsAt: null }, { promotionStartsAt: { lte: now } }],
+      },
+      {
+        OR: [{ promotionEndsAt: null }, { promotionEndsAt: { gte: now } }],
+      },
+    ],
+  };
+}
+
 // Current nationwide placement. Only public card fields are selected so contact details stay private.
-export async function getActiveNationalPromotions(): Promise<TeacherCardItem[]> {
-  const now = new Date();
+export async function getActiveNationalPromotions(
+  now = new Date(),
+): Promise<TeacherCardItem[]> {
   const rows = await prisma.teacher.findMany({
-    where: {
-      isNationallyPromoted: true,
-      AND: [
-        {
-          OR: [
-            { promotionStartsAt: null },
-            { promotionStartsAt: { lte: now } },
-          ],
-        },
-        {
-          OR: [
-            { promotionEndsAt: null },
-            { promotionEndsAt: { gte: now } },
-          ],
-        },
-      ],
-    },
+    where: activeNationalPromotionWhere(now),
     orderBy: [
       { promotionOrder: "asc" },
       { promotionStartsAt: "desc" },
@@ -316,8 +327,67 @@ export async function getActiveNationalPromotions(): Promise<TeacherCardItem[]> 
     ...row,
     id: String(row.id),
     type: row.type as "\u94a2\u7434" | "\u821e\u8e48",
-    photos: parsePhotos(row.photos),
+    photos: parsePhotos(row.photos).slice(0, 1),
   }));
+}
+
+export type HomeTeacherPage = {
+  teachers: TeacherCardItem[];
+  total: number;
+  page: number;
+  totalPages: number;
+};
+
+// 首页只查询当前页使用的公开卡片字段，避免把全部帖子序列化发送给浏览器。
+export async function getHomeTeachers(
+  requestedPage: number,
+  pageSize: number,
+  now = new Date(),
+): Promise<HomeTeacherPage> {
+  const safePageSize = Math.min(Math.max(1, Math.trunc(pageSize)), 50);
+  const safeRequestedPage = Number.isSafeInteger(requestedPage)
+    ? Math.max(1, requestedPage)
+    : 1;
+  const where: Prisma.TeacherWhereInput = {
+    NOT: activeNationalPromotionWhere(now),
+  };
+
+  const total = await prisma.teacher.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / safePageSize));
+  const page = Math.min(safeRequestedPage, totalPages);
+  const rows = await prisma.teacher.findMany({
+    where,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    skip: (page - 1) * safePageSize,
+    take: safePageSize,
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      city: true,
+      district: true,
+      price: true,
+      services: true,
+      age: true,
+      photos: true,
+      emoji: true,
+      createdAt: true,
+      address: true,
+    },
+  });
+
+  return {
+    teachers: rows.map((row) => ({
+      ...row,
+      id: String(row.id),
+      type: row.type as "钢琴" | "舞蹈",
+      // 列表卡片只显示第一张图，不把其余详情图片发送到首页。
+      photos: parsePhotos(row.photos).slice(0, 1),
+    })),
+    total,
+    page,
+    totalPages,
+  };
 }
 
 export type SeoLocationTeacherResult = {
@@ -329,18 +399,6 @@ export type SeoLocationTeacherResult = {
   lastModified: Date | null;
 };
 
-// 取出所有老师供列表展示——去掉 phone/wechat/qq/other，避免联系方式随页面源码泄露给非会员；
-// 详细地址不算敏感联系方式，所有人可见，因此保留
-export async function getTeachersForList(): Promise<TeacherListItem[]> {
-  const rows = await prisma.teacher.findMany({
-    orderBy: { createdAt: "desc" },
-  });
-  return rows.map((row) => {
-    const { contact, ...rest } = toTeacher(row);
-    return { ...rest, address: contact.address };
-  });
-}
-
 // 地区 SEO 页只查询公开展示所需字段，并在数据库中完成筛选和分页。
 // React cache 会复用同一次请求中 generateMetadata 与页面正文的相同查询。
 export const getTeachersForSeoLocation = cache(
@@ -350,7 +408,9 @@ export const getTeachersForSeoLocation = cache(
     requestedPage: number,
     pageSize: number,
   ): Promise<SeoLocationTeacherResult> {
-    const conditions: Prisma.TeacherWhereInput[] = [locationFilter("city", province)];
+    const conditions: Prisma.TeacherWhereInput[] = [
+      locationFilter("city", province),
+    ];
     if (region) conditions.push(locationFilter("district", region));
     const where: Prisma.TeacherWhereInput = { AND: conditions };
 
@@ -408,16 +468,18 @@ export const getTeachersForSeoLocation = cache(
 );
 
 // 站内地区导航只链接至少有一条公开资料的地区，避免产生空地区页和无效链接。
-export const getAvailableSeoLocationSlugs = cache(async function getAvailableSeoLocationSlugs() {
-  const rows = await prisma.teacher.findMany({
-    select: {
-      city: true,
-      district: true,
-    },
-  });
+export const getAvailableSeoLocationSlugs = cache(
+  async function getAvailableSeoLocationSlugs() {
+    const rows = await prisma.teacher.findMany({
+      select: {
+        city: true,
+        district: true,
+      },
+    });
 
-  return getSeoLocationSlugsForRecords(rows, MIN_ACCESSIBLE_LOCATION_RECORDS);
-});
+    return getSeoLocationSlugsForRecords(rows, MIN_ACCESSIBLE_LOCATION_RECORDS);
+  },
+);
 
 // 按编号取一位老师
 export async function getTeacherById(id: string): Promise<Teacher | null> {
@@ -425,6 +487,77 @@ export async function getTeacherById(id: string): Promise<Teacher | null> {
   if (Number.isNaN(numId)) return null;
   const row = await prisma.teacher.findUnique({ where: { id: numId } });
   return row ? toTeacher(row) : null;
+}
+
+export type PublicTeacherDetail = Omit<Teacher, "contact"> & {
+  address: string | null;
+};
+
+export type TeacherContact = Omit<Teacher["contact"], "address">;
+
+// 详情页公开内容单独查询，避免非会员请求顺带读取联系方式。
+export async function getTeacherPublicById(
+  id: string,
+): Promise<PublicTeacherDetail | null> {
+  const numId = Number(id);
+  if (!Number.isSafeInteger(numId) || numId <= 0) return null;
+
+  const row = await prisma.teacher.findUnique({
+    where: { id: numId },
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      city: true,
+      district: true,
+      price: true,
+      services: true,
+      courseNotes: true,
+      age: true,
+      photos: true,
+      emoji: true,
+      address: true,
+      createdAt: true,
+      isNationallyPromoted: true,
+      promotionOrder: true,
+      promotionStartsAt: true,
+      promotionEndsAt: true,
+    },
+  });
+  if (!row) return null;
+
+  return {
+    ...row,
+    id: String(row.id),
+    type: row.type as "钢琴" | "舞蹈",
+    photos: parsePhotos(row.photos),
+  };
+}
+
+// 只有服务端确认会员有效后才调用；查询结果不包含公开详情字段。
+export async function getTeacherContactById(
+  id: string,
+): Promise<TeacherContact | null> {
+  const numId = Number(id);
+  if (!Number.isSafeInteger(numId) || numId <= 0) return null;
+
+  const row = await prisma.teacher.findUnique({
+    where: { id: numId },
+    select: {
+      phone: true,
+      wechat: true,
+      qq: true,
+      otherContact: true,
+    },
+  });
+  if (!row) return null;
+
+  return {
+    phone: row.phone,
+    wechat: row.wechat,
+    qq: row.qq,
+    other: row.otherContact,
+  };
 }
 
 export type TeacherSeo = {
@@ -438,7 +571,9 @@ export type TeacherSeo = {
 
 // SEO only needs public listing fields. Keep contact details out of the
 // metadata query so they cannot accidentally be exposed in page metadata.
-export async function getTeacherSeoById(id: string): Promise<TeacherSeo | null> {
+export async function getTeacherSeoById(
+  id: string,
+): Promise<TeacherSeo | null> {
   const numId = Number(id);
   if (!Number.isSafeInteger(numId) || numId <= 0) return null;
 

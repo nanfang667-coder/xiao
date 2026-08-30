@@ -4,7 +4,11 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { UsersBrowser, type AdminUser, type SiteVisitorStats } from "./UsersBrowser";
+import {
+  UsersBrowser,
+  type AdminUser,
+  type SiteVisitorStats,
+} from "./UsersBrowser";
 
 // 把日期显示成 2026-07-07 这样的格式
 function formatDate(d: Date): string {
@@ -17,19 +21,17 @@ function formatDate(d: Date): string {
 async function getSiteVisitorStats(): Promise<SiteVisitorStats> {
   const now = Date.now();
   const DAY_MS = 24 * 60 * 60 * 1000;
-  const [day, week, month] = await Promise.all([
+  const [day, total, month] = await Promise.all([
     prisma.siteVisit.count({
       where: { lastVisitedAt: { gte: new Date(now - DAY_MS) } },
     }),
-    prisma.siteVisit.count({
-      where: { lastVisitedAt: { gte: new Date(now - 7 * DAY_MS) } },
-    }),
+    prisma.siteVisit.count(),
     prisma.siteVisit.count({
       where: { lastVisitedAt: { gte: new Date(now - 30 * DAY_MS) } },
     }),
   ]);
 
-  return { day, week, month };
+  return { day, total, month };
 }
 
 export default async function AdminUsersPage() {

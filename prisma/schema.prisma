@@ -86,6 +86,25 @@ model Merchant {
   @@index([city, district, sortOrder])
 }
 
+// 暗巷列表封面公开；详细介绍和详情图片仅会员可见。
+model AlleyPost {
+  id           Int      @id @default(autoincrement())
+  title        String
+  city         String
+  district     String
+  address      String
+  coverPhoto   String
+  description  String
+  detailPhotos String
+  sortOrder    Int      @default(100)
+  isPublished  Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([isPublished, sortOrder, createdAt])
+  @@index([city, district, sortOrder])
+}
+
 // 首页合作伙伴/友情链接；不抓取外部网页，只保存管理员填写的公开链接。
 model PartnerLink {
   id          Int      @id @default(autoincrement())

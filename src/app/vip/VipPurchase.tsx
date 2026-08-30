@@ -33,7 +33,9 @@ export function VipPurchase() {
                 className="accent-pink-500"
               />
               <span className="text-xl">{m.emoji}</span>
-              <span className="text-sm font-medium text-gray-700">{m.label}</span>
+              <span className="text-sm font-medium text-gray-700">
+                {m.label}
+              </span>
             </label>
           ))}
         </div>
@@ -44,15 +46,15 @@ export function VipPurchase() {
         type="submit"
         className="mt-6 w-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 py-3 text-base font-bold text-white shadow active:opacity-90"
       >
-        立即开通 ¥{MEMBERSHIP_PLAN.price}
+        限时开通 ¥{MEMBERSHIP_PLAN.price}
       </button>
       <p className="mt-3 text-center text-xs text-gray-400">
         开通即表示同意会员服务协议
       </p>
       <p className="mt-2 text-center text-xs text-gray-500">
-        遇到支付问题，请联系
-        <a href="mailto:nanfang667@gmail.com" className="ml-1 text-pink-500">
-          nanfang667@gmail.com
+        遇到支付问题，请联系邮箱
+        <a href="mailto:fenglou176@gmail.com" className="ml-1 text-pink-500">
+          fenglou176@gmail.com
         </a>
       </p>
     </form>

@@ -6,7 +6,10 @@ const path = require("node:path");
 const ts = require("typescript");
 
 // 直接编译实际支付模块；只替换 Next 的 server-only 标记，不发起网络请求。
-const source = fs.readFileSync(path.join(__dirname, "src/lib/qianhe-payment.ts"), "utf8");
+const source = fs.readFileSync(
+  path.join(__dirname, "src/lib/qianhe-payment.ts"),
+  "utf8",
+);
 const compiled = ts.transpileModule(source, {
   compilerOptions: {
     module: ts.ModuleKind.CommonJS,
@@ -18,6 +21,7 @@ const compiled = ts.transpileModule(source, {
 const paymentModule = { exports: {} };
 const localRequire = (id) => {
   if (id === "server-only") return {};
+  if (id === "@/lib/site-config") return { SITE_URL: "https://fenglou1.com" };
   return require(id);
 };
 new Function("require", "module", "exports", compiled)(
@@ -26,9 +30,37 @@ new Function("require", "module", "exports", compiled)(
   paymentModule.exports,
 );
 
-const { createQianheSignature, verifyQianheNotification } = paymentModule.exports;
+const {
+  assertQianheStartupConfiguration,
+  createQianheSignature,
+  paymentSiteOrigin,
+  verifyQianheNotification,
+} = paymentModule.exports;
 process.env.QIANHE_MCH_ID = "M100";
 process.env.QIANHE_MCH_KEY = "secret";
+process.env.QIANHE_ALIPAY_WAY_CODE = "ALI_TEST";
+delete process.env.PAYMENT_SITE_URL;
+
+assert.equal(paymentSiteOrigin(), "https://fenglou1.com");
+assert.doesNotThrow(() => assertQianheStartupConfiguration());
+
+delete process.env.QIANHE_ALIPAY_WAY_CODE;
+assert.throws(
+  () => assertQianheStartupConfiguration(),
+  /QIANHE_ALIPAY_WAY_CODE/,
+);
+process.env.QIANHE_ALIPAY_WAY_CODE = "ALI_TEST";
+
+const previousNodeEnv = process.env.NODE_ENV;
+process.env.NODE_ENV = "production";
+process.env.PAYMENT_SITE_URL = "https://gp77.top";
+assert.throws(() => assertQianheStartupConfiguration(), /canonical/i);
+delete process.env.PAYMENT_SITE_URL;
+if (previousNodeEnv === undefined) {
+  delete process.env.NODE_ENV;
+} else {
+  process.env.NODE_ENV = previousNodeEnv;
+}
 
 const notification = {
   mchId: "M100",
@@ -56,7 +88,8 @@ assert.deepEqual(
 );
 
 assert.throws(
-  () => verifyQianheNotification({ ...notification, amount: 1, sign: signature }),
+  () =>
+    verifyQianheNotification({ ...notification, amount: 1, sign: signature }),
   /signature/i,
 );
 

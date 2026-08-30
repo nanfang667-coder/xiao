@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { fulfillPaidOrder } from "@/lib/payment";
 import { verifyQianheNotification } from "@/lib/qianhe-payment";
+import { PAYMENT_FEATURE_ENABLED } from "@/lib/feature-flags";
 
 const MAX_NOTIFICATION_BYTES = 16 * 1024;
 
@@ -15,20 +16,30 @@ function reply(body: "SUCCESS" | "FAIL", status = 200): Response {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const contentType = request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase();
+  if (!PAYMENT_FEATURE_ENABLED) return reply("FAIL", 404);
+
+  const contentType = request.headers
+    .get("content-type")
+    ?.split(";", 1)[0]
+    .trim()
+    .toLowerCase();
   if (contentType !== "application/json") {
     return reply("FAIL", 415);
   }
 
   const declaredLength = Number(request.headers.get("content-length") ?? 0);
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_NOTIFICATION_BYTES) {
+  if (
+    Number.isFinite(declaredLength) &&
+    declaredLength > MAX_NOTIFICATION_BYTES
+  ) {
     return reply("FAIL", 413);
   }
 
   let payload: unknown;
   try {
     const text = await request.text();
-    if (text.length === 0 || text.length > MAX_NOTIFICATION_BYTES) return reply("FAIL", 413);
+    if (text.length === 0 || text.length > MAX_NOTIFICATION_BYTES)
+      return reply("FAIL", 413);
     payload = JSON.parse(text);
   } catch {
     return reply("FAIL", 400);

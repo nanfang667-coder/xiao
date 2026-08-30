@@ -22,6 +22,7 @@ import {
   queryQianheOrder,
   type CreatedQianheOrder,
 } from "@/lib/qianhe-payment";
+import { PAYMENT_FEATURE_ENABLED } from "@/lib/feature-flags";
 
 function merchantOrderNumber(): string {
   return `GP77${Date.now().toString(36)}${randomBytes(6).toString("hex")}`.toUpperCase();
@@ -43,19 +44,25 @@ function safeStoredPaymentUrl(value: string | null): string | null {
   if (!value) return null;
   try {
     const url = new URL(value);
-    return url.protocol === "https:" && !url.username && !url.password ? url.toString() : null;
+    return url.protocol === "https:" && !url.username && !url.password
+      ? url.toString()
+      : null;
   } catch {
     return null;
   }
 }
 
-function selectedPayMethod(value: FormDataEntryValue | null): PayMethodKey | null {
+function selectedPayMethod(
+  value: FormDataEntryValue | null,
+): PayMethodKey | null {
   const key = String(value ?? "");
   return PAY_METHODS.find((method) => method.key === key)?.key ?? null;
 }
 
 // 创建本站订单并请求支付平台下单。商户密钥仅在服务端参与签名。
 export async function createOrder(formData: FormData) {
+  if (!PAYMENT_FEATURE_ENABLED) redirect("/");
+
   const user = await requireUser();
   if (isActiveMember(user)) redirect("/vip");
 
@@ -140,6 +147,8 @@ export async function createOrder(formData: FormData) {
 
 // 回调遗漏时的安全补偿：主动查单，只有平台签名响应明确为支付成功才入账。
 export async function refreshPaymentStatus(orderId: number) {
+  if (!PAYMENT_FEATURE_ENABLED) redirect("/");
+
   const user = await requireUser();
   if (!Number.isSafeInteger(orderId) || orderId <= 0) redirect("/vip");
 
