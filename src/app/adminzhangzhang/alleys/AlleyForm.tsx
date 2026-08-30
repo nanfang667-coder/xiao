@@ -161,10 +161,9 @@ export function AlleyForm({
         </div>
 
         <div>
-          <label className={label}>详细地址（所有人可见）</label>
+          <label className={label}>详细地址（选填，所有人可见）</label>
           <input
             name="address"
-            required
             maxLength={300}
             defaultValue={initial?.address}
             className={field}

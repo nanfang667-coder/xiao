@@ -35,7 +35,7 @@ export async function generateMetadata({
   const canonical = `${SITE_URL}/alley/${alley.id}`;
   return {
     title: { absolute: title },
-    description: `${alley.title}，地址：${alley.address}。详细介绍和图片仅会员可见。`,
+    description: `${alley.title}${alley.address ? `，地址：${alley.address}` : ""}。详细介绍和图片仅会员可见。`,
     alternates: { canonical },
     openGraph: {
       title,
@@ -82,12 +82,14 @@ export default async function AlleyDetailPage({
           <h1 className="mt-2 text-xl font-bold text-gray-900">
             {alley.title}
           </h1>
-          <div className="mt-4 border-t border-gray-100 pt-4">
-            <h2 className="text-sm font-bold text-gray-800">详细地址</h2>
-            <p className="mt-2 text-sm leading-6 text-gray-700">
-              {alley.address}
-            </p>
-          </div>
+          {alley.address && (
+            <div className="mt-4 border-t border-gray-100 pt-4">
+              <h2 className="text-sm font-bold text-gray-800">详细地址</h2>
+              <p className="mt-2 text-sm leading-6 text-gray-700">
+                {alley.address}
+              </p>
+            </div>
+          )}
         </section>
 
         {memberDetail ? (

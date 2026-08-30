@@ -24,6 +24,18 @@ function readText(
   return value;
 }
 
+function readOptionalText(
+  formData: FormData,
+  name: string,
+  label: string,
+  maxLength: number,
+): string {
+  const value = String(formData.get(name) ?? "").trim();
+  if (value.length > maxLength)
+    throw new Error(`${label}不能超过 ${maxLength} 个字符`);
+  return value;
+}
+
 function selectedFiles(formData: FormData, name: string): File[] {
   return formData
     .getAll(name)
@@ -42,7 +54,7 @@ function extractFields(formData: FormData) {
     title: readText(formData, "title", "标题", 120),
     city: readText(formData, "city", "省份", 40),
     district: readText(formData, "district", "城市／地区", 60),
-    address: readText(formData, "address", "详细地址", 300),
+    address: readOptionalText(formData, "address", "详细地址", 300),
     description: readText(formData, "description", "详细介绍", 10000),
     sortOrder,
     isPublished: formData.get("isPublished") === "on",

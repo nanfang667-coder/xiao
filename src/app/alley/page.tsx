@@ -109,9 +109,11 @@ export default async function AlleyPage({ searchParams }: AlleyPageProps) {
                 <h2 className="mt-1 line-clamp-2 text-base font-bold text-gray-900">
                   {alley.title}
                 </h2>
-                <p className="mt-2 line-clamp-2 text-sm leading-5 text-gray-600">
-                  {alley.address}
-                </p>
+                {alley.address && (
+                  <p className="mt-2 line-clamp-2 text-sm leading-5 text-gray-600">
+                    {alley.address}
+                  </p>
+                )}
                 <p className="mt-2 text-xs text-gray-400">
                   发布于 {formatDate(alley.createdAt)}
                 </p>

@@ -57,8 +57,8 @@ export default async function AdminAlleysPage() {
                 {alley.title}
               </h2>
               <p className="truncate text-xs text-gray-400">
-                {formatLocationLabel(alley.city, alley.district)} ·{" "}
-                {alley.address}
+                {formatLocationLabel(alley.city, alley.district)}
+                {alley.address ? ` · ${alley.address}` : ""}
               </p>
             </div>
             <div className="flex flex-none gap-2">
