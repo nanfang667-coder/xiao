@@ -11,6 +11,7 @@ HEALTH_PATH="${HEALTH_PATH:-/}"
 DATABASE_RELATIVE_PATH="prisma/prisma/prod.db"
 HEALTH_HOST="${HEALTH_HOST:-fenglou1.com}"
 DRAIN_SECONDS="${DRAIN_SECONDS:-10}"
+ALLOW_DATABASE_MIGRATIONS="${ALLOW_DATABASE_MIGRATIONS:-0}"
 
 NEW_PROCESS=""
 NEW_RELEASE=""
@@ -98,6 +99,7 @@ for command_name in git npm npx pm2 curl nginx systemctl flock tar sha256sum awk
 done
 
 [[ "$SOURCE_DIR" == /* && "$DEPLOY_ROOT" == /* ]] || die "Deployment paths must be absolute"
+[[ "$ALLOW_DATABASE_MIGRATIONS" == "0" || "$ALLOW_DATABASE_MIGRATIONS" == "1" ]] || die "ALLOW_DATABASE_MIGRATIONS must be 0 or 1"
 [[ -d "$SOURCE_DIR/.git" ]] || die "Git repository not found at $SOURCE_DIR"
 [[ -f "$STATE_FILE" && ! -L "$STATE_FILE" ]] || die "Run setup-blue-green.sh first"
 [[ -f "$UPSTREAM_INCLUDE" ]] || die "Nginx upstream include is missing"
@@ -148,8 +150,13 @@ mkdir -p "$NEW_RELEASE/public/uploads"
 
 ACTIVE_MIGRATIONS="$(migration_fingerprint "$ACTIVE_RELEASE")"
 TARGET_MIGRATIONS="$(migration_fingerprint "$NEW_RELEASE")"
+MIGRATIONS_CHANGED=0
 if [[ "$ACTIVE_MIGRATIONS" != "$TARGET_MIGRATIONS" ]]; then
-  die "Database migrations changed. Use a reviewed maintenance deployment instead of blue-green deployment."
+  [[ "$ALLOW_DATABASE_MIGRATIONS" == "1" ]] || die "Database migrations changed. Use a reviewed maintenance deployment instead of blue-green deployment."
+  MIGRATIONS_CHANGED=1
+  systemctl cat hulim-backup.service >/dev/null 2>&1 || die "Database backup service hulim-backup.service is missing"
+  log "Database migration explicitly enabled; running the existing backup service first"
+  systemctl start hulim-backup.service
 fi
 
 log "Installing dependencies and building away from the live application"
@@ -157,6 +164,9 @@ log "Installing dependencies and building away from the live application"
   cd "$NEW_RELEASE"
   npm ci --no-audit --no-fund
   npx prisma generate
+  if [[ "$MIGRATIONS_CHANGED" -eq 1 ]]; then
+    npx prisma migrate deploy
+  fi
   NEXT_DEPLOYMENT_ID="$TARGET_REVISION" npm run build
 )
 

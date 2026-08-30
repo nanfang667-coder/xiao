@@ -61,6 +61,12 @@ hulim-deploy <commit-sha>
 - Any Prisma migration change aborts blue-green deployment. Schema changes need
   a separately reviewed maintenance deployment because the old and new code
   briefly overlap.
+- A reviewed, backward-compatible migration can be deployed with
+  `ALLOW_DATABASE_MIGRATIONS=1 hulim-deploy <commit-sha>`. This explicit mode
+  first runs `hulim-backup.service`, applies pending Prisma migrations against
+  the shared database, and only switches Nginx after the new release passes its
+  health checks. Never use it for a migration that breaks the currently active
+  code.
 - Old release directories are retained for manual recovery and are not deleted
   automatically.
 
