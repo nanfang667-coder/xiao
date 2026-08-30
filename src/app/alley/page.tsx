@@ -10,15 +10,21 @@ import {
   getSeoLocationSlugsForRecords,
 } from "@/lib/location-seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site-config";
-import { ALLEY_PUBLIC_ENABLED } from "@/lib/feature-flags";
+import {
+  ALLEY_DIRECT_ACCESS_ENABLED,
+  ALLEY_PUBLIC_ENABLED,
+} from "@/lib/feature-flags";
 import { notFound } from "next/navigation";
 
-export const metadata: Metadata = ALLEY_PUBLIC_ENABLED
+export const metadata: Metadata = ALLEY_DIRECT_ACCESS_ENABLED
   ? {
       title: { absolute: `暗巷｜${SITE_NAME}` },
       description:
         "查看暗巷公开标题、地址和列表封面，详细介绍和详情图片仅会员可见。",
       alternates: { canonical: `${SITE_URL}/alley` },
+      ...(!ALLEY_PUBLIC_ENABLED
+        ? { robots: { index: false, follow: false } }
+        : {}),
     }
   : {
       title: "页面不存在",
@@ -39,7 +45,7 @@ function formatDate(date: Date): string {
 }
 
 export default async function AlleyPage({ searchParams }: AlleyPageProps) {
-  if (!ALLEY_PUBLIC_ENABLED) notFound();
+  if (!ALLEY_DIRECT_ACCESS_ENABLED) notFound();
 
   const query = await searchParams;
   const alleys = await getPublishedAlleys();

@@ -1,7 +1,7 @@
 import { readAlleyDetailPhoto } from "@/lib/alley-media";
 import { isActiveMember } from "@/lib/membership";
 import { getCurrentUser } from "@/lib/user-auth";
-import { ALLEY_PUBLIC_ENABLED } from "@/lib/feature-flags";
+import { ALLEY_DIRECT_ACCESS_ENABLED } from "@/lib/feature-flags";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,10 +10,10 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ filename: string }> },
 ) {
-  if (!ALLEY_PUBLIC_ENABLED) return new Response(null, { status: 404 });
-
   const user = await getCurrentUser();
-  if (!isActiveMember(user)) return new Response(null, { status: 404 });
+  if (!ALLEY_DIRECT_ACCESS_ENABLED || !isActiveMember(user)) {
+    return new Response(null, { status: 404 });
+  }
 
   const { filename } = await params;
   const image = await readAlleyDetailPhoto(filename);

@@ -9,3 +9,6 @@ export const PAYMENT_FEATURE_ENABLED = featureEnabled(
 export const ALLEY_PUBLIC_ENABLED = featureEnabled(
   process.env.ALLEY_PUBLIC_ENABLED,
 );
+export const ALLEY_DIRECT_ACCESS_ENABLED = featureEnabled(
+  process.env.ALLEY_DIRECT_ACCESS_ENABLED ?? "true",
+);

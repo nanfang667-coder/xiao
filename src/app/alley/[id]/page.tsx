@@ -9,7 +9,10 @@ import { formatLocationLabel } from "@/lib/location-label";
 import { isActiveMember, MEMBERSHIP_PLAN } from "@/lib/membership";
 import { SITE_NAME, SITE_URL } from "@/lib/site-config";
 import { getCurrentUser } from "@/lib/user-auth";
-import { ALLEY_PUBLIC_ENABLED } from "@/lib/feature-flags";
+import {
+  ALLEY_DIRECT_ACCESS_ENABLED,
+  ALLEY_PUBLIC_ENABLED,
+} from "@/lib/feature-flags";
 
 type AlleyDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -18,7 +21,7 @@ type AlleyDetailPageProps = {
 export async function generateMetadata({
   params,
 }: AlleyDetailPageProps): Promise<Metadata> {
-  if (!ALLEY_PUBLIC_ENABLED) {
+  if (!ALLEY_DIRECT_ACCESS_ENABLED) {
     return {
       title: "页面不存在",
       robots: { index: false, follow: false },
@@ -44,13 +47,16 @@ export async function generateMetadata({
       locale: "zh_CN",
       type: "article",
     },
+    ...(!ALLEY_PUBLIC_ENABLED
+      ? { robots: { index: false, follow: false } }
+      : {}),
   };
 }
 
 export default async function AlleyDetailPage({
   params,
 }: AlleyDetailPageProps) {
-  if (!ALLEY_PUBLIC_ENABLED) notFound();
+  if (!ALLEY_DIRECT_ACCESS_ENABLED) notFound();
 
   const { id } = await params;
   const [alley, user] = await Promise.all([
