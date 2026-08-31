@@ -7,7 +7,7 @@ import { MerchantBrowser } from "./MerchantBrowser";
 import type { MerchantCityOption } from "./MerchantCityPicker";
 
 export const metadata: Metadata = {
-  title: { absolute: `商家SPA｜${SITE_NAME}` },
+  title: { absolute: `按摩SPA｜${SITE_NAME}` },
   description: "查看公开展示的SPA商家、服务项目、价格、地址和联系方式。",
   alternates: { canonical: `${SITE_URL}/spa` },
 };
@@ -23,7 +23,10 @@ function readCityParam(value: string | string[] | undefined): string {
 export default async function SpaPage({ searchParams }: SpaPageProps) {
   const query = await searchParams;
   const merchants = await getPublishedMerchants();
-  const cityCounts = new Map<string, { province: string; city: string; count: number }>();
+  const cityCounts = new Map<
+    string,
+    { province: string; city: string; count: number }
+  >();
 
   for (const merchant of merchants) {
     if (!merchant.district) continue;
@@ -39,7 +42,10 @@ export default async function SpaPage({ searchParams }: SpaPageProps) {
   const cityOptions: MerchantCityOption[] = [...cityCounts.entries()]
     .map(([value, item]) => ({ value, ...item }))
     .sort((left, right) =>
-      `${left.province}${left.city}`.localeCompare(`${right.province}${right.city}`, "zh-CN"),
+      `${left.province}${left.city}`.localeCompare(
+        `${right.province}${right.city}`,
+        "zh-CN",
+      ),
     );
   const requestedCity = readCityParam(query.city);
   const hasExplicitSelection = cityCounts.has(requestedCity);
@@ -57,8 +63,10 @@ export default async function SpaPage({ searchParams }: SpaPageProps) {
   return (
     <div className="mx-auto w-full max-w-md flex-1 pb-10">
       <header className="sticky top-0 z-10 flex items-center gap-3 bg-gradient-to-r from-pink-500 to-rose-500 px-4 py-4 text-white shadow-md">
-        <Link href="/" className="text-white/90">← 返回</Link>
-        <h1 className="text-lg font-bold">商家SPA</h1>
+        <Link href="/" className="text-white/90">
+          ← 返回
+        </Link>
+        <h1 className="text-lg font-bold">按摩SPA</h1>
       </header>
 
       <MerchantBrowser

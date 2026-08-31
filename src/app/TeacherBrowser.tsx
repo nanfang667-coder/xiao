@@ -38,7 +38,7 @@ const entries = [
     ),
   },
   {
-    label: "商家SPA",
+    label: "按摩SPA",
     href: "/spa",
     icon: (
       <svg
