@@ -131,7 +131,10 @@ export async function createOrder(formData: FormData) {
     if (error instanceof PaymentProviderError) providerError = error.code;
   }
 
-  if (!providerOrder) redirect(`/vip?paymentError=${providerError}`);
+  if (!providerOrder) {
+    console.error(`[payment] create order failed: ${providerError}`);
+    redirect(`/vip?paymentError=${providerError}`);
+  }
 
   await prisma.order.update({
     where: { id: order.id },
