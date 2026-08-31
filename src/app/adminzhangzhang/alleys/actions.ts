@@ -52,8 +52,8 @@ function extractFields(formData: FormData) {
 
   return {
     title: readText(formData, "title", "标题", 120),
-    city: readText(formData, "city", "省份", 40),
-    district: readText(formData, "district", "城市／地区", 60),
+    city: readOptionalText(formData, "city", "省份", 40),
+    district: readOptionalText(formData, "district", "城市／地区", 60),
     address: readOptionalText(formData, "address", "详细地址", 300),
     description: readText(formData, "description", "详细介绍", 10000),
     sortOrder,

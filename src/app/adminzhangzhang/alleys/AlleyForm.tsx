@@ -114,10 +114,9 @@ export function AlleyForm({
 
         <div className="flex gap-3">
           <div className="flex-1">
-            <label className={label}>省份</label>
+            <label className={label}>省份（选填）</label>
             <input
               name="city"
-              required
               list="alley-province-options"
               maxLength={40}
               value={city}
@@ -135,10 +134,9 @@ export function AlleyForm({
             </datalist>
           </div>
           <div className="flex-1">
-            <label className={label}>城市／地区</label>
+            <label className={label}>城市／地区（选填）</label>
             <input
               name="district"
-              required
               list="alley-district-options"
               maxLength={60}
               value={district}
