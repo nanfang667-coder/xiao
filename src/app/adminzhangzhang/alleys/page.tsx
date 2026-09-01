@@ -17,12 +17,20 @@ export default async function AdminAlleysPage() {
         <h1 className="text-lg font-bold">暗巷管理</h1>
       </header>
 
-      <Link
-        href="/adminzhangzhang/alleys/new"
-        className="mb-4 flex items-center justify-center rounded-xl bg-pink-500 py-2.5 text-sm font-bold text-white active:bg-pink-600"
-      >
-        ＋ 添加暗巷
-      </Link>
+      <div className="mb-4 grid grid-cols-2 gap-3">
+        <Link
+          href="/adminzhangzhang/alleys/new"
+          className="flex items-center justify-center rounded-xl bg-pink-500 py-2.5 text-sm font-bold text-white active:bg-pink-600"
+        >
+          ＋ 单条添加
+        </Link>
+        <Link
+          href="/adminzhangzhang/alleys/bulk"
+          className="flex items-center justify-center rounded-xl bg-gray-900 py-2.5 text-sm font-bold text-white active:bg-gray-800"
+        >
+          批量添加
+        </Link>
+      </div>
 
       <div className="space-y-3">
         {alleys.length === 0 && (
@@ -35,12 +43,18 @@ export default async function AdminAlleysPage() {
             key={alley.id}
             className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-sm"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={alley.coverPhoto}
-              alt={alley.title}
-              className="h-14 w-14 flex-none rounded-lg object-cover"
-            />
+            {alley.coverPhoto ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={alley.coverPhoto}
+                alt={alley.title}
+                className="h-14 w-14 flex-none rounded-lg object-cover"
+              />
+            ) : (
+              <div className="flex h-14 w-14 flex-none items-center justify-center rounded-lg bg-gray-100 text-[10px] text-gray-400">
+                无封面
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-gray-400">#{alley.id}</span>

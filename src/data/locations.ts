@@ -227,6 +227,33 @@ export function resolveDistrict(input: string): { province: string; district: st
   return undefined;
 }
 
+const DIRECTLY_ADMINISTERED_CITIES: Record<string, string> = {
+  北京: "北京市",
+  北京市: "北京市",
+  天津: "天津市",
+  天津市: "天津市",
+  上海: "上海市",
+  上海市: "上海市",
+  重庆: "重庆市",
+  重庆市: "重庆市",
+};
+
+// 批量导入只提供“城市”时，转换为暗巷实际使用的
+// “省份 + 城市／地区”两级字段。直辖市的第二级是区县，
+// 输入只有“天津”时不猜测具体区县，因此 district 留空。
+export function resolveAlleyImportLocation(
+  input: string,
+): { province: string; district: string } | undefined {
+  const trimmed = input.trim();
+  if (!trimmed) return undefined;
+
+  const municipality = DIRECTLY_ADMINISTERED_CITIES[trimmed];
+  if (municipality) return { province: municipality, district: "" };
+
+  const resolved = resolveDistrict(trimmed);
+  if (!resolved) return undefined;
+  return { province: resolved.province, district: resolved.district };
+}
 // ===== 兼容旧接口（老代码引用） =====
 export const cityDistricts = provinceCities;
 export const cities = provinces;
