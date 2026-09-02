@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { createOrder } from "./actions";
 import { PAY_METHODS } from "@/lib/membership";
+import { PaymentRedirectNotice } from "@/components/PaymentRedirectNotice";
 
 function PurchaseSubmitButton({ membershipPrice }: { membershipPrice: number }) {
   const { pending } = useFormStatus();
@@ -69,6 +70,8 @@ export function VipPurchase({ membershipPrice }: { membershipPrice: number }) {
           ))}
         </div>
       </div>
+
+      <PaymentRedirectNotice />
 
       {/* 立即开通 */}
       <PurchaseSubmitButton membershipPrice={membershipPrice} />

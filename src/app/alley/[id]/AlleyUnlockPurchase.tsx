@@ -2,6 +2,7 @@
 
 import { useFormStatus } from "react-dom";
 import { PAY_METHODS } from "@/lib/membership";
+import { PaymentRedirectNotice } from "@/components/PaymentRedirectNotice";
 import { createAlleyUnlockOrder } from "./actions";
 
 function UnlockButton({ price }: { price: number }) {
@@ -45,6 +46,7 @@ export function AlleyUnlockPurchase({
       <p className="mt-2 text-center text-xs text-gray-400">
         付款成功后，本账号可永久查看当前帖子
       </p>
+      <PaymentRedirectNotice />
     </form>
   );
 }

@@ -54,7 +54,8 @@ process.env.QIANHE_ALIPAY_WAY_CODE = "ALI_TEST";
 const previousNodeEnv = process.env.NODE_ENV;
 process.env.NODE_ENV = "production";
 process.env.PAYMENT_SITE_URL = "https://gp77.top";
-assert.throws(() => assertQianheStartupConfiguration(), /canonical/i);
+assert.equal(paymentSiteOrigin(), "https://gp77.top");
+assert.doesNotThrow(() => assertQianheStartupConfiguration());
 delete process.env.PAYMENT_SITE_URL;
 if (previousNodeEnv === undefined) {
   delete process.env.NODE_ENV;

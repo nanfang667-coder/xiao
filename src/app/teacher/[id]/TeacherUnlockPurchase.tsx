@@ -2,6 +2,7 @@
 
 import { useFormStatus } from "react-dom";
 import { PAY_METHODS } from "@/lib/membership";
+import { PaymentRedirectNotice } from "@/components/PaymentRedirectNotice";
 import { createTeacherUnlockOrder } from "./actions";
 
 function UnlockButton({ price }: { price: number }) {
@@ -37,6 +38,7 @@ export function TeacherUnlockPurchase({
       <p className="mt-2 text-center text-xs text-gray-400">
         {method.emoji} {method.label} · 付款后当前帖子永久有效
       </p>
+      <PaymentRedirectNotice />
     </form>
   );
 }
