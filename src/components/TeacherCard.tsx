@@ -4,8 +4,9 @@ import { formatLocationLabel } from "@/lib/location-label";
 import type { TeacherCardItem } from "@/lib/teachers";
 
 function formatDate(date: Date): string {
+  const chinaTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
   const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return `${chinaTime.getUTCFullYear()}-${pad(chinaTime.getUTCMonth() + 1)}-${pad(chinaTime.getUTCDate())}`;
 }
 export function TeacherCard({ teacher }: { teacher: TeacherCardItem }) {
   const photoAlt = `${teacher.city}${teacher.district}${teacher.name}的公开照片`;
