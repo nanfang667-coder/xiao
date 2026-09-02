@@ -10,12 +10,14 @@ import { generateUniqueReferralCode } from "@/lib/referral";
 import { userSessionCookieOptions } from "@/lib/user-session-cookie";
 import { GENERIC_LOGIN_ERROR } from "@/lib/user-auth-input";
 import type { User as UserRow } from "@prisma/client";
+import { getCurrentSite } from "@/lib/site";
 
 const REF_COOKIE_NAME = "ref_code"; // 与 /r/[code] 路由里写的 cookie 同名
 
 // 页面使用的"用户"格式（去掉敏感字段）
 export type User = {
   id: number;
+  siteId: string;
   username: string;
   email: string | null;
   isMember: boolean;
@@ -60,6 +62,7 @@ const COOKIE_NAME = "user_token";
 function createToken(user: UserRow): string {
   const payload: User = {
     id: user.id,
+    siteId: user.siteId,
     username: user.username,
     email: user.email,
     isMember: user.isMember,
@@ -98,12 +101,15 @@ export async function getCurrentUser(): Promise<User | null> {
   const payload = verifyToken(token); // 先验令牌，拿到用户 id
   if (!payload) return null;
 
+  const site = await getCurrentSite();
   const row = await prisma.user.findUnique({ where: { id: payload.id } });
   if (!row) return null; // 用户已被删除
+  if (row.siteId !== site.id || payload.siteId !== site.id) return null;
   if (row.isBanned) return null; // 已被封禁，视为登出（下次登录会被 loginUser 拦截并提示）
 
   return {
     id: row.id,
+    siteId: row.siteId,
     username: row.username,
     email: row.email,
     isMember: row.isMember,
@@ -138,12 +144,12 @@ export async function requireMember(): Promise<User> {
 // "unknown"（拿不到真实 IP，比如 Nginx 没转发 X-Forwarded-For）时跳过检测，避免把所有访客误判成同一个人。
 const BULK_REGISTER_BAN_THRESHOLD = 8;
 
-async function checkAndBanBulkRegistration(ip: string) {
+async function checkAndBanBulkRegistration(ip: string, siteId: string) {
   if (ip === "unknown") return;
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const recentFromIp = await prisma.user.findMany({
-    where: { registrationIp: ip, createdAt: { gte: since } },
+    where: { siteId, registrationIp: ip, createdAt: { gte: since } },
     select: { id: true },
   });
 
@@ -158,6 +164,7 @@ async function checkAndBanBulkRegistration(ip: string) {
 
 // 注册新用户
 export async function registerUser(input: RegisterInput, ip: string): Promise<User> {
+  const site = await getCurrentSite();
   // 检查用户名是否已存在
   const existingUsername = await prisma.user.findUnique({
     where: { username: input.username },
@@ -176,7 +183,7 @@ export async function registerUser(input: RegisterInput, ip: string): Promise<Us
     }
   }
 
-  await checkAndBanBulkRegistration(ip);
+  await checkAndBanBulkRegistration(ip, site.id);
 
   // 哈希密码
   const passwordHash = await hashPassword(input.password);
@@ -191,7 +198,7 @@ export async function registerUser(input: RegisterInput, ip: string): Promise<Us
   let referredBy: number | null = null;
   if (refCode) {
     const referrer = await prisma.user.findUnique({ where: { referralCode: refCode } });
-    if (referrer) referredBy = referrer.id;
+    if (referrer?.siteId === site.id) referredBy = referrer.id;
   }
 
   // 创建用户
@@ -204,12 +211,14 @@ export async function registerUser(input: RegisterInput, ip: string): Promise<Us
       referralCode,
       referredBy,
       registrationIp: ip === "unknown" ? null : ip,
+      siteId: site.id,
     },
   });
 
   // 返回用户信息（不含密码）
   return {
     id: user.id,
+    siteId: user.siteId,
     username: user.username,
     email: user.email,
     isMember: user.isMember,
@@ -219,13 +228,17 @@ export async function registerUser(input: RegisterInput, ip: string): Promise<Us
 
 // 用户登录（支持用户名或邮箱）
 export async function loginUser(input: LoginInput): Promise<User> {
+  const site = await getCurrentSite();
   // 判断是用户名还是邮箱（简单通过是否包含 @ 判断）
   const isEmail = input.usernameOrEmail.includes("@");
 
-  const user = await prisma.user.findUnique({
-    where: isEmail
-      ? { email: input.usernameOrEmail }
-      : { username: input.usernameOrEmail },
+  const user = await prisma.user.findFirst({
+    where: {
+      siteId: site.id,
+      ...(isEmail
+        ? { email: input.usernameOrEmail }
+        : { username: input.usernameOrEmail }),
+    },
   });
 
   // 不存在、被封禁和密码错误都执行一次 bcrypt 并返回同一提示，
@@ -246,6 +259,7 @@ export async function loginUser(input: LoginInput): Promise<User> {
   // 返回用户信息
   return {
     id: user.id,
+    siteId: user.siteId,
     username: user.username,
     email: user.email,
     isMember: user.isMember,

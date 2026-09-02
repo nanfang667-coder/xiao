@@ -21,6 +21,13 @@ export default async function AdminDashboard() {
 
   const modules = [
     {
+      href: "/adminzhangzhang/sites",
+      icon: "🌐",
+      title: "网站与团队",
+      desc: "管理域名、独立价格和团队只读账号",
+      count: "渠道归属",
+    },
+    {
       href: "/adminzhangzhang/users",
       icon: "👤",
       title: "用户管理",

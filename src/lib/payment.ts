@@ -46,6 +46,7 @@ export async function fulfillPaidOrder({
       select: {
         id: true,
         userId: true,
+        siteId: true,
         amount: true,
         productType: true,
         alleyPostId: true,
@@ -90,9 +91,10 @@ export async function fulfillPaidOrder({
 
     const buyer = await tx.user.findUnique({
       where: { id: order.userId },
-      select: { referredBy: true },
+      select: { referredBy: true, siteId: true },
     });
     if (!buyer) throw new Error("Payment order user does not exist");
+    if (buyer.siteId !== order.siteId) return "invalid_status";
 
     // 即使用户同时创建了多笔会员订单，也只有第一笔成功订单能把非会员改成会员。
     const activated = await tx.user.updateMany({

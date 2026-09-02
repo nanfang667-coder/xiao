@@ -1,22 +1,28 @@
 import type { Metadata } from "next";
-import { SITE_NAME, SITE_URL } from "@/lib/site-config";
+import { getCurrentSite } from "@/lib/site";
+import { siteOrigin } from "@/lib/site-utils";
 import { SiteVisitTracker } from "@/components/SiteVisitTracker";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title: SITE_NAME,
-  description: "凤楼汇集全国各城市公开的地区信息",
-  applicationName: SITE_NAME,
-  openGraph: {
-    title: SITE_NAME,
-    description: "凤楼汇集全国各城市公开的地区信息",
-    url: SITE_URL,
-    siteName: SITE_NAME,
-    locale: "zh_CN",
-    type: "website",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await getCurrentSite();
+  const origin = siteOrigin(site);
+  const description = `${site.name}汇集全国各城市公开的地区信息`;
+  return {
+    metadataBase: new URL(origin),
+    title: site.name,
+    description,
+    applicationName: site.name,
+    openGraph: {
+      title: site.name,
+      description,
+      url: origin,
+      siteName: site.name,
+      locale: "zh_CN",
+      type: "website",
+    },
+  };
+}
 
 export default function RootLayout({
   children,

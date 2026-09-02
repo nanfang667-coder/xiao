@@ -2,7 +2,6 @@ import "server-only";
 
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { PayMethodKey } from "@/lib/membership";
-import { SITE_URL } from "@/lib/site-config";
 
 const QIANHE_API_ORIGIN = "https://qianhe.jkosiuwn.xyz";
 const MAX_RESPONSE_BYTES = 64 * 1024;
@@ -51,10 +50,13 @@ function wayCode(payMethod: PayMethodKey): string {
   return requiredEnv(WAY_CODE_ENVIRONMENT_NAMES[payMethod]);
 }
 
-export function assertQianheConfiguration(payMethod: PayMethodKey): void {
+export function assertQianheConfiguration(
+  payMethod: PayMethodKey,
+  expectedOrigin?: string,
+): void {
   merchantConfig();
   wayCode(payMethod);
-  paymentSiteOrigin();
+  paymentSiteOrigin(expectedOrigin);
 }
 
 export function assertQianheStartupConfiguration(): void {
@@ -65,8 +67,9 @@ export function assertQianheStartupConfiguration(): void {
   paymentSiteOrigin();
 }
 
-export function paymentSiteOrigin(): string {
-  const configured = process.env.PAYMENT_SITE_URL?.trim() || SITE_URL;
+export function paymentSiteOrigin(expectedOrigin?: string): string {
+  const configured =
+    expectedOrigin ?? process.env.PAYMENT_SITE_URL?.trim() ?? "https://fenglou1.com";
   let url: URL;
   try {
     url = new URL(configured);
@@ -93,15 +96,6 @@ export function paymentSiteOrigin(): string {
   if (url.pathname !== "/" || url.search || url.hash) {
     throw new PaymentProviderError(
       "PAYMENT_SITE_URL must be an origin without a path, query, or fragment",
-      "configuration",
-    );
-  }
-  if (
-    process.env.NODE_ENV === "production" &&
-    url.origin !== new URL(SITE_URL).origin
-  ) {
-    throw new PaymentProviderError(
-      "PAYMENT_SITE_URL must match the canonical production site origin",
       "configuration",
     );
   }

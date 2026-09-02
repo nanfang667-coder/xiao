@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { Gallery } from "@/app/teacher/[id]/Gallery";
 import { formatLocationLabel } from "@/lib/location-label";
 import { getPublishedMerchantById } from "@/lib/merchants";
-import { SITE_NAME, SITE_URL } from "@/lib/site-config";
+import { getCurrentSite } from "@/lib/site";
+import { siteOrigin } from "@/lib/site-utils";
 
 type MerchantPageProps = {
   params: Promise<{ id: string }>;
@@ -22,17 +23,20 @@ export async function generateMetadata({
   params,
 }: MerchantPageProps): Promise<Metadata> {
   const { id } = await params;
-  const merchant = await getPublishedMerchantById(id);
+  const [merchant, site] = await Promise.all([
+    getPublishedMerchantById(id),
+    getCurrentSite(),
+  ]);
   if (!merchant)
     return { title: "商家不存在", robots: { index: false, follow: false } };
 
   const location = formatLocationLabel(merchant.city, merchant.district);
-  const title = `${truncate(`${merchant.name}｜${location || "按摩SPA"}`, 54)} | ${SITE_NAME}`;
+  const title = `${truncate(`${merchant.name}｜${location || "按摩SPA"}`, 54)} | ${site.name}`;
   const description = truncate(
     compactText(merchant.description || merchant.services),
     160,
   );
-  const canonical = `${SITE_URL}/spa/${merchant.id}`;
+  const canonical = `${siteOrigin(site)}/spa/${merchant.id}`;
 
   return {
     title: { absolute: title },
@@ -42,7 +46,7 @@ export async function generateMetadata({
       title,
       description,
       url: canonical,
-      siteName: SITE_NAME,
+      siteName: site.name,
       locale: "zh_CN",
       type: "website",
     },

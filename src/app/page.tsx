@@ -11,7 +11,8 @@ import {
   getSeoLocationFromSelection,
   getSeoLocationPath,
 } from "@/lib/location-seo";
-import { SITE_NAME, SITE_URL } from "@/lib/site-config";
+import { getCurrentSite } from "@/lib/site";
+import { siteOrigin } from "@/lib/site-utils";
 import { getPublishedPartnerLinks } from "@/lib/partner-links";
 import {
   ALLEY_PUBLIC_ENABLED,
@@ -29,12 +30,14 @@ type HomeProps = {
 
 const PAGE_SIZE = 10;
 
-export const metadata: Metadata = {
-  title: { absolute: "凤楼｜全国地区信息" },
-  description:
-    "凤楼汇集全国各城市公开的地区信息，可按地区查看个人介绍、价格和详细内容。",
-  alternates: { canonical: SITE_URL },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await getCurrentSite();
+  return {
+    title: { absolute: `${site.name}｜全国地区信息` },
+    description: `${site.name}汇集全国各城市公开的地区信息，可按地区查看个人介绍、价格和详细内容。`,
+    alternates: { canonical: siteOrigin(site) },
+  };
+}
 
 function firstValue(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
@@ -74,12 +77,14 @@ export default async function Home({ searchParams }: HomeProps) {
     partnerLinks,
     availableLocationSlugs,
     user,
+    site,
   ] = await Promise.all([
     getHomeTeachers(requestedPage, PAGE_SIZE, now),
     getActiveNationalPromotions(now),
     getPublishedPartnerLinks(),
     getAvailableSeoLocationSlugs(),
     getCurrentUser(),
+    getCurrentSite(),
   ]);
   return (
     <>
@@ -89,8 +94,8 @@ export default async function Home({ searchParams }: HomeProps) {
           __html: jsonLd({
             "@context": "https://schema.org",
             "@type": "WebSite",
-            name: SITE_NAME,
-            url: SITE_URL,
+            name: site.name,
+            url: siteOrigin(site),
           }),
         }}
       />
@@ -104,6 +109,7 @@ export default async function Home({ searchParams }: HomeProps) {
         totalPages={result.totalPages}
         alleyPublicEnabled={ALLEY_PUBLIC_ENABLED}
         paymentEnabled={PAYMENT_FEATURE_ENABLED}
+        siteName={site.name}
       />
     </>
   );

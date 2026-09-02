@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { createOrder } from "./actions";
-import { PAY_METHODS, MEMBERSHIP_PLAN } from "@/lib/membership";
+import { PAY_METHODS } from "@/lib/membership";
 
-function PurchaseSubmitButton() {
+function PurchaseSubmitButton({ membershipPrice }: { membershipPrice: number }) {
   const { pending } = useFormStatus();
 
   return (
@@ -18,7 +18,7 @@ function PurchaseSubmitButton() {
       >
         {pending
           ? "正在连接支付平台，请稍候…"
-          : `限时开通 ¥${MEMBERSHIP_PLAN.price}`}
+          : `限时开通 ¥${membershipPrice}`}
       </button>
       {pending && (
         <p
@@ -35,7 +35,7 @@ function PurchaseSubmitButton() {
 
 // 已登录、未开通会员时显示：选支付方式 + 立即开通。
 // 提交后由服务器创建订单并跳转到支付页。
-export function VipPurchase() {
+export function VipPurchase({ membershipPrice }: { membershipPrice: number }) {
   const [method, setMethod] = useState<string>(PAY_METHODS[0].key);
 
   return (
@@ -71,7 +71,7 @@ export function VipPurchase() {
       </div>
 
       {/* 立即开通 */}
-      <PurchaseSubmitButton />
+      <PurchaseSubmitButton membershipPrice={membershipPrice} />
       <p className="mt-3 text-center text-xs text-gray-400">
         开通即表示同意会员服务协议
       </p>

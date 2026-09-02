@@ -7,6 +7,7 @@ import { MEMBERSHIP_PLAN, isActiveMember } from "@/lib/membership";
 import { VipPurchase } from "./VipPurchase";
 import { notFound } from "next/navigation";
 import { PAYMENT_FEATURE_ENABLED } from "@/lib/feature-flags";
+import { getCurrentSite } from "@/lib/site";
 
 export default async function VipPage({
   searchParams,
@@ -17,6 +18,7 @@ export default async function VipPage({
 
   const { paid, paymentError } = await searchParams;
   const user = await getCurrentUser();
+  const site = await getCurrentSite();
   const isMember = isActiveMember(user);
   const paymentErrorMessages: Record<string, string> = {
     configuration:
@@ -64,10 +66,10 @@ export default async function VipPage({
               限时价
             </span>
             <span className="text-sm">¥</span>
-            <span className="text-4xl font-bold">{MEMBERSHIP_PLAN.price}</span>
+            <span className="text-4xl font-bold">{site.membershipPrice}</span>
             <span className="text-sm text-white/80">/ 永久</span>
             <span className="ml-1 text-xs text-white/70 line-through">
-              原价 ¥{MEMBERSHIP_PLAN.originalPrice}
+              原价 ¥{site.membershipOriginalPrice}
             </span>
           </div>
           <p className="mt-3 text-xs leading-5 text-white/85">
@@ -112,7 +114,7 @@ export default async function VipPage({
         </div>
       ) : user ? (
         // 已登录未开通：显示支付方式选择 + 立即开通
-        <VipPurchase />
+        <VipPurchase membershipPrice={site.membershipPrice} />
       ) : (
         // 未登录：引导登录
         <div className="px-4 pt-6 text-center">

@@ -2,10 +2,9 @@
 
 import { useFormStatus } from "react-dom";
 import { PAY_METHODS } from "@/lib/membership";
-import { TEACHER_UNLOCK_PLAN } from "@/lib/payment-products";
 import { createTeacherUnlockOrder } from "./actions";
 
-function UnlockButton() {
+function UnlockButton({ price }: { price: number }) {
   const { pending } = useFormStatus();
   return (
     <button
@@ -16,15 +15,17 @@ function UnlockButton() {
     >
       {pending
         ? "正在连接支付平台，请稍候…"
-        : `¥${TEACHER_UNLOCK_PLAN.price} 解锁当前帖子`}
+        : `¥${price} 解锁当前帖子`}
     </button>
   );
 }
 
 export function TeacherUnlockPurchase({
   teacherPostId,
+  price,
 }: {
   teacherPostId: number;
+  price: number;
 }) {
   const action = createTeacherUnlockOrder.bind(null, teacherPostId);
   const method = PAY_METHODS[0];
@@ -32,7 +33,7 @@ export function TeacherUnlockPurchase({
   return (
     <form action={action}>
       <input type="hidden" name="payMethod" value={method.key} />
-      <UnlockButton />
+      <UnlockButton price={price} />
       <p className="mt-2 text-center text-xs text-gray-400">
         {method.emoji} {method.label} · 付款后当前帖子永久有效
       </p>

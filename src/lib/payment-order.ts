@@ -5,6 +5,7 @@ import { isIP } from "node:net";
 import { headers } from "next/headers";
 import { PAY_METHODS, type PayMethodKey } from "@/lib/membership";
 import {
+  MEMBERSHIP_PRODUCT_TYPE,
   isValidOrderProductTarget,
   type OrderProductType,
 } from "@/lib/payment-products";
@@ -16,6 +17,8 @@ import {
   paymentSiteOrigin,
   type CreatedQianheOrder,
 } from "@/lib/qianhe-payment";
+import { getCurrentSite } from "@/lib/site";
+import { siteOrigin } from "@/lib/site-utils";
 
 export type PaymentStartErrorCode =
   | PaymentProviderError["code"]
@@ -23,6 +26,7 @@ export type PaymentStartErrorCode =
 
 type StartPaymentOrderInput = {
   userId: number;
+  siteId: string;
   productType: OrderProductType;
   alleyPostId: number | null;
   teacherPostId: number | null;
@@ -74,11 +78,18 @@ export function selectedPayMethod(
 export async function startPaymentOrder(
   input: StartPaymentOrderInput,
 ): Promise<StartPaymentOrderResult> {
+  const site = await getCurrentSite();
+  const expectedAmount =
+    input.productType === MEMBERSHIP_PRODUCT_TYPE
+      ? site.membershipPrice
+      : site.singlePostPrice;
   if (
     !Number.isSafeInteger(input.userId) ||
     input.userId <= 0 ||
     !Number.isFinite(input.amount) ||
     input.amount <= 0 ||
+    input.siteId !== site.id ||
+    Math.round(input.amount * 100) !== Math.round(expectedAmount * 100) ||
     !isValidOrderProductTarget(
       input.productType,
       input.alleyPostId,
@@ -91,7 +102,7 @@ export async function startPaymentOrder(
   }
 
   try {
-    assertQianheConfiguration(input.payMethod);
+    assertQianheConfiguration(input.payMethod, siteOrigin(site));
   } catch {
     return { ok: false, code: "configuration" };
   }
@@ -99,6 +110,7 @@ export async function startPaymentOrder(
   const existing = await prisma.order.findFirst({
     where: {
       userId: input.userId,
+      siteId: site.id,
       productType: input.productType,
       alleyPostId: input.alleyPostId,
       teacherPostId: input.teacherPostId,
@@ -116,6 +128,7 @@ export async function startPaymentOrder(
   const recentOrderCount = await prisma.order.count({
     where: {
       userId: input.userId,
+      siteId: site.id,
       createdAt: { gte: new Date(Date.now() - 60_000) },
     },
   });
@@ -125,6 +138,7 @@ export async function startPaymentOrder(
   const order = await prisma.order.create({
     data: {
       userId: input.userId,
+      siteId: site.id,
       plan: input.plan,
       amount: input.amount,
       productType: input.productType,
@@ -136,7 +150,7 @@ export async function startPaymentOrder(
     },
   });
 
-  const siteOrigin = paymentSiteOrigin();
+  const checkoutOrigin = paymentSiteOrigin(siteOrigin(site));
   const requestHeaders = await headers();
   let providerOrder: CreatedQianheOrder | null = null;
   let providerError: PaymentProviderError["code"] = "unavailable";
@@ -147,8 +161,8 @@ export async function startPaymentOrder(
       subject: input.subject,
       amountCents: Math.round(input.amount * 100),
       clientIp: requestClientIp(requestHeaders),
-      notifyUrl: new URL("/api/payments/qianhe/notify", siteOrigin).toString(),
-      returnUrl: new URL(`/vip/pay/${order.id}`, siteOrigin).toString(),
+      notifyUrl: new URL("/api/payments/qianhe/notify", checkoutOrigin).toString(),
+      returnUrl: new URL(`/vip/pay/${order.id}`, checkoutOrigin).toString(),
     });
   } catch (error) {
     if (error instanceof PaymentProviderError) providerError = error.code;

@@ -12,7 +12,6 @@ import {
   getSeoLocationUrl,
   getSeoLocationsForRecord,
 } from "@/lib/location-seo";
-import { SITE_NAME, SITE_URL } from "@/lib/site-config";
 import { Gallery } from "./Gallery";
 import { SafetyNotice } from "./SafetyNotice";
 import { BackButton } from "./BackButton";
@@ -21,8 +20,9 @@ import { getCurrentUser } from "@/lib/user-auth";
 import { MEMBERSHIP_PLAN } from "@/lib/membership";
 import { PAYMENT_FEATURE_ENABLED } from "@/lib/feature-flags";
 import { canAccessTeacherContact } from "@/lib/teacher-access";
-import { TEACHER_UNLOCK_PLAN } from "@/lib/payment-products";
 import { TeacherUnlockPurchase } from "./TeacherUnlockPurchase";
+import { getCurrentSite } from "@/lib/site";
+import { siteOrigin } from "@/lib/site-utils";
 
 type TeacherPageProps = {
   params: Promise<{ id: string }>;
@@ -45,7 +45,10 @@ export async function generateMetadata({
   params,
 }: TeacherPageProps): Promise<Metadata> {
   const { id } = await params;
-  const teacher = await getTeacherSeoById(id);
+  const [teacher, site] = await Promise.all([
+    getTeacherSeoById(id),
+    getCurrentSite(),
+  ]);
 
   if (!teacher) {
     return {
@@ -58,12 +61,12 @@ export async function generateMetadata({
 
   const location = formatLocationLabel(teacher.city, teacher.district);
   const intro = compactText(teacher.services);
-  const title = `${truncate(`${name}｜${location ? `${location}地区信息` : "详细信息"}`, 54)} | ${SITE_NAME}`;
+  const title = `${truncate(`${name}｜${location ? `${location}地区信息` : "详细信息"}`, 54)} | ${site.name}`;
   const description = truncate(
     `${name}的${location ? `${location}地区信息` : "公开信息"}。${intro || "查看个人介绍、价格及相关信息。"}`,
     160,
   );
-  const canonical = `${SITE_URL}/listing/${teacher.id}`;
+  const canonical = `${siteOrigin(site)}/listing/${teacher.id}`;
 
   return {
     title: { absolute: title },
@@ -75,7 +78,7 @@ export async function generateMetadata({
       title,
       description,
       url: canonical,
-      siteName: SITE_NAME,
+      siteName: site.name,
       locale: "zh_CN",
       type: "profile",
     },
@@ -87,9 +90,10 @@ export default async function TeacherDetail({
   searchParams,
 }: TeacherPageProps) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  const [teacher, user] = await Promise.all([
+  const [teacher, user, site] = await Promise.all([
     getTeacherPublicById(id),
     getCurrentUser(),
+    getCurrentSite(),
   ]);
 
   if (!teacher) notFound();
@@ -112,18 +116,18 @@ export default async function TeacherDetail({
   const seoLocations = getSeoLocationsForRecord(teacher.city, teacher.district);
   const mostSpecificLocation = seoLocations.at(-1);
   const breadcrumbItems = [
-    { "@type": "ListItem", position: 1, name: SITE_NAME, item: SITE_URL },
+    { "@type": "ListItem", position: 1, name: site.name, item: siteOrigin(site) },
     ...seoLocations.map((location, index) => ({
       "@type": "ListItem",
       position: index + 2,
       name: `${location.name}凤楼`,
-      item: getSeoLocationUrl(location, SITE_URL),
+      item: getSeoLocationUrl(location, siteOrigin(site)),
     })),
     {
       "@type": "ListItem",
       position: seoLocations.length + 2,
       name: teacher.name,
-      item: `${SITE_URL}/listing/${teacher.id}`,
+      item: `${siteOrigin(site)}/listing/${teacher.id}`,
     },
   ];
 
@@ -319,7 +323,7 @@ export default async function TeacherDetail({
               <div className="rounded-xl border border-pink-200 bg-pink-50 p-3">
                 <p className="text-sm font-bold text-gray-800">解锁当前帖子</p>
                 <p className="mt-1 text-2xl font-bold text-rose-500">
-                  ¥{TEACHER_UNLOCK_PLAN.price}
+                  ¥{site.singlePostPrice}
                 </p>
                 <p className="mt-1 text-xs text-gray-500">当前帖子永久有效</p>
               </div>
@@ -329,10 +333,10 @@ export default async function TeacherDetail({
                 </p>
                 <p className="mt-1 text-xs font-bold text-orange-500">限时价</p>
                 <p className="text-2xl font-bold text-orange-500">
-                  ¥{MEMBERSHIP_PLAN.price}
+                  ¥{site.membershipPrice}
                 </p>
                 <p className="text-xs text-gray-400 line-through">
-                  原价 ¥{MEMBERSHIP_PLAN.originalPrice}
+                  原价 ¥{site.membershipOriginalPrice}
                 </p>
                 <p className="mt-1 text-xs text-gray-500">全部帖子永久可看</p>
               </div>
@@ -344,12 +348,15 @@ export default async function TeacherDetail({
               </p>
             ) : user ? (
               <div className="mt-4 space-y-3">
-                <TeacherUnlockPurchase teacherPostId={teacherPostId} />
+                <TeacherUnlockPurchase
+                  teacherPostId={teacherPostId}
+                  price={site.singlePostPrice}
+                />
                 <Link
                   href="/vip"
                   className="block w-full rounded-full border border-orange-300 py-2.5 text-center text-sm font-bold text-orange-600"
                 >
-                  ¥{MEMBERSHIP_PLAN.price} 开通永久会员
+                  ¥{site.membershipPrice} 开通永久会员
                 </Link>
               </div>
             ) : (

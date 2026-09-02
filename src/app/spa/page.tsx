@@ -2,15 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { MerchantCardData } from "@/components/MerchantCard";
 import { getPublishedMerchants } from "@/lib/merchants";
-import { SITE_NAME, SITE_URL } from "@/lib/site-config";
+import { getCurrentSite } from "@/lib/site";
+import { siteOrigin } from "@/lib/site-utils";
 import { MerchantBrowser } from "./MerchantBrowser";
 import type { MerchantCityOption } from "./MerchantCityPicker";
 
-export const metadata: Metadata = {
-  title: { absolute: `按摩SPA｜${SITE_NAME}` },
-  description: "查看公开展示的SPA商家、服务项目、价格、地址和联系方式。",
-  alternates: { canonical: `${SITE_URL}/spa` },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await getCurrentSite();
+  return {
+    title: { absolute: `按摩SPA｜${site.name}` },
+    description: "查看公开展示的SPA商家、服务项目、价格、地址和联系方式。",
+    alternates: { canonical: `${siteOrigin(site)}/spa` },
+  };
+}
 
 type SpaPageProps = {
   searchParams: Promise<{ city?: string | string[] }>;

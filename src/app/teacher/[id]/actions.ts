@@ -10,6 +10,7 @@ import {
 } from "@/lib/payment-products";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/user-auth";
+import { getCurrentSite } from "@/lib/site";
 
 export async function createTeacherUnlockOrder(
   teacherPostId: number,
@@ -20,6 +21,7 @@ export async function createTeacherUnlockOrder(
   if (!PAYMENT_FEATURE_ENABLED) redirect(returnPath);
 
   const user = await requireUser();
+  const site = await getCurrentSite();
   if (isActiveMember(user)) redirect(returnPath);
 
   const teacher = await prisma.teacher.findUnique({
@@ -31,6 +33,7 @@ export async function createTeacherUnlockOrder(
   const alreadyUnlocked = await prisma.order.findFirst({
     where: {
       userId: user.id,
+      siteId: user.siteId,
       productType: TEACHER_POST_PRODUCT_TYPE,
       teacherPostId: teacher.id,
       status: "paid",
@@ -44,12 +47,13 @@ export async function createTeacherUnlockOrder(
 
   const result = await startPaymentOrder({
     userId: user.id,
+    siteId: user.siteId,
     productType: TEACHER_POST_PRODUCT_TYPE,
     alleyPostId: null,
     teacherPostId: teacher.id,
     plan: `${TEACHER_UNLOCK_PLAN.name}：${teacher.name}`,
     subject: TEACHER_UNLOCK_PLAN.name,
-    amount: TEACHER_UNLOCK_PLAN.price,
+    amount: site.singlePostPrice,
     payMethod,
   });
   if (!result.ok) redirect(`${returnPath}?paymentError=${result.code}`);

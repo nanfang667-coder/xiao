@@ -2,10 +2,9 @@
 
 import { useFormStatus } from "react-dom";
 import { PAY_METHODS } from "@/lib/membership";
-import { ALLEY_UNLOCK_PLAN } from "@/lib/payment-products";
 import { createAlleyUnlockOrder } from "./actions";
 
-function UnlockButton() {
+function UnlockButton({ price }: { price: number }) {
   const { pending } = useFormStatus();
   return (
     <button
@@ -16,12 +15,18 @@ function UnlockButton() {
     >
       {pending
         ? "正在连接支付平台，请稍候…"
-        : `¥${ALLEY_UNLOCK_PLAN.price} 永久解锁本帖`}
+        : `¥${price} 永久解锁本帖`}
     </button>
   );
 }
 
-export function AlleyUnlockPurchase({ alleyPostId }: { alleyPostId: number }) {
+export function AlleyUnlockPurchase({
+  alleyPostId,
+  price,
+}: {
+  alleyPostId: number;
+  price: number;
+}) {
   const action = createAlleyUnlockOrder.bind(null, alleyPostId);
   const method = PAY_METHODS[0];
 
@@ -33,10 +38,10 @@ export function AlleyUnlockPurchase({ alleyPostId }: { alleyPostId: number }) {
           {method.emoji} {method.label}
         </span>
         <span className="font-bold text-rose-500">
-          ¥{ALLEY_UNLOCK_PLAN.price}
+          ¥{price}
         </span>
       </div>
-      <UnlockButton />
+      <UnlockButton price={price} />
       <p className="mt-2 text-center text-xs text-gray-400">
         付款成功后，本账号可永久查看当前帖子
       </p>

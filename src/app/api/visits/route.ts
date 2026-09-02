@@ -6,6 +6,7 @@ import {
   VISITOR_COOKIE_MAX_AGE,
   VISITOR_COOKIE_NAME,
 } from "@/lib/visitor";
+import { getSiteByHostname } from "@/lib/site";
 
 const ADMIN_PATH_PREFIX = "/adminzhangzhang";
 
@@ -49,14 +50,17 @@ export async function POST(req: NextRequest) {
     return new NextResponse(null, { status: 204 });
   }
 
+  const site = await getSiteByHostname(
+    req.headers.get("x-forwarded-host") ?? req.headers.get("host"),
+  );
   const existingVisitorId = req.cookies.get(VISITOR_COOKIE_NAME)?.value;
   const visitorId = getOrCreateVisitorId(existingVisitorId);
-  const visitorKey = hashVisitorKey(visitorId, "site");
+  const visitorKey = hashVisitorKey(visitorId, `site:${site.id}`);
 
   try {
     await prisma.siteVisit.upsert({
       where: { visitorKey },
-      create: { visitorKey },
+      create: { visitorKey, siteId: site.id },
       update: {
         visitCount: { increment: 1 },
         lastVisitedAt: new Date(),

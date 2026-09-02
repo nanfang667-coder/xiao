@@ -19,11 +19,9 @@ import {
   getSeoLocationPath,
   getSeoLocationUrl,
 } from "@/lib/location-seo";
-import {
-  MIN_ACCESSIBLE_LOCATION_RECORDS,
-  SITE_NAME,
-  SITE_URL,
-} from "@/lib/site-config";
+import { MIN_ACCESSIBLE_LOCATION_RECORDS } from "@/lib/site-config";
+import { getCurrentSite } from "@/lib/site";
+import { siteOrigin } from "@/lib/site-utils";
 
 const PAGE_SIZE = 10;
 
@@ -68,17 +66,20 @@ export async function generateMetadata({ params, searchParams }: CityPageProps):
   if (!location) notFound();
 
   const requestedPage = parsePage(query.page);
-  const result = await getTeachersForSeoLocation(
-    location.province,
-    location.region,
-    requestedPage,
-    PAGE_SIZE,
-  );
+  const [result, site] = await Promise.all([
+    getTeachersForSeoLocation(
+      location.province,
+      location.region,
+      requestedPage,
+      PAGE_SIZE,
+    ),
+    getCurrentSite(),
+  ]);
   if (result.total < MIN_ACCESSIBLE_LOCATION_RECORDS) notFound();
 
   const page = result.page;
   const path = getSeoLocationPath(location);
-  const canonical = new URL(pageUrl(path, page), SITE_URL).toString();
+  const canonical = new URL(pageUrl(path, page), siteOrigin(site)).toString();
   const locationDisplayName = getLocationDisplayName(location);
   const pageLabel = page > 1 ? ` - 第${page}页` : "";
   const title = truncate(`${locationDisplayName}凤楼${pageLabel}｜本地公开信息`, 60);
@@ -105,7 +106,7 @@ export async function generateMetadata({ params, searchParams }: CityPageProps):
       title,
       description,
       url: canonical,
-      siteName: SITE_NAME,
+      siteName: site.name,
       locale: "zh_CN",
       type: "website",
     },
@@ -138,11 +139,13 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
   }
   if (requestedPage !== result.page) redirect(pageUrl(path, result.page));
 
-  const [user, availableLocationSlugs, nationalPromotions] = await Promise.all([
+  const [user, availableLocationSlugs, nationalPromotions, site] = await Promise.all([
     getCurrentUser(),
     getAvailableSeoLocationSlugs(),
     getActiveNationalPromotions(),
+    getCurrentSite(),
   ]);
+  const origin = siteOrigin(site);
   const promotionIds = new Set(nationalPromotions.map((promotion) => promotion.id));
 
   const provinceLocation = getSeoLocationFromSelection(location.province);
@@ -150,16 +153,16 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
   const parentLocation = location.region ? provinceLocation : undefined;
   const breadcrumbLocations = parentLocation ? [parentLocation, location] : [location];
   const breadcrumbItems = [
-    { "@type": "ListItem", position: 1, name: SITE_NAME, item: SITE_URL },
-    { "@type": "ListItem", position: 2, name: "全国地区", item: `${SITE_URL}/fenglou` },
+    { "@type": "ListItem", position: 1, name: site.name, item: origin },
+    { "@type": "ListItem", position: 2, name: "全国地区", item: `${origin}/fenglou` },
     ...breadcrumbLocations.map((item, index) => ({
       "@type": "ListItem",
       position: index + 3,
       name: `${item.name}凤楼`,
-      item: getSeoLocationUrl(item, SITE_URL),
+      item: getSeoLocationUrl(item, origin),
     })),
   ];
-  const canonical = new URL(pageUrl(path, result.page), SITE_URL).toString();
+  const canonical = new URL(pageUrl(path, result.page), origin).toString();
   const pageOffset = (result.page - 1) * PAGE_SIZE;
   return (
     <div className="mx-auto w-full max-w-md flex-1 pb-10">
@@ -184,7 +187,7 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
                     "@type": "ListItem",
                     position: pageOffset + index + 1,
                     name: teacher.name || `资料 ${teacher.id}`,
-                    url: `${SITE_URL}/listing/${teacher.id}`,
+                    url: `${origin}/listing/${teacher.id}`,
                   })),
                 },
               },
@@ -196,7 +199,7 @@ export default async function CitySeoPage({ params, searchParams }: CityPageProp
       <header className="sticky top-0 z-10 bg-gradient-to-r from-pink-500 to-rose-500 px-4 pb-4 pt-6 text-white shadow-md">
         <div className="flex items-center justify-between">
           <Link href="/" className="text-xl font-bold">
-            {SITE_NAME}
+            {site.name}
           </Link>
           <UserStatus username={user?.username} isMember={isActiveMember(user)} />
         </div>

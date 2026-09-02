@@ -57,7 +57,6 @@ export default async function AdminUsersPage() {
     prisma.order.findMany({
       where: {
         status: "paid",
-        amount: 10,
         productType: {
           in: [ALLEY_POST_PRODUCT_TYPE, TEACHER_POST_PRODUCT_TYPE],
         },

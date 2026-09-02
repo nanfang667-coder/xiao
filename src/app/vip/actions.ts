@@ -16,11 +16,13 @@ import { fulfillPaidOrder } from "@/lib/payment";
 import { prisma } from "@/lib/prisma";
 import { queryQianheOrder } from "@/lib/qianhe-payment";
 import { requireUser } from "@/lib/user-auth";
+import { getCurrentSite } from "@/lib/site";
 
 export async function createOrder(formData: FormData) {
   if (!PAYMENT_FEATURE_ENABLED) redirect("/");
 
   const user = await requireUser();
+  const site = await getCurrentSite();
   if (isActiveMember(user)) redirect("/vip");
 
   const payMethod = selectedPayMethod(formData.get("payMethod"));
@@ -28,12 +30,13 @@ export async function createOrder(formData: FormData) {
 
   const result = await startPaymentOrder({
     userId: user.id,
+    siteId: user.siteId,
     productType: MEMBERSHIP_PRODUCT_TYPE,
     alleyPostId: null,
     teacherPostId: null,
     plan: MEMBERSHIP_PLAN.name,
     subject: MEMBERSHIP_PLAN.name,
-    amount: MEMBERSHIP_PLAN.price,
+    amount: site.membershipPrice,
     payMethod,
   });
   if (!result.ok) redirect(`/vip?paymentError=${result.code}`);
@@ -48,7 +51,7 @@ export async function refreshPaymentStatus(orderId: number) {
   if (!Number.isSafeInteger(orderId) || orderId <= 0) redirect("/vip");
 
   const order = await prisma.order.findFirst({
-    where: { id: orderId, userId: user.id },
+    where: { id: orderId, userId: user.id, siteId: user.siteId },
     select: {
       id: true,
       amount: true,
@@ -74,6 +77,7 @@ export async function refreshPaymentStatus(orderId: number) {
     where: {
       id: order.id,
       userId: user.id,
+      siteId: user.siteId,
       OR: [
         { paymentCheckedAt: null },
         { paymentCheckedAt: { lte: new Date(Date.now() - 5_000) } },

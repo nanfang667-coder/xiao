@@ -11,7 +11,6 @@ import { NationalPromotionCard } from "@/components/NationalPromotionCard";
 import { Pagination } from "@/components/Pagination";
 import { SeoLocationPicker } from "@/components/SeoLocationPicker";
 import type { User } from "@/lib/user-auth";
-import { SITE_NAME } from "@/lib/site-config";
 import type { PublicPartnerLink } from "@/lib/partner-links";
 
 // 功能入口配置（仿照 App 首页图标区）
@@ -129,6 +128,7 @@ export function TeacherBrowser({
   totalPages,
   alleyPublicEnabled,
   paymentEnabled,
+  siteName,
 }: {
   teachers: TeacherCardItem[];
   nationalPromotions: TeacherCardItem[];
@@ -139,6 +139,7 @@ export function TeacherBrowser({
   totalPages: number;
   alleyPublicEnabled: boolean;
   paymentEnabled: boolean;
+  siteName: string;
 }) {
   const router = useRouter();
 
@@ -167,7 +168,7 @@ export function TeacherBrowser({
       <header className="sticky top-0 z-10 bg-gradient-to-r from-pink-500 to-rose-500 px-4 pb-4 pt-6 text-white shadow-md">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold">{SITE_NAME}</h1>
+            <h1 className="text-xl font-bold">{siteName}</h1>
             <p className="mt-0.5 text-xs text-white/80">全国地区信息</p>
           </div>
           <UserStatus

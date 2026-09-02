@@ -10,27 +10,29 @@ import {
   getSeoLocationFromSelection,
   getSeoLocationSlugsForRecords,
 } from "@/lib/location-seo";
-import { SITE_NAME, SITE_URL } from "@/lib/site-config";
+import { getCurrentSite } from "@/lib/site";
+import { siteOrigin } from "@/lib/site-utils";
 import {
   ALLEY_DIRECT_ACCESS_ENABLED,
   ALLEY_PUBLIC_ENABLED,
 } from "@/lib/feature-flags";
 import { notFound } from "next/navigation";
 
-export const metadata: Metadata = ALLEY_DIRECT_ACCESS_ENABLED
-  ? {
-      title: { absolute: `暗巷｜${SITE_NAME}` },
-      description:
-        "查看暗巷公开标题、地址和列表封面，详细介绍和详情图片可单篇解锁或由会员查看。",
-      alternates: { canonical: `${SITE_URL}/alley` },
-      ...(!ALLEY_PUBLIC_ENABLED
-        ? { robots: { index: false, follow: false } }
-        : {}),
-    }
-  : {
-      title: "页面不存在",
-      robots: { index: false, follow: false },
-    };
+export async function generateMetadata(): Promise<Metadata> {
+  if (!ALLEY_DIRECT_ACCESS_ENABLED) {
+    return { title: "页面不存在", robots: { index: false, follow: false } };
+  }
+  const site = await getCurrentSite();
+  return {
+    title: { absolute: `暗巷｜${site.name}` },
+    description:
+      "查看暗巷公开标题、地址和列表封面，详细介绍和详情图片可单篇解锁或由会员查看。",
+    alternates: { canonical: `${siteOrigin(site)}/alley` },
+    ...(!ALLEY_PUBLIC_ENABLED
+      ? { robots: { index: false, follow: false } }
+      : {}),
+  };
+}
 
 type AlleyPageProps = {
   searchParams: Promise<{ location?: string | string[] }>;

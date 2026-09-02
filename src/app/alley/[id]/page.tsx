@@ -14,10 +14,10 @@ import {
 } from "@/lib/feature-flags";
 import { formatLocationLabel } from "@/lib/location-label";
 import { MEMBERSHIP_PLAN } from "@/lib/membership";
-import { ALLEY_UNLOCK_PLAN } from "@/lib/payment-products";
-import { SITE_NAME, SITE_URL } from "@/lib/site-config";
 import { getCurrentUser } from "@/lib/user-auth";
 import { AlleyUnlockPurchase } from "./AlleyUnlockPurchase";
+import { getCurrentSite } from "@/lib/site";
+import { siteOrigin } from "@/lib/site-utils";
 
 type AlleyDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -35,13 +35,16 @@ export async function generateMetadata({
   }
 
   const { id } = await params;
-  const alley = await getPublishedAlleyPublicById(id);
+  const [alley, site] = await Promise.all([
+    getPublishedAlleyPublicById(id),
+    getCurrentSite(),
+  ]);
   if (!alley)
     return { title: "暗巷信息不存在", robots: { index: false, follow: false } };
 
   const location = formatLocationLabel(alley.city, alley.district);
-  const title = `${alley.title}｜${location || "暗巷"} | ${SITE_NAME}`;
-  const canonical = `${SITE_URL}/alley/${alley.id}`;
+  const title = `${alley.title}｜${location || "暗巷"} | ${site.name}`;
+  const canonical = `${siteOrigin(site)}/alley/${alley.id}`;
   return {
     title: { absolute: title },
     description: `${alley.title}${alley.address ? `，地址：${alley.address}` : ""}。详细介绍和图片支持单篇解锁或会员查看。`,
@@ -49,7 +52,7 @@ export async function generateMetadata({
     openGraph: {
       title,
       url: canonical,
-      siteName: SITE_NAME,
+      siteName: site.name,
       locale: "zh_CN",
       type: "article",
     },
@@ -66,9 +69,10 @@ export default async function AlleyDetailPage({
   if (!ALLEY_DIRECT_ACCESS_ENABLED) notFound();
 
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  const [alley, user] = await Promise.all([
+  const [alley, user, site] = await Promise.all([
     getPublishedAlleyPublicById(id),
     getCurrentUser(),
+    getCurrentSite(),
   ]);
   if (!alley) notFound();
 
@@ -176,7 +180,7 @@ export default async function AlleyDetailPage({
               <div className="rounded-xl border border-pink-200 bg-pink-50 p-3">
                 <p className="text-sm font-bold text-gray-800">解锁本帖</p>
                 <p className="mt-1 text-2xl font-bold text-rose-500">
-                  ¥{ALLEY_UNLOCK_PLAN.price}
+                  ¥{site.singlePostPrice}
                 </p>
                 <p className="mt-1 text-xs text-gray-500">当前帖子永久有效</p>
               </div>
@@ -186,10 +190,10 @@ export default async function AlleyDetailPage({
                 </p>
                 <p className="mt-1 text-xs font-bold text-orange-500">限时价</p>
                 <p className="text-2xl font-bold text-orange-500">
-                  ¥{MEMBERSHIP_PLAN.price}
+                  ¥{site.membershipPrice}
                 </p>
                 <p className="text-xs text-gray-400 line-through">
-                  原价 ¥{MEMBERSHIP_PLAN.originalPrice}
+                  原价 ¥{site.membershipOriginalPrice}
                 </p>
                 <p className="mt-1 text-xs text-gray-500">全部帖子永久可看</p>
               </div>
@@ -201,7 +205,10 @@ export default async function AlleyDetailPage({
                   支付功能暂不可用，请稍后再试
                 </p>
               ) : user ? (
-                <AlleyUnlockPurchase alleyPostId={alley.id} />
+                <AlleyUnlockPurchase
+                  alleyPostId={alley.id}
+                  price={site.singlePostPrice}
+                />
               ) : (
                 <Link
                   href="/login"

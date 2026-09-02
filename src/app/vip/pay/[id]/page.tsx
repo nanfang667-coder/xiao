@@ -44,7 +44,7 @@ export default async function PayPage({
   if (!user) redirect("/login");
 
   const order = await prisma.order.findUnique({ where: { id: orderId } });
-  if (!order || order.userId !== user.id) notFound();
+  if (!order || order.userId !== user.id || order.siteId !== user.siteId) notFound();
 
   const successDestination = paidOrderDestination(
     order.productType,

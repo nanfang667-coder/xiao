@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 
 type AlleyAccessUser = {
   id: number;
+  siteId: string;
   isMember: boolean;
   membershipExpiresAt: Date | string | null;
 };
@@ -22,6 +23,7 @@ export async function canAccessAlleyPost(
   const paidOrder = await prisma.order.findFirst({
     where: {
       userId: user.id,
+      siteId: user.siteId,
       productType: ALLEY_POST_PRODUCT_TYPE,
       alleyPostId,
       status: "paid",

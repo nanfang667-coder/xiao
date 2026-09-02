@@ -10,6 +10,49 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Each hostname is an acquisition channel. Content stays shared; users, visits, and orders carry siteId.
+model Site {
+  id                      String        @id
+  hostname                String        @unique
+  name                    String
+  singlePostPrice         Float         @default(10)
+  membershipPrice         Float         @default(38)
+  membershipOriginalPrice Float         @default(58)
+  isDefault               Boolean       @default(false)
+  isActive                Boolean       @default(true)
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  teamAccounts            TeamAccount[]
+
+  @@index([isDefault, isActive])
+}
+
+// Team accounts can only access their site's read-only dashboard.
+model TeamAccount {
+  id           Int           @id @default(autoincrement())
+  username     String        @unique
+  passwordHash String
+  siteId       String
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  site         Site          @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  sessions     TeamSession[]
+
+  @@index([siteId, isActive])
+}
+
+model TeamSession {
+  tokenHash     String      @id
+  teamAccountId Int
+  expiresAt     DateTime
+  createdAt     DateTime    @default(now())
+  account       TeamAccount @relation(fields: [teamAccountId], references: [id], onDelete: Cascade)
+
+  @@index([teamAccountId])
+  @@index([expiresAt])
+}
+
 // 管理员会话只保存随机令牌的哈希；浏览器中的原始令牌可单独撤销。
 model AdminSession {
   tokenHash String   @id
@@ -137,7 +180,11 @@ model User {
   banReason           String? // 封禁原因
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
+  siteId              String          @default("a") // Immutable acquisition site selected at registration.
   referralVisits      ReferralVisit[]
+
+  @@index([siteId, createdAt])
+  @@index([siteId, isMember, memberSince])
 }
 
 // 邀请链接的匿名独立访客。每位浏览器访问同一用户的邀请链接只占一行，
@@ -162,7 +209,9 @@ model SiteVisit {
   visitCount     Int      @default(1)
   firstVisitedAt DateTime @default(now())
   lastVisitedAt  DateTime @default(now())
+  siteId         String   @default("a")
 
+  @@index([siteId, lastVisitedAt])
   @@index([lastVisitedAt])
 }
 
@@ -186,6 +235,10 @@ model Order {
   createdAt        DateTime  @default(now())
   paidAt           DateTime? // 支付完成时间
 
+  siteId String @default("a") // Snapshot of the checkout site for immutable revenue attribution.
+
+  @@index([siteId, status, paidAt])
+  @@index([siteId, createdAt])
   @@index([userId, productType, alleyPostId, status])
   @@index([userId, productType, teacherPostId, status])
 }

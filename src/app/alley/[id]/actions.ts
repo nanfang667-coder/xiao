@@ -13,6 +13,7 @@ import {
 } from "@/lib/payment-products";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/user-auth";
+import { getCurrentSite } from "@/lib/site";
 
 export async function createAlleyUnlockOrder(
   alleyPostId: number,
@@ -23,6 +24,7 @@ export async function createAlleyUnlockOrder(
   if (!PAYMENT_FEATURE_ENABLED) redirect(returnPath);
 
   const user = await requireUser();
+  const site = await getCurrentSite();
   if (isActiveMember(user)) redirect(returnPath);
 
   const alley = await prisma.alleyPost.findFirst({
@@ -34,6 +36,7 @@ export async function createAlleyUnlockOrder(
   const alreadyUnlocked = await prisma.order.findFirst({
     where: {
       userId: user.id,
+      siteId: user.siteId,
       productType: ALLEY_POST_PRODUCT_TYPE,
       alleyPostId: alley.id,
       status: "paid",
@@ -47,12 +50,13 @@ export async function createAlleyUnlockOrder(
 
   const result = await startPaymentOrder({
     userId: user.id,
+    siteId: user.siteId,
     productType: ALLEY_POST_PRODUCT_TYPE,
     alleyPostId: alley.id,
     teacherPostId: null,
     plan: `${ALLEY_UNLOCK_PLAN.name}：${alley.title}`,
     subject: ALLEY_UNLOCK_PLAN.name,
-    amount: ALLEY_UNLOCK_PLAN.price,
+    amount: site.singlePostPrice,
     payMethod,
   });
   if (!result.ok) redirect(`${returnPath}?paymentError=${result.code}`);
