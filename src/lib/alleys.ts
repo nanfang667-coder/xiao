@@ -89,10 +89,23 @@ export async function getPublishedAlleyMemberDetailById(
 
   return {
     description: row.description,
-    detailPhotos: parseAlleyPhotoNames(row.detailPhotos).map(
-      alleyMemberPhotoUrl,
+    detailPhotos: parseAlleyPhotoNames(row.detailPhotos).map((filename) =>
+      alleyMemberPhotoUrl(id, filename),
     ),
   };
+}
+
+export async function publishedAlleyHasDetailPhoto(
+  id: number,
+  filename: string,
+): Promise<boolean> {
+  if (!Number.isSafeInteger(id) || id <= 0) return false;
+
+  const row = await prisma.alleyPost.findFirst({
+    where: { id, isPublished: true },
+    select: { detailPhotos: true },
+  });
+  return row ? parseAlleyPhotoNames(row.detailPhotos).includes(filename) : false;
 }
 
 export async function getAlleysForAdmin(): Promise<AlleyAdmin[]> {

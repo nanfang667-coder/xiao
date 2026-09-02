@@ -25,8 +25,11 @@ export function parseAlleyPhotoNames(value: string): string[] {
   }
 }
 
-export function alleyMemberPhotoUrl(filename: string): string {
-  return `/api/alley-media/${encodeURIComponent(filename)}`;
+export function alleyMemberPhotoUrl(
+  alleyPostId: number,
+  filename: string,
+): string {
+  return `/api/alley-media/${alleyPostId}/${encodeURIComponent(filename)}`;
 }
 
 export function alleyAdminPhotoUrl(filename: string): string {

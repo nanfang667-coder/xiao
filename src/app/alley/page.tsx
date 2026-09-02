@@ -21,7 +21,7 @@ export const metadata: Metadata = ALLEY_DIRECT_ACCESS_ENABLED
   ? {
       title: { absolute: `暗巷｜${SITE_NAME}` },
       description:
-        "查看暗巷公开标题、地址和列表封面，详细介绍和详情图片仅会员可见。",
+        "查看暗巷公开标题、地址和列表封面，详细介绍和详情图片可单篇解锁或由会员查看。",
       alternates: { canonical: `${SITE_URL}/alley` },
       ...(!ALLEY_PUBLIC_ENABLED
         ? { robots: { index: false, follow: false } }

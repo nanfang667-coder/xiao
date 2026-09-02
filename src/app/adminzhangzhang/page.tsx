@@ -21,6 +21,12 @@ export default async function AdminDashboard() {
 
   const modules = [
     {
+      href: "/adminzhangzhang/users",
+      icon: "👤",
+      title: "用户管理",
+      desc: "查看用户、开通/取消会员",
+      count: `${userCount} 个用户`,
+    },    {
       href: "/adminzhangzhang/teachers",
       icon: "🎹",
       title: "老师管理",
@@ -48,13 +54,7 @@ export default async function AdminDashboard() {
       desc: "添加、排序、公开或隐藏友情链接",
       count: `${partnerCount} 个伙伴`,
     },
-    {
-      href: "/adminzhangzhang/users",
-      icon: "👤",
-      title: "用户管理",
-      desc: "查看用户、开通/取消会员",
-      count: `${userCount} 个用户`,
-    },
+
     {
       href: "/adminzhangzhang/withdrawals",
       icon: "💸",

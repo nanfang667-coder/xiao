@@ -5,8 +5,13 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
+  ALLEY_POST_PRODUCT_TYPE,
+  TEACHER_POST_PRODUCT_TYPE,
+} from "@/lib/payment-products";
+import {
   UsersBrowser,
   type AdminUser,
+  type SinglePostUnlockRecord,
   type SiteVisitorStats,
 } from "./UsersBrowser";
 
@@ -14,6 +19,11 @@ import {
 function formatDate(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function formatDateTime(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${formatDate(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 // 全站独立访客统计：直接访问域名和通过邀请链接进入都会记录。
@@ -36,7 +46,7 @@ async function getSiteVisitorStats(): Promise<SiteVisitorStats> {
 
 export default async function AdminUsersPage() {
   await requireAdmin();
-  const [rows, siteVisitorStats] = await Promise.all([
+  const [rows, siteVisitorStats, unlockOrders] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -44,6 +54,23 @@ export default async function AdminUsersPage() {
       },
     }),
     getSiteVisitorStats(),
+    prisma.order.findMany({
+      where: {
+        status: "paid",
+        amount: 10,
+        productType: {
+          in: [ALLEY_POST_PRODUCT_TYPE, TEACHER_POST_PRODUCT_TYPE],
+        },
+      },
+      orderBy: [{ paidAt: "desc" }, { id: "desc" }],
+      select: {
+        id: true,
+        userId: true,
+        amount: true,
+        paidAt: true,
+        merchantOrderNo: true,
+      },
+    }),
   ]);
 
   // 转成安全的展示数据（去掉密码等敏感字段，日期先格式化好）
@@ -66,6 +93,15 @@ export default async function AdminUsersPage() {
     banReason: u.banReason,
   }));
 
+  const usernames = new Map(rows.map((user) => [user.id, user.username]));
+  const unlockRecords: SinglePostUnlockRecord[] = unlockOrders.map((order) => ({
+    id: order.id,
+    username: usernames.get(order.userId) ?? `已删除用户 #${order.userId}`,
+    amountLabel: `¥${order.amount}`,
+    paidAtLabel: order.paidAt ? formatDateTime(order.paidAt) : "—",
+    merchantOrderNo: order.merchantOrderNo ?? "—",
+  }));
+
   return (
     <div className="mx-auto w-full max-w-md flex-1 px-4 pb-10">
       {/* 顶部栏 */}
@@ -76,8 +112,13 @@ export default async function AdminUsersPage() {
         <h1 className="text-lg font-bold">用户管理</h1>
       </header>
 
+
       {/* 筛选 + 列表（客户端交互） */}
-      <UsersBrowser users={users} siteVisitorStats={siteVisitorStats} />
+      <UsersBrowser
+        users={users}
+        siteVisitorStats={siteVisitorStats}
+        unlockRecords={unlockRecords}
+      />
     </div>
   );
 }

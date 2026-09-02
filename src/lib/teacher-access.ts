@@ -1,0 +1,32 @@
+import "server-only";
+
+import { isActiveMember } from "@/lib/membership";
+import { TEACHER_POST_PRODUCT_TYPE } from "@/lib/payment-products";
+import { prisma } from "@/lib/prisma";
+
+type TeacherAccessUser = {
+  id: number;
+  isMember: boolean;
+  membershipExpiresAt: Date | string | null;
+};
+
+export async function canAccessTeacherContact(
+  user: TeacherAccessUser | null | undefined,
+  teacherPostId: number,
+): Promise<boolean> {
+  if (isActiveMember(user)) return true;
+  if (!user || !Number.isSafeInteger(teacherPostId) || teacherPostId <= 0) {
+    return false;
+  }
+
+  const paidOrder = await prisma.order.findFirst({
+    where: {
+      userId: user.id,
+      productType: TEACHER_POST_PRODUCT_TYPE,
+      teacherPostId,
+      status: "paid",
+    },
+    select: { id: true },
+  });
+  return paidOrder !== null;
+}

@@ -2,21 +2,26 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlleyImagePlaceholder } from "@/components/AlleyImagePlaceholder";
+import { canAccessAlleyPost } from "@/lib/alley-access";
 import {
   getPublishedAlleyMemberDetailById,
   getPublishedAlleyPublicById,
 } from "@/lib/alleys";
-import { formatLocationLabel } from "@/lib/location-label";
-import { isActiveMember, MEMBERSHIP_PLAN } from "@/lib/membership";
-import { SITE_NAME, SITE_URL } from "@/lib/site-config";
-import { getCurrentUser } from "@/lib/user-auth";
 import {
   ALLEY_DIRECT_ACCESS_ENABLED,
   ALLEY_PUBLIC_ENABLED,
+  PAYMENT_FEATURE_ENABLED,
 } from "@/lib/feature-flags";
+import { formatLocationLabel } from "@/lib/location-label";
+import { MEMBERSHIP_PLAN } from "@/lib/membership";
+import { ALLEY_UNLOCK_PLAN } from "@/lib/payment-products";
+import { SITE_NAME, SITE_URL } from "@/lib/site-config";
+import { getCurrentUser } from "@/lib/user-auth";
+import { AlleyUnlockPurchase } from "./AlleyUnlockPurchase";
 
 type AlleyDetailPageProps = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ paid?: string; paymentError?: string }>;
 };
 
 export async function generateMetadata({
@@ -39,7 +44,7 @@ export async function generateMetadata({
   const canonical = `${SITE_URL}/alley/${alley.id}`;
   return {
     title: { absolute: title },
-    description: `${alley.title}${alley.address ? `，地址：${alley.address}` : ""}。详细介绍和图片仅会员可见。`,
+    description: `${alley.title}${alley.address ? `，地址：${alley.address}` : ""}。详细介绍和图片支持单篇解锁或会员查看。`,
     alternates: { canonical },
     openGraph: {
       title,
@@ -56,22 +61,31 @@ export async function generateMetadata({
 
 export default async function AlleyDetailPage({
   params,
+  searchParams,
 }: AlleyDetailPageProps) {
   if (!ALLEY_DIRECT_ACCESS_ENABLED) notFound();
 
-  const { id } = await params;
+  const [{ id }, query] = await Promise.all([params, searchParams]);
   const [alley, user] = await Promise.all([
     getPublishedAlleyPublicById(id),
     getCurrentUser(),
   ]);
   if (!alley) notFound();
 
-  const activeMember = isActiveMember(user);
-  const memberDetail = activeMember
+  const canViewDetail = await canAccessAlleyPost(user, alley.id);
+  const memberDetail = canViewDetail
     ? await getPublishedAlleyMemberDetailById(alley.id)
     : null;
-  if (activeMember && !memberDetail) notFound();
+  if (canViewDetail && !memberDetail) notFound();
 
+  const paymentErrorMessages: Record<string, string> = {
+    configuration: "支付配置暂不可用，请稍后重试。",
+    unavailable: "暂时无法连接支付平台，请稍后重试；本次没有扣款。",
+    rejected: "支付平台拒绝了下单请求，请稍后重试。",
+    invalid_response: "支付平台返回内容未通过安全校验，本次没有扣款。",
+    rate: "操作过于频繁，请一分钟后再试。",
+    method: "暂不支持所选支付方式。",
+  };
   const location = formatLocationLabel(alley.city, alley.district);
 
   return (
@@ -84,6 +98,17 @@ export default async function AlleyDetailPage({
       </header>
 
       <main className="px-4 pt-4">
+        {query.paid === "1" && memberDetail && (
+          <div className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-center text-sm font-medium text-green-600">
+            🎉 支付成功，当前帖子已永久解锁！
+          </div>
+        )}
+        {query.paymentError && paymentErrorMessages[query.paymentError] && (
+          <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-center text-sm text-red-600">
+            {paymentErrorMessages[query.paymentError]}
+          </div>
+        )}
+
         <section className="rounded-2xl bg-white p-4 shadow-sm">
           {location && <p className="text-xs text-gray-400">📍 {location}</p>}
           <h1 className="mt-2 text-xl font-bold text-gray-900">
@@ -101,6 +126,7 @@ export default async function AlleyDetailPage({
 
         {memberDetail ? (
           <>
+
             <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
               <h2 className="text-base font-bold text-gray-900">详细介绍</h2>
               <p className="mt-3 whitespace-pre-line text-sm leading-7 text-gray-700">
@@ -138,40 +164,62 @@ export default async function AlleyDetailPage({
               </span>
               <div>
                 <h2 className="text-base font-bold text-gray-900">
-                  详细介绍与图片 · 会员专享
+                  详细介绍与图片 · 付费解锁
                 </h2>
                 <p className="mt-1 text-sm leading-6 text-gray-500">
-                  用户新增过多，现在改为付费会员模式，会员费用将用于网站日常维护和信息持续更新，感谢您的支持。
+                  可单独永久解锁当前帖子，也可开通永久会员查看全部暗巷帖子。
                 </p>
               </div>
             </div>
 
-            <div className="mt-4 flex items-end justify-between rounded-xl bg-amber-50 p-3">
-              <div>
-                <p className="text-sm font-semibold text-gray-800">
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-pink-200 bg-pink-50 p-3">
+                <p className="text-sm font-bold text-gray-800">解锁本帖</p>
+                <p className="mt-1 text-2xl font-bold text-rose-500">
+                  ¥{ALLEY_UNLOCK_PLAN.price}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">当前帖子永久有效</p>
+              </div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <p className="text-sm font-bold text-gray-800">
                   {MEMBERSHIP_PLAN.name}
                 </p>
-                <p className="mt-0.5 text-xs text-gray-500">
-                  一次开通，永久有效
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-bold text-orange-500">限时价</p>
+                <p className="mt-1 text-xs font-bold text-orange-500">限时价</p>
                 <p className="text-2xl font-bold text-orange-500">
                   ¥{MEMBERSHIP_PLAN.price}
                 </p>
                 <p className="text-xs text-gray-400 line-through">
                   原价 ¥{MEMBERSHIP_PLAN.originalPrice}
                 </p>
+                <p className="mt-1 text-xs text-gray-500">全部帖子永久可看</p>
               </div>
             </div>
 
-            <Link
-              href={user ? "/vip" : "/login"}
-              className="mt-4 block w-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 py-3 text-center text-sm font-bold text-white shadow active:opacity-90"
-            >
-              {user ? "立即开通永久会员" : "登录后开通会员"}
-            </Link>
+            <div className="mt-4">
+              {!PAYMENT_FEATURE_ENABLED ? (
+                <p className="rounded-xl bg-gray-50 px-3 py-3 text-center text-sm text-gray-500">
+                  支付功能暂不可用，请稍后再试
+                </p>
+              ) : user ? (
+                <AlleyUnlockPurchase alleyPostId={alley.id} />
+              ) : (
+                <Link
+                  href="/login"
+                  className="block w-full rounded-full bg-gradient-to-r from-pink-500 to-rose-500 py-3 text-center text-sm font-bold text-white shadow active:opacity-90"
+                >
+                  登录后解锁本帖
+                </Link>
+              )}
+            </div>
+
+            {PAYMENT_FEATURE_ENABLED && (
+              <Link
+                href={user ? "/vip" : "/login"}
+                className="mt-3 block w-full rounded-full border border-orange-300 py-2.5 text-center text-sm font-bold text-orange-600"
+              >
+                {user ? "开通永久会员，查看全部帖子" : "登录后开通永久会员"}
+              </Link>
+            )}
           </section>
         )}
       </main>

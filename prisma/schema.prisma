@@ -166,13 +166,16 @@ model SiteVisit {
   @@index([lastVisitedAt])
 }
 
-// 会员订单表。每一行 = 一笔开通会员的订单。
+// 支付订单表。每一行 = 一笔会员、暗巷单篇或按摩帖子单篇解锁订单。
 // 现在支付确认由页面按钮触发；未来接入支付宝/微信后，改由支付回调把 status 置为 paid。
 model Order {
   id               Int       @id @default(autoincrement())
   userId           Int // 下单用户
-  plan             String // 套餐名，如 "永久会员"
-  amount           Float // 金额（元），如 38
+  plan             String // 商品名称，如“永久会员”或“单篇永久解锁”
+  amount           Float // 金额（元），如 38 或 10
+  productType      String    @default("membership") // membership / alley_post / teacher_post
+  alleyPostId      Int? // 暗巷单篇解锁编号；其它订单为空
+  teacherPostId    Int? // 按摩帖子单篇解锁编号；其它订单为空
   payMethod        String // 支付方式："wechat" 微信 / "alipay" 支付宝
   status           String    @default("pending") // pending 待支付 / paid 已支付
   merchantOrderNo  String?   @unique // 本站提交给支付平台的唯一订单号
@@ -182,6 +185,9 @@ model Order {
   paymentCheckedAt DateTime? // 最近一次主动查单时间（用于限流）
   createdAt        DateTime  @default(now())
   paidAt           DateTime? // 支付完成时间
+
+  @@index([userId, productType, alleyPostId, status])
+  @@index([userId, productType, teacherPostId, status])
 }
 
 // 推广佣金记录。每一行 = 一笔"被邀请人开通会员"产生的佣金。

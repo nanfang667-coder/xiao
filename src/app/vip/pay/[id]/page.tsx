@@ -2,11 +2,17 @@
 
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { PAYMENT_FEATURE_ENABLED } from "@/lib/feature-flags";
+import { payMethodLabel } from "@/lib/membership";
+import {
+  ALLEY_POST_PRODUCT_TYPE,
+  MEMBERSHIP_PRODUCT_TYPE,
+  TEACHER_POST_PRODUCT_TYPE,
+  paidOrderDestination,
+} from "@/lib/payment-products";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/user-auth";
-import { payMethodLabel } from "@/lib/membership";
 import { refreshPaymentStatus } from "../../actions";
-import { PAYMENT_FEATURE_ENABLED } from "@/lib/feature-flags";
 
 function safePaymentUrl(value: string | null): string | null {
   if (!value) return null;
@@ -38,30 +44,43 @@ export default async function PayPage({
   if (!user) redirect("/login");
 
   const order = await prisma.order.findUnique({ where: { id: orderId } });
-  // 订单不存在或不属于当前用户
   if (!order || order.userId !== user.id) notFound();
-  // 已支付则直接回 VIP 页
-  if (order.status === "paid") redirect("/vip?paid=1");
 
+  const successDestination = paidOrderDestination(
+    order.productType,
+    order.alleyPostId,
+    order.teacherPostId,
+  );
+  if (!successDestination) notFound();
+  if (order.status === "paid") redirect(successDestination);
+
+  const backPath =
+    order.productType === MEMBERSHIP_PRODUCT_TYPE
+      ? "/vip"
+      : order.productType === ALLEY_POST_PRODUCT_TYPE && order.alleyPostId
+        ? `/alley/${order.alleyPostId}`
+        : order.productType === TEACHER_POST_PRODUCT_TYPE && order.teacherPostId
+          ? `/listing/${order.teacherPostId}`
+          : "/";
   const paymentUrl = safePaymentUrl(order.paymentUrl);
   const refresh = refreshPaymentStatus.bind(null, order.id);
 
   return (
     <div className="mx-auto w-full max-w-md flex-1 pb-10">
-      {/* 顶部栏 */}
       <header className="sticky top-0 z-10 flex items-center gap-3 bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-4 text-white shadow-md">
-        <Link href="/vip" className="text-white/90">
+        <Link href={backPath} className="text-white/90">
           ← 返回
         </Link>
         <h1 className="text-lg font-bold">订单支付</h1>
       </header>
 
-      {/* 订单信息 */}
       <div className="px-4 pt-4">
         <div className="rounded-2xl bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center justify-between gap-3 text-sm">
             <span className="text-gray-500">商品</span>
-            <span className="font-medium text-gray-800">{order.plan}</span>
+            <span className="text-right font-medium text-gray-800">
+              {order.plan}
+            </span>
           </div>
           <div className="mt-2 flex items-center justify-between text-sm">
             <span className="text-gray-500">支付方式</span>
@@ -78,7 +97,6 @@ export default async function PayPage({
         </div>
       </div>
 
-      {/* 平台返回 URL 收银台，用户支付后由异步通知或主动查单确认。 */}
       <div className="px-4 pt-4">
         <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
           <div className="mx-auto flex h-44 w-44 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
@@ -88,7 +106,7 @@ export default async function PayPage({
             </div>
           </div>
           <p className="mt-3 text-sm text-gray-500">
-            支付结果由平台签名通知确认，页面操作不会直接开通会员
+            支付结果由平台签名通知确认，页面操作不会直接发放权益
           </p>
           {paymentUrl && (
             <a
@@ -103,7 +121,7 @@ export default async function PayPage({
 
       {check === "failed" && (
         <div className="mx-4 mt-4 rounded-xl bg-red-50 px-4 py-3 text-center text-xs text-red-600">
-          暂时无法确认支付结果，请稍后重试；系统不会在未确认时开通会员。
+          暂时无法确认支付结果，请稍后重试；系统不会在未确认时发放权益。
         </div>
       )}
       {check === "pending" && (
@@ -112,7 +130,6 @@ export default async function PayPage({
         </div>
       )}
 
-      {/* 主动查单也必须验证平台响应签名、订单号、金额与成功状态。 */}
       <div className="px-4 pt-6">
         <form action={refresh}>
           <button
@@ -123,7 +140,7 @@ export default async function PayPage({
           </button>
         </form>
         <Link
-          href="/vip"
+          href={backPath}
           className="mt-3 block text-center text-xs text-gray-400"
         >
           取消，返回

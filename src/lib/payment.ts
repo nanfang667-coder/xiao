@@ -1,7 +1,12 @@
 import "server-only";
 
-import { prisma } from "@/lib/prisma";
 import { COMMISSION_RATE } from "@/lib/membership";
+import {
+  ALLEY_POST_PRODUCT_TYPE,
+  TEACHER_POST_PRODUCT_TYPE,
+  isValidOrderProductTarget,
+} from "@/lib/payment-products";
+import { prisma } from "@/lib/prisma";
 
 export type FulfillOrderResult =
   | "paid"
@@ -22,7 +27,7 @@ function amountToCents(amount: number): number {
 }
 
 // 仅供已经完成“支付平台回调验签”的服务端代码调用。
-// 在一个事务中认领订单、开通会员并生成佣金，确保重复回调不会重复入账。
+// 在一个事务中认领订单并按商品类型发放权益，确保重复回调不会重复入账。
 export async function fulfillPaidOrder({
   orderId,
   paidAmountCents,
@@ -42,6 +47,9 @@ export async function fulfillPaidOrder({
         id: true,
         userId: true,
         amount: true,
+        productType: true,
+        alleyPostId: true,
+        teacherPostId: true,
         status: true,
         providerTradeNo: true,
       },
@@ -53,14 +61,32 @@ export async function fulfillPaidOrder({
       return "invalid_status";
     }
     if (order.status === "paid") return "already_paid";
-    if (order.status !== "pending" && order.status !== "failed") return "invalid_status";
+    if (order.status !== "pending" && order.status !== "failed") {
+      return "invalid_status";
+    }
 
-    // 只有第一个回调能把 pending 改为 paid；并发或重复回调不会重复发放权益。
+    if (
+      !isValidOrderProductTarget(
+        order.productType,
+        order.alleyPostId,
+        order.teacherPostId,
+      )
+    ) {
+      return "invalid_status";
+    }
+    const singlePostOrder =
+      order.productType === ALLEY_POST_PRODUCT_TYPE ||
+      order.productType === TEACHER_POST_PRODUCT_TYPE;
+
+    // 只有第一个回调能把 pending/failed 改为 paid；并发或重复回调不会重复发放权益。
     const claimed = await tx.order.updateMany({
       where: { id: order.id, status: { in: ["pending", "failed"] } },
       data: { status: "paid", paidAt, providerTradeNo },
     });
     if (claimed.count !== 1) return "invalid_status";
+
+    // 单篇订单的 paid 状态本身就是永久解锁凭证，不开通全站会员、不产生推广佣金。
+    if (singlePostOrder) return "paid";
 
     const buyer = await tx.user.findUnique({
       where: { id: order.userId },
@@ -68,7 +94,7 @@ export async function fulfillPaidOrder({
     });
     if (!buyer) throw new Error("Payment order user does not exist");
 
-    // 即使用户同时创建了多笔订单，也只有第一笔成功订单能把非会员改成会员。
+    // 即使用户同时创建了多笔会员订单，也只有第一笔成功订单能把非会员改成会员。
     const activated = await tx.user.updateMany({
       where: { id: order.userId, isMember: false },
       data: {
