@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isValidMoney, normalizeHostname } from "@/lib/site-utils";
+import { parseTeamMonthlyPostLimit } from "@/lib/team-post-quota";
 
 function text(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
@@ -71,10 +72,14 @@ export async function createTeamAccount(formData: FormData) {
   const username = text(formData, "username").toLowerCase();
   const password = String(formData.get("password") ?? "");
   const siteId = text(formData, "siteId");
+  const monthlyPostLimit = parseTeamMonthlyPostLimit(
+    formData.get("monthlyPostLimit"),
+  );
   if (
     !/^[a-z0-9][a-z0-9_-]{2,31}$/.test(username) ||
     password.length < 12 ||
-    Buffer.byteLength(password, "utf8") > 128
+    Buffer.byteLength(password, "utf8") > 128 ||
+    monthlyPostLimit === null
   ) {
     throw new Error("Invalid team account");
   }
@@ -89,9 +94,35 @@ export async function createTeamAccount(formData: FormData) {
       username,
       passwordHash: await bcrypt.hash(password, 12),
       siteId: site.id,
+      monthlyPostLimit,
     },
   });
   revalidatePath("/adminzhangzhang/sites");
+}
+
+export async function updateTeamMonthlyPostLimit(
+  accountId: number,
+  formData: FormData,
+) {
+  await requireAdmin();
+  const monthlyPostLimit = parseTeamMonthlyPostLimit(
+    formData.get("monthlyPostLimit"),
+  );
+  if (
+    !Number.isSafeInteger(accountId) ||
+    accountId < 1 ||
+    monthlyPostLimit === null
+  ) {
+    throw new Error("Invalid team monthly post limit");
+  }
+  await prisma.teamAccount.update({
+    where: { id: accountId },
+    data: { monthlyPostLimit },
+  });
+  revalidatePath("/adminzhangzhang/sites");
+  revalidatePath("/team");
+  revalidatePath("/team/posts");
+  revalidatePath("/team/posts/new");
 }
 
 export async function resetTeamPassword(accountId: number, formData: FormData) {

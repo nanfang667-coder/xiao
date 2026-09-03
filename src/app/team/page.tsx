@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireTeamAccount } from "@/lib/team-auth";
+import {
+  getTeamMonthlyPostUsageWhere,
+  summarizeTeamPostQuota,
+} from "@/lib/team-post-quota";
 import { teamLogout } from "./actions";
 
 export default async function TeamDashboardPage() {
@@ -9,19 +13,27 @@ export default async function TeamDashboardPage() {
   // eslint-disable-next-line react-hooks/purity
   const dayStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  const [dayVisitors, postCount, postViews, pendingCount] = await Promise.all([
-    prisma.siteVisit.count({
-      where: { siteId: account.siteId, lastVisitedAt: { gte: dayStart } },
-    }),
-    prisma.teacherOwnership.count({ where: { teamAccountId: account.id } }),
-    prisma.teacher.aggregate({
-      where: { ownership: { teamAccountId: account.id } },
-      _sum: { viewCount: true },
-    }),
-    prisma.teacherSubmission.count({
-      where: { teamAccountId: account.id, status: "pending" },
-    }),
-  ]);
+  const [dayVisitors, postCount, postViews, pendingCount, monthlyPostUsage] =
+    await Promise.all([
+      prisma.siteVisit.count({
+        where: { siteId: account.siteId, lastVisitedAt: { gte: dayStart } },
+      }),
+      prisma.teacherOwnership.count({ where: { teamAccountId: account.id } }),
+      prisma.teacher.aggregate({
+        where: { ownership: { teamAccountId: account.id } },
+        _sum: { viewCount: true },
+      }),
+      prisma.teacherSubmission.count({
+        where: { teamAccountId: account.id, status: "pending" },
+      }),
+      prisma.teacherSubmission.count({
+        where: getTeamMonthlyPostUsageWhere(account.id),
+      }),
+    ]);
+  const quota = summarizeTeamPostQuota(
+    account.monthlyPostLimit,
+    monthlyPostUsage,
+  );
 
   const cards = [
     ["全站近24小时独立访客", dayVisitors],
@@ -53,13 +65,41 @@ export default async function TeamDashboardPage() {
         ))}
       </section>
 
+      <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-gray-800">本月发布额度</p>
+            <p className="mt-1 text-xs text-gray-500">
+              已用 {quota.used}/{quota.limit} 条，剩余 {quota.remaining} 条
+            </p>
+          </div>
+          <span className="text-xl font-bold text-pink-500">
+            {quota.remaining}
+          </span>
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100">
+          <div
+            className="h-full rounded-full bg-pink-500"
+            style={{
+              width: `${Math.min(100, (quota.used / quota.limit) * 100)}%`,
+            }}
+          />
+        </div>
+      </section>
+
       <div className="mt-5 grid grid-cols-2 gap-3">
         <Link href="/team/posts" className="rounded-xl border border-pink-200 bg-white px-4 py-3 text-center text-sm font-bold text-pink-600">
           管理我的帖子
         </Link>
-        <Link href="/team/posts/new" className="rounded-xl bg-pink-500 px-4 py-3 text-center text-sm font-bold text-white">
-          ＋ 发布新帖
-        </Link>
+        {quota.exhausted ? (
+          <span className="rounded-xl bg-gray-300 px-4 py-3 text-center text-sm font-bold text-white">
+            本月额度已用完
+          </span>
+        ) : (
+          <Link href="/team/posts/new" className="rounded-xl bg-pink-500 px-4 py-3 text-center text-sm font-bold text-white">
+            ＋ 发布新帖
+          </Link>
+        )}
       </div>
 
       <p className="mt-5 rounded-xl bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-700">

@@ -6,8 +6,10 @@ import {
   createTeamAccount,
   disableTeamAccount,
   resetTeamPassword,
+  updateTeamMonthlyPostLimit,
   updateSite,
 } from "./actions";
+import { getChinaCalendarMonthRange } from "@/lib/team-post-quota";
 
 function PriceInputs({
   values,
@@ -69,6 +71,26 @@ export default async function SiteManagementPage() {
     orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
     include: { teamAccounts: { orderBy: { createdAt: "asc" } } },
   });
+  const teamAccountIds = sites.flatMap((site) =>
+    site.teamAccounts.map((account) => account.id),
+  );
+  const { start: monthStart, end: monthEnd } = getChinaCalendarMonthRange();
+  const monthlyUsageRows =
+    teamAccountIds.length === 0
+      ? []
+      : await prisma.teacherSubmission.groupBy({
+          by: ["teamAccountId"],
+          where: {
+            teamAccountId: { in: teamAccountIds },
+            kind: "create",
+            status: { in: ["pending", "approved"] },
+            createdAt: { gte: monthStart, lt: monthEnd },
+          },
+          _count: { _all: true },
+        });
+  const monthlyUsage = new Map(
+    monthlyUsageRows.map((row) => [row.teamAccountId, row._count._all]),
+  );
   const siteStats = new Map(
     await Promise.all(
       sites.map(async (site) => {
@@ -150,12 +172,34 @@ export default async function SiteManagementPage() {
               {site.teamAccounts.map((account) => (
                 <div key={account.id} className="mt-2 rounded-xl bg-gray-50 p-3">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{account.username}</span>
+                    <div>
+                      <span className="font-medium">{account.username}</span>
+                      <span className="ml-2 text-xs text-gray-400">
+                        本月 {monthlyUsage.get(account.id) ?? 0}/{account.monthlyPostLimit} 条
+                      </span>
+                    </div>
                     <span className={account.isActive ? "text-green-600" : "text-gray-400"}>
                       {account.isActive ? "使用中" : "已停用"}
                     </span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
+                    <form
+                      action={updateTeamMonthlyPostLimit.bind(null, account.id)}
+                      className="flex gap-2"
+                    >
+                      <select
+                        name="monthlyPostLimit"
+                        defaultValue={account.monthlyPostLimit}
+                        aria-label={`${account.username}每月发帖额度`}
+                        className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs"
+                      >
+                        <option value="30">30条/月</option>
+                        <option value="150">150条/月</option>
+                      </select>
+                      <button className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-gray-600">
+                        保存额度
+                      </button>
+                    </form>
                     <form action={resetTeamPassword.bind(null, account.id)} className="flex gap-2">
                       <input
                         type="password"
@@ -179,7 +223,7 @@ export default async function SiteManagementPage() {
                   </div>
                 </div>
               ))}
-              <form action={createTeamAccount} className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+              <form action={createTeamAccount} className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_120px_auto]">
                 <input type="hidden" name="siteId" value={site.id} />
                 <input
                   name="username"
@@ -198,6 +242,15 @@ export default async function SiteManagementPage() {
                   placeholder="初始密码（至少12位）"
                   className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
+                <select
+                  name="monthlyPostLimit"
+                  defaultValue="30"
+                  aria-label="每月发帖额度"
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="30">30条/月</option>
+                  <option value="150">150条/月</option>
+                </select>
                 <button className="rounded-lg bg-gray-800 px-3 py-2 text-sm font-bold text-white">
                   创建
                 </button>

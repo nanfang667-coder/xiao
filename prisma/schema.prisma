@@ -34,6 +34,7 @@ model TeamAccount {
   username          String              @unique
   passwordHash      String
   siteId            String
+  monthlyPostLimit  Int                 @default(30) // Allowed values are enforced as 30 or 150 by the admin UI and migration check.
   isActive          Boolean             @default(true)
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
@@ -155,6 +156,7 @@ model TeacherSubmission {
 
   @@index([status, createdAt])
   @@index([teamAccountId, status, updatedAt])
+  @@index([teamAccountId, kind, status, createdAt])
   @@index([teacherId, status])
   @@index([siteId, status])
 }

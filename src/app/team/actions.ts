@@ -14,6 +14,9 @@ import { defaultGradients, emojiFor } from "@/lib/photo";
 import { getSelectedPhotoFiles, saveUploadedPhotos } from "@/lib/image-upload";
 import { deleteUploadedPhotos } from "@/lib/uploaded-photos";
 import { extractTeacherPostFields } from "@/lib/teacher-post-input";
+import { getTeamMonthlyPostUsageWhere } from "@/lib/team-post-quota";
+
+class TeamPostQuotaExceededError extends Error {}
 
 export async function teamLogin(formData: FormData) {
   const username = String(formData.get("username") ?? "").trim();
@@ -65,41 +68,48 @@ async function deleteDraftOnlyPhotos(
 export async function createTeamTeacherSubmission(formData: FormData) {
   const account = await requireTeamAccount();
   let uploaded: string[] = [];
-  let failed = false;
+  let failure: "generic" | "quota" | null = null;
 
   try {
-    const pendingCreates = await prisma.teacherSubmission.count({
-      where: {
-        teamAccountId: account.id,
-        kind: "create",
-        status: "pending",
-      },
+    const quotaWhere = getTeamMonthlyPostUsageWhere(account.id);
+    const currentUsage = await prisma.teacherSubmission.count({
+      where: quotaWhere,
     });
-    if (pendingCreates >= 50) throw new Error("too many pending submissions");
+    if (currentUsage >= account.monthlyPostLimit) {
+      throw new TeamPostQuotaExceededError();
+    }
 
     const fields = extractTeacherPostFields(formData);
     uploaded = await saveUploadedPhotos(getSelectedPhotoFiles(formData));
     const photos = uploaded.length > 0 ? uploaded : defaultGradients(fields.type);
 
-    await prisma.teacherSubmission.create({
-      data: {
-        ...fields,
-        kind: "create",
-        status: "pending",
-        teamAccountId: account.id,
-        siteId: account.siteId,
-        photos: JSON.stringify(photos),
-        emoji: emojiFor(fields.type),
-      },
+    await prisma.$transaction(async (tx) => {
+      const latestUsage = await tx.teacherSubmission.count({
+        where: quotaWhere,
+      });
+      if (latestUsage >= account.monthlyPostLimit) {
+        throw new TeamPostQuotaExceededError();
+      }
+      await tx.teacherSubmission.create({
+        data: {
+          ...fields,
+          kind: "create",
+          status: "pending",
+          teamAccountId: account.id,
+          siteId: account.siteId,
+          photos: JSON.stringify(photos),
+          emoji: emojiFor(fields.type),
+        },
+      });
     });
-  } catch {
-    failed = true;
+  } catch (error) {
+    failure = error instanceof TeamPostQuotaExceededError ? "quota" : "generic";
     if (uploaded.length > 0) {
       await deleteUploadedPhotos(JSON.stringify(uploaded));
     }
   }
 
-  if (failed) redirect("/team/posts/new?error=1");
+  if (failure) redirect(`/team/posts/new?error=${failure}`);
   revalidatePath("/team");
   revalidatePath("/team/posts");
   redirect("/team/posts?submitted=1");

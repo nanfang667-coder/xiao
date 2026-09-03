@@ -2,6 +2,10 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireTeamAccount } from "@/lib/team-auth";
 import { isImage } from "@/lib/photo";
+import {
+  getTeamMonthlyPostUsageWhere,
+  summarizeTeamPostQuota,
+} from "@/lib/team-post-quota";
 
 function firstPhoto(value: string): string | null {
   try {
@@ -25,7 +29,7 @@ export default async function TeamPostsPage({
 }) {
   const account = await requireTeamAccount();
   const { submitted } = await searchParams;
-  const [ownerships, submissions] = await Promise.all([
+  const [ownerships, submissions, monthlyPostUsage] = await Promise.all([
     prisma.teacherOwnership.findMany({
       where: { teamAccountId: account.id },
       include: { teacher: true },
@@ -39,7 +43,14 @@ export default async function TeamPostsPage({
       orderBy: { updatedAt: "desc" },
       take: 50,
     }),
+    prisma.teacherSubmission.count({
+      where: getTeamMonthlyPostUsageWhere(account.id),
+    }),
   ]);
+  const quota = summarizeTeamPostQuota(
+    account.monthlyPostLimit,
+    monthlyPostUsage,
+  );
   const pendingUpdates = new Set(
     submissions
       .filter((submission) => submission.status === "pending" && submission.kind === "update")
@@ -63,8 +74,16 @@ export default async function TeamPostsPage({
       <header className="sticky top-0 z-10 -mx-4 mb-5 flex items-center justify-between bg-gradient-to-r from-pink-500 to-rose-500 px-4 py-4 text-white shadow">
         <Link href="/team" className="text-sm text-white/90">← 返回</Link>
         <h1 className="font-bold">我的帖子</h1>
-        <Link href="/team/posts/new" className="rounded-full bg-white/20 px-3 py-1 text-xs">＋ 发帖</Link>
+        {quota.exhausted ? (
+          <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/70">额度已满</span>
+        ) : (
+          <Link href="/team/posts/new" className="rounded-full bg-white/20 px-3 py-1 text-xs">＋ 发帖</Link>
+        )}
       </header>
+
+      <p className="mb-4 rounded-xl bg-pink-50 px-4 py-3 text-sm text-pink-700">
+        本月新帖：已用 {quota.used}/{quota.limit} 条，剩余 {quota.remaining} 条。修改帖子不占额度。
+      </p>
 
       {submitted && (
         <p className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">已提交管理员审核。</p>
