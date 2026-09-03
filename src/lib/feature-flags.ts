@@ -2,10 +2,8 @@ function featureEnabled(value: string | undefined): boolean {
   return value?.trim().toLowerCase() === "true";
 }
 
-// Both features stay off unless production explicitly enables them.
-export const PAYMENT_FEATURE_ENABLED = featureEnabled(
-  process.env.PAYMENT_FEATURE_ENABLED,
-);
+// Temporary free-access mode: payments stay off until this code-level switch is restored.
+export const PAYMENT_FEATURE_ENABLED = false;
 export const ALLEY_PUBLIC_ENABLED = featureEnabled(
   process.env.ALLEY_PUBLIC_ENABLED,
 );
