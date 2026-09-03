@@ -84,7 +84,7 @@ cleanup() {
     if [[ -n "$NEW_PROCESS" && "$NEW_PROCESS" != "${ACTIVE_PROCESS:-}" ]]; then
       pm2 delete "$NEW_PROCESS" >/dev/null 2>&1 || true
     fi
-  elif [[ -n "${ACTIVE_PROCESS:-}" && "$ACTIVE_PROCESS" != "$NEW_PROCESS" ]]; then
+  elif [[ -n "${ACTIVE_PROCESS:-}" && -n "$NEW_PROCESS" && "$ACTIVE_PROCESS" != "$NEW_PROCESS" ]]; then
     pm2 delete "$ACTIVE_PROCESS" >/dev/null 2>&1 || true
     pm2 save >/dev/null 2>&1 || true
   fi
