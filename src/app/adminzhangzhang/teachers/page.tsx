@@ -222,6 +222,9 @@ export default async function AdminTeachersPage({ searchParams }: { searchParams
               <p className="mt-0.5 text-[11px] text-gray-300">
                 添加于 {teacher.createdAt.toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}
               </p>
+              <p className="mt-0.5 text-[11px] text-gray-400">
+                发布人：{teacher.publisherUsername ?? "管理员"}
+              </p>
             </div>
 
             <div className="flex flex-none gap-2">

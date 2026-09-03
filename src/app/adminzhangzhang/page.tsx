@@ -10,8 +10,9 @@ export default async function AdminDashboard() {
   await requireAdmin(); // 未登录会被挡下
 
   // 各模块的数据量，显示在入口卡片上
-  const [teacherCount, alleyCount, merchantCount, partnerCount, userCount, pendingWithdrawals] = await Promise.all([
+  const [teacherCount, pendingSubmissions, alleyCount, merchantCount, partnerCount, userCount, pendingWithdrawals] = await Promise.all([
     prisma.teacher.count(),
+    prisma.teacherSubmission.count({ where: { status: "pending" } }),
     prisma.alleyPost.count(),
     prisma.merchant.count(),
     prisma.partnerLink.count(),
@@ -24,8 +25,15 @@ export default async function AdminDashboard() {
       href: "/adminzhangzhang/sites",
       icon: "🌐",
       title: "网站与团队",
-      desc: "管理域名、独立价格和团队只读账号",
+      desc: "管理域名、价格和合作发布账号",
       count: "渠道归属",
+    },
+    {
+      href: "/adminzhangzhang/submissions",
+      icon: "✅",
+      title: "合作帖子审核",
+      desc: "审核合作账号提交的新帖和修改",
+      count: `${pendingSubmissions} 条待审核`,
     },
     {
       href: "/adminzhangzhang/users",

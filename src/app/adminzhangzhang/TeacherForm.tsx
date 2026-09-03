@@ -27,10 +27,18 @@ export function TeacherForm({
   action,
   initial,
   submitLabel,
+  backHref = "/adminzhangzhang/teachers",
+  title,
+  showPromotion = true,
+  notice,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   initial?: Teacher;
   submitLabel: string;
+  backHref?: string;
+  title?: string;
+  showPromotion?: boolean;
+  notice?: string;
 }) {
   const [city, setCity] = useState(initial?.city ?? "");
   const [district, setDistrict] = useState(initial?.district ?? "");
@@ -135,19 +143,25 @@ export function TeacherForm({
   return (
     <div className="mx-auto w-full max-w-md flex-1 px-4 pb-10 pt-4">
       <div className="mb-4 flex items-center justify-between">
-        <Link href="/adminzhangzhang/teachers" className="text-pink-500">
+        <Link href={backHref} className="text-pink-500">
           ← 返回
         </Link>
         <h1 className="text-base font-bold text-gray-900">
-          {initial ? "编辑老师" : "添加老师"}
+          {title ?? (initial ? "编辑老师" : "添加老师")}
         </h1>
         <span className="w-10" />
       </div>
 
+      {notice && (
+        <p className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+          {notice}
+        </p>
+      )}
+
       <form action={action} className="space-y-4">
         <div>
           <label className={label}>标题</label>
-          <input name="name" defaultValue={initial?.name} className={field} />
+          <input name="name" required maxLength={100} defaultValue={initial?.name} className={field} />
         </div>
 
         <div className="flex gap-3">
@@ -216,7 +230,7 @@ export function TeacherForm({
 
         <div>
           <label className={label}>服务内容</label>
-          <textarea name="services" defaultValue={initial?.services} rows={1} className={field} />
+          <textarea name="services" required maxLength={4000} defaultValue={initial?.services} rows={1} className={field} />
         </div>
 
         <div>
@@ -238,6 +252,7 @@ export function TeacherForm({
         <div>
           <label className={label}>微信号（会员可见）</label>
           <input name="wechat" defaultValue={initial?.contact.wechat} className={field} />
+          {!showPromotion && <p className="mt-1 text-xs text-gray-400">电话、微信、QQ 或其他联系方式至少填写一项</p>}
         </div>
 
         <div>
@@ -264,7 +279,7 @@ export function TeacherForm({
             className={field}
           />
         </div>
-        <fieldset className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+        {showPromotion && <fieldset className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
           <legend className="px-1 text-sm font-bold text-amber-900">{"\u5168\u56fd\u63a8\u5e7f"}</legend>
           <label className="flex cursor-pointer items-start gap-3">
             <input
@@ -320,7 +335,7 @@ export function TeacherForm({
           <p className="mt-2 text-xs text-amber-800/70">
             {"\u65f6\u95f4\u7559\u7a7a\u8868\u793a\u7acb\u5373\u5f00\u59cb\u6216\u957f\u671f\u5c55\u793a\uff08\u5317\u4eac\u65f6\u95f4\uff09\u3002"}
           </p>
-        </fieldset>
+        </fieldset>}
 
 
         <div>

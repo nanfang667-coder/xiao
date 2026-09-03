@@ -103,7 +103,7 @@ export default async function SiteManagementPage() {
                 {site.name}
                 {site.isDefault && (
                   <span className="ml-2 rounded-full bg-pink-50 px-2 py-0.5 text-xs text-pink-500">
-                    A站/默认站
+                    默认站
                   </span>
                 )}
               </h2>
@@ -146,7 +146,7 @@ export default async function SiteManagementPage() {
             </form>
 
             <div className="mt-4 border-t border-gray-100 pt-4">
-              <h3 className="text-sm font-bold text-gray-700">团队只读账号</h3>
+              <h3 className="text-sm font-bold text-gray-700">合作发布账号</h3>
               {site.teamAccounts.map((account) => (
                 <div key={account.id} className="mt-2 rounded-xl bg-gray-50 p-3">
                   <div className="flex items-center justify-between text-sm">
@@ -187,7 +187,7 @@ export default async function SiteManagementPage() {
                   minLength={3}
                   maxLength={32}
                   pattern="[A-Za-z0-9][A-Za-z0-9_-]{2,31}"
-                  placeholder="新团队账号"
+                  placeholder="新合作账号"
                   className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
                 <input
@@ -208,14 +208,14 @@ export default async function SiteManagementPage() {
       </section>
 
       <section className="mt-5 rounded-2xl border border-dashed border-pink-200 bg-pink-50/50 p-4">
-        <h2 className="font-bold text-gray-800">新增B站</h2>
+        <h2 className="font-bold text-gray-800">新增网站</h2>
         <form action={createSite} className="mt-3 space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <input
               name="name"
               required
               maxLength={50}
-              placeholder="B站网站名称"
+              placeholder="网站名称"
               className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
             />
             <input

@@ -108,6 +108,7 @@ export type AdminTeacherListItem = Pick<
   | "promotionEndsAt"
 > & {
   viewCount: number;
+  publisherUsername: string | null;
 };
 
 export type AdminTeacherSearchResult = {
@@ -222,6 +223,11 @@ export async function searchTeachersForAdmin(
       promotionOrder: true,
       promotionStartsAt: true,
       promotionEndsAt: true,
+      ownership: {
+        select: {
+          account: { select: { username: true } },
+        },
+      },
     },
   });
 
@@ -251,6 +257,7 @@ export async function searchTeachersForAdmin(
       ...row,
       id: String(row.id),
       photos: parsePhotos(row.photos),
+      publisherUsername: row.ownership?.account.username ?? null,
     })),
     total,
     allLocationTotal: provinceGroups.reduce(
