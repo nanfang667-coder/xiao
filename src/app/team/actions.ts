@@ -42,29 +42,6 @@ export async function teamLogout() {
   redirect("/team/login");
 }
 
-function parsePhotos(value: string): string[] {
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return Array.isArray(parsed)
-      ? parsed.filter((photo): photo is string => typeof photo === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-async function deleteDraftOnlyPhotos(
-  draftPhotosJson: string | undefined,
-  protectedPhotosJson?: string,
-) {
-  if (!draftPhotosJson) return;
-  const protectedPhotos = new Set(parsePhotos(protectedPhotosJson ?? "[]"));
-  const removable = parsePhotos(draftPhotosJson).filter(
-    (photo) => !protectedPhotos.has(photo),
-  );
-  await deleteUploadedPhotos(JSON.stringify(removable));
-}
-
 export async function createTeamTeacherSubmission(formData: FormData) {
   const account = await requireTeamAccount();
   let uploaded: string[] = [];
@@ -111,78 +88,6 @@ export async function createTeamTeacherSubmission(formData: FormData) {
 
   if (failure) redirect(`/team/posts/new?error=${failure}`);
   revalidatePath("/team");
-  revalidatePath("/team/posts");
-  redirect("/team/posts?submitted=1");
-}
-
-export async function updateTeamTeacherSubmission(
-  teacherId: number,
-  formData: FormData,
-) {
-  const account = await requireTeamAccount();
-  let uploaded: string[] = [];
-  let oldDraftPhotos: string | undefined;
-  let protectedPhotos: string | undefined;
-  let failed = false;
-
-  try {
-    const ownership = await prisma.teacherOwnership.findFirst({
-      where: { teacherId, teamAccountId: account.id },
-      include: { teacher: true },
-    });
-    if (!ownership) throw new Error("post not owned by account");
-
-    const existingPending = await prisma.teacherSubmission.findFirst({
-      where: {
-        teacherId,
-        teamAccountId: account.id,
-        kind: "update",
-        status: "pending",
-      },
-      orderBy: { updatedAt: "desc" },
-    });
-    const fields = extractTeacherPostFields(formData);
-    uploaded = await saveUploadedPhotos(getSelectedPhotoFiles(formData));
-    const photos =
-      uploaded.length > 0
-        ? uploaded
-        : parsePhotos(existingPending?.photos ?? ownership.teacher.photos);
-    oldDraftPhotos = existingPending?.photos;
-    protectedPhotos = ownership.teacher.photos;
-
-    await prisma.$transaction(async (tx) => {
-      await tx.teacherSubmission.deleteMany({
-        where: {
-          teacherId,
-          teamAccountId: account.id,
-          kind: "update",
-          status: "pending",
-        },
-      });
-      await tx.teacherSubmission.create({
-        data: {
-          ...fields,
-          kind: "update",
-          status: "pending",
-          teamAccountId: account.id,
-          siteId: account.siteId,
-          teacherId,
-          photos: JSON.stringify(photos),
-          emoji: emojiFor(fields.type),
-        },
-      });
-    });
-  } catch {
-    failed = true;
-    if (uploaded.length > 0) {
-      await deleteUploadedPhotos(JSON.stringify(uploaded));
-    }
-  }
-
-  if (failed) redirect(`/team/posts/${teacherId}/edit?error=1`);
-  if (uploaded.length > 0) {
-    await deleteDraftOnlyPhotos(oldDraftPhotos, protectedPhotos);
-  }
   revalidatePath("/team/posts");
   redirect("/team/posts?submitted=1");
 }

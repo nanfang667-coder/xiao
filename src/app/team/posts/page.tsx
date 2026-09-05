@@ -38,6 +38,7 @@ export default async function TeamPostsPage({
     prisma.teacherSubmission.findMany({
       where: {
         teamAccountId: account.id,
+        kind: "create",
         status: { in: ["pending", "rejected"] },
       },
       orderBy: { updatedAt: "desc" },
@@ -51,23 +52,7 @@ export default async function TeamPostsPage({
     account.monthlyPostLimit,
     monthlyPostUsage,
   );
-  const pendingUpdates = new Set(
-    submissions
-      .filter((submission) => submission.status === "pending" && submission.kind === "update")
-      .map((submission) => submission.teacherId),
-  );
-  const rejectedUpdates = new Map<number, string | null>();
-  for (const submission of submissions) {
-    if (
-      submission.status === "rejected" &&
-      submission.kind === "update" &&
-      submission.teacherId &&
-      !rejectedUpdates.has(submission.teacherId)
-    ) {
-      rejectedUpdates.set(submission.teacherId, submission.reviewNote);
-    }
-  }
-  const newSubmissions = submissions.filter((submission) => submission.kind === "create");
+  const newSubmissions = submissions;
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-10">
@@ -82,7 +67,7 @@ export default async function TeamPostsPage({
       </header>
 
       <p className="mb-4 rounded-xl bg-pink-50 px-4 py-3 text-sm text-pink-700">
-        本月新帖：已用 {quota.used}/{quota.limit} 条，剩余 {quota.remaining} 条。修改帖子不占额度。
+        本月新帖：已用 {quota.used}/{quota.limit} 条，剩余 {quota.remaining} 条。已发布帖子只能由管理员修改。
       </p>
 
       {submitted && (
@@ -106,16 +91,8 @@ export default async function TeamPostsPage({
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-sm font-bold text-gray-800">{teacher.name}</h2>
                 <p className="mt-1 text-xs text-sky-600">浏览 {teacher.viewCount.toLocaleString("zh-CN")} 次</p>
-                <p className="mt-1 text-xs text-gray-400">
-                  已发布{pendingUpdates.has(teacher.id) ? " · 修改待审核" : rejectedUpdates.has(teacher.id) ? " · 上次修改未通过" : ""}
-                </p>
-                {rejectedUpdates.get(teacher.id) && (
-                  <p className="mt-1 line-clamp-2 text-xs text-red-500">管理员说明：{rejectedUpdates.get(teacher.id)}</p>
-                )}
+                <p className="mt-1 text-xs text-gray-400">已发布</p>
               </div>
-              <Link href={`/team/posts/${teacher.id}/edit`} className="rounded-lg border border-pink-200 px-3 py-1.5 text-xs text-pink-600">
-                修改
-              </Link>
             </article>
           );
         })}

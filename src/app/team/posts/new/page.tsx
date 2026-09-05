@@ -29,7 +29,7 @@ export default async function NewTeamPostPage({
         <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
           <h1 className="font-bold text-gray-900">本月发帖额度已用完</h1>
           <p className="mt-3 text-sm leading-6 text-gray-500">
-            本月已使用 {quota.used}/{quota.limit} 条新帖额度。下月会按北京时间自动恢复；修改已有帖子不受影响。
+            本月已使用 {quota.used}/{quota.limit} 条新帖额度。下月会按北京时间自动恢复。
           </p>
           <Link
             href="/team/posts"

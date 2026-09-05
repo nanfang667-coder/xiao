@@ -13,11 +13,18 @@ export default async function TeamDashboardPage() {
   // eslint-disable-next-line react-hooks/purity
   const dayStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  const [dayVisitors, postCount, postViews, pendingCount, monthlyPostUsage] =
-    await Promise.all([
+  const [
+    dayVisitors,
+    totalVisitors,
+    postCount,
+    postViews,
+    pendingCount,
+    monthlyPostUsage,
+  ] = await Promise.all([
       prisma.siteVisit.count({
         where: { siteId: account.siteId, lastVisitedAt: { gte: dayStart } },
       }),
+      prisma.siteVisit.count({ where: { siteId: account.siteId } }),
       prisma.teacherOwnership.count({ where: { teamAccountId: account.id } }),
       prisma.teacher.aggregate({
         where: { ownership: { teamAccountId: account.id } },
@@ -37,6 +44,7 @@ export default async function TeamDashboardPage() {
 
   const cards = [
     ["全站近24小时独立访客", dayVisitors],
+    ["全站累计独立访客", totalVisitors],
     ["我的已发布帖子", postCount],
     ["我的帖子总浏览次数", postViews._sum.viewCount ?? 0],
     ["待管理员审核", pendingCount],
@@ -103,7 +111,7 @@ export default async function TeamDashboardPage() {
       </div>
 
       <p className="mt-5 rounded-xl bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-700">
-        新帖子和修改内容提交后由管理员审核；修改待审核期间，线上原帖继续正常展示。
+        新帖子提交后由管理员审核；已发布的帖子只能由管理员修改。
       </p>
     </main>
   );

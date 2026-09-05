@@ -30,7 +30,7 @@ export default async function AdminDashboard() {
       href: "/adminzhangzhang/submissions",
       icon: "✅",
       title: "合作帖子审核",
-      desc: "审核合作账号提交的新帖和修改",
+      desc: "审核合作账号提交的新帖子",
       count: `${pendingSubmissions} 条待审核`,
     },
     {
