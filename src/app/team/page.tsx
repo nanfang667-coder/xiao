@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getChinaCalendarDayRange } from "@/lib/china-calendar";
 import { prisma } from "@/lib/prisma";
 import { requireTeamAccount } from "@/lib/team-auth";
 import {
@@ -10,12 +11,11 @@ import { teamLogout } from "./actions";
 
 export default async function TeamDashboardPage() {
   const account = await requireTeamAccount();
-  // Server-side request time is intentionally used for the rolling visitor window.
-  // eslint-disable-next-line react-hooks/purity
-  const dayStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const { start: todayStart, end: tomorrowStart } =
+    getChinaCalendarDayRange();
 
   const [
-    dayVisitors,
+    todayNewVisitors,
     totalVisitors,
     postCount,
     postViews,
@@ -23,7 +23,10 @@ export default async function TeamDashboardPage() {
     monthlyPostUsage,
   ] = await Promise.all([
       prisma.siteVisit.count({
-        where: { siteId: account.siteId, lastVisitedAt: { gte: dayStart } },
+        where: {
+          siteId: account.siteId,
+          firstVisitedAt: { gte: todayStart, lt: tomorrowStart },
+        },
       }),
       prisma.siteVisit.count({ where: { siteId: account.siteId } }),
       prisma.teacherOwnership.count({ where: { teamAccountId: account.id } }),
@@ -44,7 +47,7 @@ export default async function TeamDashboardPage() {
   );
 
   const cards = [
-    ["全站近24小时独立访客", dayVisitors],
+    ["今日新增", todayNewVisitors],
     ["全站累计独立访客", totalVisitors],
     ["我的已发布帖子", postCount],
     ["我的帖子总浏览次数", postViews._sum.viewCount ?? 0],
