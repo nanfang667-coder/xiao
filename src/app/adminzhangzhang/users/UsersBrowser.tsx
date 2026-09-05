@@ -33,8 +33,13 @@ export type AdminUser = {
   banReason: string | null;
 };
 
-// Site-wide unique visitors: rolling 24 hours / all time / rolling 30 days.
-export type SiteVisitorStats = { day: number; total: number; month: number };
+// Site-wide unique visitors: Beijing-calendar today / rolling 24 hours / all time / rolling 30 days.
+export type SiteVisitorStats = {
+  today: number;
+  day: number;
+  total: number;
+  month: number;
+};
 
 type Filter = "all" | "member" | "normal" | "banned" | "single";
 
@@ -97,8 +102,9 @@ export function UsersBrowser({
   return (
     <>
       <h2 className="mb-2 text-sm font-semibold text-gray-700">全站独立访客</h2>
-      <div className="mb-3 grid grid-cols-3 gap-2">
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
+          { label: "今日新增", count: siteVisitorStats.today },
           { label: "近24小时", count: siteVisitorStats.day },
           { label: "近30天", count: siteVisitorStats.month },
           { label: "\u603b\u5171", count: siteVisitorStats.total },

@@ -3,6 +3,7 @@
 
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
+import { getChinaCalendarDayRange } from "@/lib/china-calendar";
 import { prisma } from "@/lib/prisma";
 import {
   ALLEY_POST_PRODUCT_TYPE,
@@ -31,7 +32,14 @@ function formatDateTime(d: Date): string {
 async function getSiteVisitorStats(): Promise<SiteVisitorStats> {
   const now = Date.now();
   const DAY_MS = 24 * 60 * 60 * 1000;
-  const [day, total, month] = await Promise.all([
+  const { start: todayStart, end: tomorrowStart } =
+    getChinaCalendarDayRange(new Date(now));
+  const [today, day, total, month] = await Promise.all([
+    prisma.siteVisit.count({
+      where: {
+        firstVisitedAt: { gte: todayStart, lt: tomorrowStart },
+      },
+    }),
     prisma.siteVisit.count({
       where: { lastVisitedAt: { gte: new Date(now - DAY_MS) } },
     }),
@@ -41,7 +49,7 @@ async function getSiteVisitorStats(): Promise<SiteVisitorStats> {
     }),
   ]);
 
-  return { day, total, month };
+  return { today, day, total, month };
 }
 
 export default async function AdminUsersPage() {
