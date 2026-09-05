@@ -4,6 +4,7 @@ import {
   getChinaCalendarMonthRange,
   getChinaCalendarMonthKey,
   getEffectiveTeamMonthlyPostLimit,
+  getTeamMonthlyPostBaseLimit,
   getTeamMonthlyPostUsageWhere,
   parseNewTeamMonthlyPostLimit,
   parseTeamMonthlyPostLimit,
@@ -66,6 +67,7 @@ test("uses a bonus only during its Beijing calendar month", () => {
   const october = new Date("2026-09-30T16:00:00.000Z");
   const account = {
     monthlyPostLimit: 30,
+    monthlyPostLimitOverride: null,
     monthlyPostBonus: 8,
     monthlyPostBonusMonth: "2026-09",
   };
@@ -74,4 +76,28 @@ test("uses a bonus only during its Beijing calendar month", () => {
   assert.equal(getChinaCalendarMonthKey(october), "2026-10");
   assert.equal(getEffectiveTeamMonthlyPostLimit(account, september), 38);
   assert.equal(getEffectiveTeamMonthlyPostLimit(account, october), 30);
+});
+
+test("uses the override for new accounts without changing legacy base values", () => {
+  assert.equal(
+    getTeamMonthlyPostBaseLimit({
+      monthlyPostLimit: 30,
+      monthlyPostLimitOverride: null,
+    }),
+    30,
+  );
+  assert.equal(
+    getTeamMonthlyPostBaseLimit({
+      monthlyPostLimit: 30,
+      monthlyPostLimitOverride: 22,
+    }),
+    22,
+  );
+  assert.equal(
+    getTeamMonthlyPostBaseLimit({
+      monthlyPostLimit: 150,
+      monthlyPostLimitOverride: 150,
+    }),
+    150,
+  );
 });

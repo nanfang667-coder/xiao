@@ -13,6 +13,7 @@ import {
 import {
   getChinaCalendarMonthKey,
   getChinaCalendarMonthRange,
+  getTeamMonthlyPostBaseLimit,
 } from "@/lib/team-post-quota";
 
 function PriceInputs({
@@ -175,11 +176,12 @@ export default async function SiteManagementPage() {
             <div className="mt-4 border-t border-gray-100 pt-4">
               <h3 className="text-sm font-bold text-gray-700">合作发布账号</h3>
               {site.teamAccounts.map((account) => {
+                const baseLimit = getTeamMonthlyPostBaseLimit(account);
                 const currentBonus =
                   account.monthlyPostBonusMonth === currentMonthKey
                     ? account.monthlyPostBonus
                     : 0;
-                const effectiveLimit = account.monthlyPostLimit + currentBonus;
+                const effectiveLimit = baseLimit + currentBonus;
                 return (
                 <div key={account.id} className="mt-2 rounded-xl bg-gray-50 p-3">
                   <div className="flex items-center justify-between text-sm">
@@ -190,7 +192,7 @@ export default async function SiteManagementPage() {
                       </span>
                       {currentBonus > 0 && (
                         <span className="ml-2 text-xs text-amber-600">
-                          基础 {account.monthlyPostLimit} + 追加 {currentBonus}
+                          基础 {baseLimit} + 追加 {currentBonus}
                         </span>
                       )}
                     </div>
@@ -205,12 +207,12 @@ export default async function SiteManagementPage() {
                     >
                       <select
                         name="monthlyPostLimit"
-                        defaultValue={account.monthlyPostLimit}
+                        defaultValue={baseLimit}
                         aria-label={`${account.username}每月发帖额度`}
                         className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs"
                       >
                         <option value="22">22条/月</option>
-                        {account.monthlyPostLimit === 30 && (
+                        {baseLimit === 30 && (
                           <option value="30">30条/月（原账号）</option>
                         )}
                         <option value="150">150条/月</option>

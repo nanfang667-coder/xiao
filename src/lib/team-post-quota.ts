@@ -30,16 +30,29 @@ export function getChinaCalendarMonthKey(now: Date = new Date()): string {
 export function getEffectiveTeamMonthlyPostLimit(
   account: {
     monthlyPostLimit: number;
+    monthlyPostLimitOverride: number | null;
     monthlyPostBonus: number;
     monthlyPostBonusMonth: string | null;
   },
   now: Date = new Date(),
 ): number {
+  const baseLimit = getTeamMonthlyPostBaseLimit(account);
   const currentBonus =
     account.monthlyPostBonusMonth === getChinaCalendarMonthKey(now)
       ? Math.max(0, Math.trunc(account.monthlyPostBonus))
       : 0;
-  return Math.max(0, Math.trunc(account.monthlyPostLimit)) + currentBonus;
+  return baseLimit + currentBonus;
+}
+
+export function getTeamMonthlyPostBaseLimit(account: {
+  monthlyPostLimit: number;
+  monthlyPostLimitOverride: number | null;
+}): number {
+  const override = parseNewTeamMonthlyPostLimit(
+    account.monthlyPostLimitOverride,
+  );
+  if (override !== null) return override;
+  return parseTeamMonthlyPostLimit(account.monthlyPostLimit) ?? 30;
 }
 
 export function getChinaCalendarMonthRange(now: Date = new Date()) {

@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { isValidMoney, normalizeHostname } from "@/lib/site-utils";
 import {
   getChinaCalendarMonthKey,
+  getTeamMonthlyPostBaseLimit,
   parseNewTeamMonthlyPostLimit,
   parseTeamMonthlyPostLimit,
 } from "@/lib/team-post-quota";
@@ -98,7 +99,8 @@ export async function createTeamAccount(formData: FormData) {
       username,
       passwordHash: await bcrypt.hash(password, 12),
       siteId: site.id,
-      monthlyPostLimit,
+      monthlyPostLimit: monthlyPostLimit === 150 ? 150 : 30,
+      monthlyPostLimitOverride: monthlyPostLimit,
     },
   });
   revalidatePath("/adminzhangzhang/sites");
@@ -121,15 +123,26 @@ export async function updateTeamMonthlyPostLimit(
   }
   const account = await prisma.teamAccount.findUnique({
     where: { id: accountId },
-    select: { monthlyPostLimit: true },
+    select: {
+      monthlyPostLimit: true,
+      monthlyPostLimitOverride: true,
+    },
   });
-  if (!account || (monthlyPostLimit === 30 && account.monthlyPostLimit !== 30)) {
+  if (
+    !account ||
+    (monthlyPostLimit === 30 &&
+      getTeamMonthlyPostBaseLimit(account) !== 30)
+  ) {
     throw new Error("Legacy 30-post tier cannot be newly assigned");
   }
-  if (monthlyPostLimit !== account.monthlyPostLimit) {
+  if (monthlyPostLimit !== getTeamMonthlyPostBaseLimit(account)) {
     await prisma.teamAccount.update({
       where: { id: accountId },
-      data: { monthlyPostLimit },
+      data: {
+        monthlyPostLimit: monthlyPostLimit === 150 ? 150 : 30,
+        monthlyPostLimitOverride:
+          monthlyPostLimit === 30 ? null : monthlyPostLimit,
+      },
     });
   }
   revalidatePath("/adminzhangzhang/sites");
