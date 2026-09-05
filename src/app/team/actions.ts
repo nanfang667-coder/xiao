@@ -14,7 +14,10 @@ import { defaultGradients, emojiFor } from "@/lib/photo";
 import { getSelectedPhotoFiles, saveUploadedPhotos } from "@/lib/image-upload";
 import { deleteUploadedPhotos } from "@/lib/uploaded-photos";
 import { extractTeacherPostFields } from "@/lib/teacher-post-input";
-import { getTeamMonthlyPostUsageWhere } from "@/lib/team-post-quota";
+import {
+  getEffectiveTeamMonthlyPostLimit,
+  getTeamMonthlyPostUsageWhere,
+} from "@/lib/team-post-quota";
 
 class TeamPostQuotaExceededError extends Error {}
 
@@ -48,11 +51,13 @@ export async function createTeamTeacherSubmission(formData: FormData) {
   let failure: "generic" | "quota" | null = null;
 
   try {
-    const quotaWhere = getTeamMonthlyPostUsageWhere(account.id);
+    const now = new Date();
+    const quotaWhere = getTeamMonthlyPostUsageWhere(account.id, now);
+    const effectivePostLimit = getEffectiveTeamMonthlyPostLimit(account, now);
     const currentUsage = await prisma.teacherSubmission.count({
       where: quotaWhere,
     });
-    if (currentUsage >= account.monthlyPostLimit) {
+    if (currentUsage >= effectivePostLimit) {
       throw new TeamPostQuotaExceededError();
     }
 
@@ -64,7 +69,7 @@ export async function createTeamTeacherSubmission(formData: FormData) {
       const latestUsage = await tx.teacherSubmission.count({
         where: quotaWhere,
       });
-      if (latestUsage >= account.monthlyPostLimit) {
+      if (latestUsage >= effectivePostLimit) {
         throw new TeamPostQuotaExceededError();
       }
       await tx.teacherSubmission.create({

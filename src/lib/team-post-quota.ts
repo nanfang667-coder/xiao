@@ -1,12 +1,45 @@
 import type { Prisma } from "@prisma/client";
 
-export const TEAM_MONTHLY_POST_LIMITS = [30, 150] as const;
+export const NEW_TEAM_MONTHLY_POST_LIMITS = [22, 150] as const;
+export const ALLOWED_TEAM_MONTHLY_POST_LIMITS = [22, 30, 150] as const;
 
-export function parseTeamMonthlyPostLimit(value: unknown): 30 | 150 | null {
+export function parseTeamMonthlyPostLimit(
+  value: unknown,
+): 22 | 30 | 150 | null {
   const limit = Number(value);
-  return TEAM_MONTHLY_POST_LIMITS.includes(limit as 30 | 150)
-    ? (limit as 30 | 150)
+  return ALLOWED_TEAM_MONTHLY_POST_LIMITS.includes(limit as 22 | 30 | 150)
+    ? (limit as 22 | 30 | 150)
     : null;
+}
+
+export function parseNewTeamMonthlyPostLimit(value: unknown): 22 | 150 | null {
+  const limit = Number(value);
+  return NEW_TEAM_MONTHLY_POST_LIMITS.includes(limit as 22 | 150)
+    ? (limit as 22 | 150)
+    : null;
+}
+
+export function getChinaCalendarMonthKey(now: Date = new Date()): string {
+  const chinaOffsetMs = 8 * 60 * 60 * 1000;
+  const chinaTime = new Date(now.getTime() + chinaOffsetMs);
+  return `${chinaTime.getUTCFullYear()}-${String(
+    chinaTime.getUTCMonth() + 1,
+  ).padStart(2, "0")}`;
+}
+
+export function getEffectiveTeamMonthlyPostLimit(
+  account: {
+    monthlyPostLimit: number;
+    monthlyPostBonus: number;
+    monthlyPostBonusMonth: string | null;
+  },
+  now: Date = new Date(),
+): number {
+  const currentBonus =
+    account.monthlyPostBonusMonth === getChinaCalendarMonthKey(now)
+      ? Math.max(0, Math.trunc(account.monthlyPostBonus))
+      : 0;
+  return Math.max(0, Math.trunc(account.monthlyPostLimit)) + currentBonus;
 }
 
 export function getChinaCalendarMonthRange(now: Date = new Date()) {

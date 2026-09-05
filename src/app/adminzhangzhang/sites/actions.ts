@@ -7,7 +7,11 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isValidMoney, normalizeHostname } from "@/lib/site-utils";
-import { parseTeamMonthlyPostLimit } from "@/lib/team-post-quota";
+import {
+  getChinaCalendarMonthKey,
+  parseNewTeamMonthlyPostLimit,
+  parseTeamMonthlyPostLimit,
+} from "@/lib/team-post-quota";
 
 function text(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
@@ -72,7 +76,7 @@ export async function createTeamAccount(formData: FormData) {
   const username = text(formData, "username").toLowerCase();
   const password = String(formData.get("password") ?? "");
   const siteId = text(formData, "siteId");
-  const monthlyPostLimit = parseTeamMonthlyPostLimit(
+  const monthlyPostLimit = parseNewTeamMonthlyPostLimit(
     formData.get("monthlyPostLimit"),
   );
   if (
@@ -115,10 +119,68 @@ export async function updateTeamMonthlyPostLimit(
   ) {
     throw new Error("Invalid team monthly post limit");
   }
-  await prisma.teamAccount.update({
+  const account = await prisma.teamAccount.findUnique({
     where: { id: accountId },
-    data: { monthlyPostLimit },
+    select: { monthlyPostLimit: true },
   });
+  if (!account || (monthlyPostLimit === 30 && account.monthlyPostLimit !== 30)) {
+    throw new Error("Legacy 30-post tier cannot be newly assigned");
+  }
+  if (monthlyPostLimit !== account.monthlyPostLimit) {
+    await prisma.teamAccount.update({
+      where: { id: accountId },
+      data: { monthlyPostLimit },
+    });
+  }
+  revalidatePath("/adminzhangzhang/sites");
+  revalidatePath("/team");
+  revalidatePath("/team/posts");
+  revalidatePath("/team/posts/new");
+}
+
+export async function addTeamMonthlyPostAllowance(
+  accountId: number,
+  formData: FormData,
+) {
+  await requireAdmin();
+  const amount = Number(text(formData, "amount"));
+  if (
+    !Number.isSafeInteger(accountId) ||
+    accountId < 1 ||
+    !Number.isSafeInteger(amount) ||
+    amount < 1 ||
+    amount > 1000
+  ) {
+    throw new Error("Invalid team monthly post allowance");
+  }
+
+  const monthKey = getChinaCalendarMonthKey();
+  await prisma.$transaction(async (tx) => {
+    const account = await tx.teamAccount.findUnique({
+      where: { id: accountId },
+      select: {
+        monthlyPostBonus: true,
+        monthlyPostBonusMonth: true,
+      },
+    });
+    if (!account) throw new Error("Team account not found");
+
+    const existingBonus =
+      account.monthlyPostBonusMonth === monthKey
+        ? account.monthlyPostBonus
+        : 0;
+    if (existingBonus + amount > 10000) {
+      throw new Error("Team monthly post allowance is too large");
+    }
+    await tx.teamAccount.update({
+      where: { id: accountId },
+      data: {
+        monthlyPostBonus: existingBonus + amount,
+        monthlyPostBonusMonth: monthKey,
+      },
+    });
+  });
+
   revalidatePath("/adminzhangzhang/sites");
   revalidatePath("/team");
   revalidatePath("/team/posts");

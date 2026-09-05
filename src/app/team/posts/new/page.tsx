@@ -4,6 +4,7 @@ import { TeacherForm } from "@/app/adminzhangzhang/TeacherForm";
 import { createTeamTeacherSubmission } from "../../actions";
 import { prisma } from "@/lib/prisma";
 import {
+  getEffectiveTeamMonthlyPostLimit,
   getTeamMonthlyPostUsageWhere,
   summarizeTeamPostQuota,
 } from "@/lib/team-post-quota";
@@ -19,7 +20,7 @@ export default async function NewTeamPostPage({
     where: getTeamMonthlyPostUsageWhere(account.id),
   });
   const quota = summarizeTeamPostQuota(
-    account.monthlyPostLimit,
+    getEffectiveTeamMonthlyPostLimit(account),
     monthlyPostUsage,
   );
 

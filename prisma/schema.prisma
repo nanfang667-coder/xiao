@@ -30,18 +30,20 @@ model Site {
 
 // Team accounts can access their site's visitor summary and manage their own posts.
 model TeamAccount {
-  id                Int                 @id @default(autoincrement())
-  username          String              @unique
-  passwordHash      String
-  siteId            String
-  monthlyPostLimit  Int                 @default(30) // Allowed values are enforced as 30 or 150 by the admin UI and migration check.
-  isActive          Boolean             @default(true)
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  site              Site                @relation(fields: [siteId], references: [id], onDelete: Restrict)
-  sessions          TeamSession[]
-  teacherOwnerships TeacherOwnership[]
-  submissions       TeacherSubmission[]
+  id                    Int                 @id @default(autoincrement())
+  username              String              @unique
+  passwordHash          String
+  siteId                String
+  monthlyPostLimit      Int                 @default(22) // New accounts use 22 or 150; legacy accounts may retain 30.
+  monthlyPostBonus      Int                 @default(0) // Administrator-added allowance for one Beijing calendar month.
+  monthlyPostBonusMonth String?
+  isActive              Boolean             @default(true)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  site                  Site                @relation(fields: [siteId], references: [id], onDelete: Restrict)
+  sessions              TeamSession[]
+  teacherOwnerships     TeacherOwnership[]
+  submissions           TeacherSubmission[]
 
   @@index([siteId, isActive])
 }

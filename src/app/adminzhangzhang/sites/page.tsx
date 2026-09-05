@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
+  addTeamMonthlyPostAllowance,
   createSite,
   createTeamAccount,
   disableTeamAccount,
@@ -9,7 +10,10 @@ import {
   updateTeamMonthlyPostLimit,
   updateSite,
 } from "./actions";
-import { getChinaCalendarMonthRange } from "@/lib/team-post-quota";
+import {
+  getChinaCalendarMonthKey,
+  getChinaCalendarMonthRange,
+} from "@/lib/team-post-quota";
 
 function PriceInputs({
   values,
@@ -75,6 +79,7 @@ export default async function SiteManagementPage() {
     site.teamAccounts.map((account) => account.id),
   );
   const { start: monthStart, end: monthEnd } = getChinaCalendarMonthRange();
+  const currentMonthKey = getChinaCalendarMonthKey();
   const monthlyUsageRows =
     teamAccountIds.length === 0
       ? []
@@ -169,14 +174,25 @@ export default async function SiteManagementPage() {
 
             <div className="mt-4 border-t border-gray-100 pt-4">
               <h3 className="text-sm font-bold text-gray-700">合作发布账号</h3>
-              {site.teamAccounts.map((account) => (
+              {site.teamAccounts.map((account) => {
+                const currentBonus =
+                  account.monthlyPostBonusMonth === currentMonthKey
+                    ? account.monthlyPostBonus
+                    : 0;
+                const effectiveLimit = account.monthlyPostLimit + currentBonus;
+                return (
                 <div key={account.id} className="mt-2 rounded-xl bg-gray-50 p-3">
                   <div className="flex items-center justify-between text-sm">
                     <div>
                       <span className="font-medium">{account.username}</span>
                       <span className="ml-2 text-xs text-gray-400">
-                        本月 {monthlyUsage.get(account.id) ?? 0}/{account.monthlyPostLimit} 条
+                        本月 {monthlyUsage.get(account.id) ?? 0}/{effectiveLimit} 条
                       </span>
+                      {currentBonus > 0 && (
+                        <span className="ml-2 text-xs text-amber-600">
+                          基础 {account.monthlyPostLimit} + 追加 {currentBonus}
+                        </span>
+                      )}
                     </div>
                     <span className={account.isActive ? "text-green-600" : "text-gray-400"}>
                       {account.isActive ? "使用中" : "已停用"}
@@ -193,11 +209,33 @@ export default async function SiteManagementPage() {
                         aria-label={`${account.username}每月发帖额度`}
                         className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs"
                       >
-                        <option value="30">30条/月</option>
+                        <option value="22">22条/月</option>
+                        {account.monthlyPostLimit === 30 && (
+                          <option value="30">30条/月（原账号）</option>
+                        )}
                         <option value="150">150条/月</option>
                       </select>
                       <button className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-gray-600">
                         保存额度
+                      </button>
+                    </form>
+                    <form
+                      action={addTeamMonthlyPostAllowance.bind(null, account.id)}
+                      className="flex gap-2"
+                    >
+                      <input
+                        type="number"
+                        name="amount"
+                        required
+                        min="1"
+                        max="1000"
+                        step="1"
+                        placeholder="本月增加条数"
+                        aria-label={`${account.username}本月增加发帖条数`}
+                        className="w-28 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs"
+                      />
+                      <button className="rounded-lg border border-amber-300 px-2 py-1.5 text-xs text-amber-700">
+                        增加额度
                       </button>
                     </form>
                     <form action={resetTeamPassword.bind(null, account.id)} className="flex gap-2">
@@ -222,7 +260,8 @@ export default async function SiteManagementPage() {
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
               <form action={createTeamAccount} className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_120px_auto]">
                 <input type="hidden" name="siteId" value={site.id} />
                 <input
@@ -244,11 +283,11 @@ export default async function SiteManagementPage() {
                 />
                 <select
                   name="monthlyPostLimit"
-                  defaultValue="30"
+                  defaultValue="22"
                   aria-label="每月发帖额度"
                   className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
                 >
-                  <option value="30">30条/月</option>
+                  <option value="22">22条/月</option>
                   <option value="150">150条/月</option>
                 </select>
                 <button className="rounded-lg bg-gray-800 px-3 py-2 text-sm font-bold text-white">

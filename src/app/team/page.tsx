@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireTeamAccount } from "@/lib/team-auth";
 import {
+  getEffectiveTeamMonthlyPostLimit,
   getTeamMonthlyPostUsageWhere,
   summarizeTeamPostQuota,
 } from "@/lib/team-post-quota";
@@ -38,7 +39,7 @@ export default async function TeamDashboardPage() {
       }),
     ]);
   const quota = summarizeTeamPostQuota(
-    account.monthlyPostLimit,
+    getEffectiveTeamMonthlyPostLimit(account),
     monthlyPostUsage,
   );
 

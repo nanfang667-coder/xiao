@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireTeamAccount } from "@/lib/team-auth";
 import { isImage } from "@/lib/photo";
 import {
+  getEffectiveTeamMonthlyPostLimit,
   getTeamMonthlyPostUsageWhere,
   summarizeTeamPostQuota,
 } from "@/lib/team-post-quota";
@@ -49,7 +50,7 @@ export default async function TeamPostsPage({
     }),
   ]);
   const quota = summarizeTeamPostQuota(
-    account.monthlyPostLimit,
+    getEffectiveTeamMonthlyPostLimit(account),
     monthlyPostUsage,
   );
   const newSubmissions = submissions;

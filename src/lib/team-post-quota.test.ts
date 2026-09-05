@@ -2,17 +2,24 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   getChinaCalendarMonthRange,
+  getChinaCalendarMonthKey,
+  getEffectiveTeamMonthlyPostLimit,
   getTeamMonthlyPostUsageWhere,
+  parseNewTeamMonthlyPostLimit,
   parseTeamMonthlyPostLimit,
   summarizeTeamPostQuota,
 // @ts-expect-error Node's type-stripping test runner requires the explicit .ts extension.
 } from "./team-post-quota.ts";
 
-test("accepts only the two administrator-selectable monthly limits", () => {
+test("keeps legacy limits valid but restricts new accounts to 22 or 150", () => {
+  assert.equal(parseTeamMonthlyPostLimit("22"), 22);
   assert.equal(parseTeamMonthlyPostLimit("30"), 30);
   assert.equal(parseTeamMonthlyPostLimit(150), 150);
   assert.equal(parseTeamMonthlyPostLimit("31"), null);
   assert.equal(parseTeamMonthlyPostLimit(""), null);
+  assert.equal(parseNewTeamMonthlyPostLimit("22"), 22);
+  assert.equal(parseNewTeamMonthlyPostLimit("150"), 150);
+  assert.equal(parseNewTeamMonthlyPostLimit("30"), null);
 });
 
 test("uses Beijing calendar-month boundaries", () => {
@@ -52,4 +59,19 @@ test("reports remaining quota without going below zero", () => {
   });
   assert.equal(summarizeTeamPostQuota(30, 31).remaining, 0);
   assert.equal(summarizeTeamPostQuota(30, 31).exhausted, true);
+});
+
+test("uses a bonus only during its Beijing calendar month", () => {
+  const september = new Date("2026-09-30T15:59:59.999Z");
+  const october = new Date("2026-09-30T16:00:00.000Z");
+  const account = {
+    monthlyPostLimit: 30,
+    monthlyPostBonus: 8,
+    monthlyPostBonusMonth: "2026-09",
+  };
+
+  assert.equal(getChinaCalendarMonthKey(september), "2026-09");
+  assert.equal(getChinaCalendarMonthKey(october), "2026-10");
+  assert.equal(getEffectiveTeamMonthlyPostLimit(account, september), 38);
+  assert.equal(getEffectiveTeamMonthlyPostLimit(account, october), 30);
 });
