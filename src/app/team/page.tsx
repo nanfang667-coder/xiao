@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { getChinaCalendarDayRange } from "@/lib/china-calendar";
 import { prisma } from "@/lib/prisma";
 import { requireTeamAccount } from "@/lib/team-auth";
 import {
@@ -11,8 +10,9 @@ import { teamLogout } from "./actions";
 
 export default async function TeamDashboardPage() {
   const account = await requireTeamAccount();
-  const { start: todayStart, end: tomorrowStart } =
-    getChinaCalendarDayRange();
+  // Keep this metric identical to the administrator dashboard's rolling 24-hour count.
+  // eslint-disable-next-line react-hooks/purity
+  const dayStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   const [
     todayNewVisitors,
@@ -23,12 +23,9 @@ export default async function TeamDashboardPage() {
     monthlyPostUsage,
   ] = await Promise.all([
       prisma.siteVisit.count({
-        where: {
-          siteId: account.siteId,
-          firstVisitedAt: { gte: todayStart, lt: tomorrowStart },
-        },
+        where: { lastVisitedAt: { gte: dayStart } },
       }),
-      prisma.siteVisit.count({ where: { siteId: account.siteId } }),
+      prisma.siteVisit.count(),
       prisma.teacherOwnership.count({ where: { teamAccountId: account.id } }),
       prisma.teacher.aggregate({
         where: { ownership: { teamAccountId: account.id } },
