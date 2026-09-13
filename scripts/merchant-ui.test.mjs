@@ -74,14 +74,17 @@ test('merchant cards show escaped full addresses and omit empty rows', () => {
   const { MerchantCard } = load('src/components/MerchantCard.tsx', {
     'react/jsx-runtime': jsx,
     'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
-    '@/lib/location-label': { formatLocationLabel: () => '' },
+    '@/lib/location-label': { formatLocationLabel: () => '上海市' },
     '@/lib/photo': { isImage: () => false },
   });
   const merchant = { id: 7, name: '', city: '', district: '', price: null, services: '', photos: [], address: '<script>测试</script>' };
   const html = renderToStaticMarkup(React.createElement(MerchantCard, { merchant }));
   assert.match(html, /商家 #7/);
-  assert.match(html, /地址：&lt;script&gt;测试&lt;\/script&gt;/);
+  assert.match(html, /&lt;script&gt;测试&lt;\/script&gt;/);
+  assert.doesNotMatch(html, /地址：/);
+  assert.ok(html.indexOf("上海市") < html.indexOf("&lt;script&gt;"));
+  assert.ok(html.indexOf("&lt;script&gt;") < html.indexOf("<h2"));
   assert.doesNotMatch(html, /<script>/);
   const blank = renderToStaticMarkup(React.createElement(MerchantCard, { merchant: { ...merchant, address: null } }));
-  assert.doesNotMatch(blank, /地址：/);
+  assert.doesNotMatch(blank, /break-words/);
 });
