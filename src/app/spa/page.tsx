@@ -61,6 +61,7 @@ export default async function SpaPage({ searchParams }: SpaPageProps) {
     district: merchant.district,
     price: merchant.price,
     services: merchant.services,
+    address: merchant.address,
     photos: merchant.photos,
   }));
 

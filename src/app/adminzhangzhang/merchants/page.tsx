@@ -40,7 +40,7 @@ export default async function AdminMerchantsPage() {
                   <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">未公开</span>
                 )}
               </div>
-              <h2 className="mt-1 truncate text-sm font-semibold text-gray-800">{merchant.name}</h2>
+              <h2 className="mt-1 truncate text-sm font-semibold text-gray-800">{merchant.name || `商家 #${merchant.id}`}</h2>
               <p className="truncate text-xs text-gray-400">
                 {[formatLocationLabel(merchant.city, merchant.district), merchant.price].filter(Boolean).join(" · ")}
               </p>
@@ -49,7 +49,7 @@ export default async function AdminMerchantsPage() {
               <Link href={`/adminzhangzhang/merchants/${merchant.id}/edit`} className="rounded-lg border border-gray-200 px-3 py-1 text-xs text-gray-600 active:bg-gray-50">
                 编辑
               </Link>
-              <DeleteMerchantButton id={merchant.id} name={merchant.name} />
+              <DeleteMerchantButton id={merchant.id} name={merchant.name || `商家 #${merchant.id}`} />
             </div>
           </div>
         ))}

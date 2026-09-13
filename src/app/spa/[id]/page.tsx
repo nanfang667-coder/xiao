@@ -31,7 +31,7 @@ export async function generateMetadata({
     return { title: "商家不存在", robots: { index: false, follow: false } };
 
   const location = formatLocationLabel(merchant.city, merchant.district);
-  const title = `${truncate(`${merchant.name}｜${location || "按摩SPA"}`, 54)} | ${site.name}`;
+  const title = `${truncate(`${merchant.name || `商家 #${merchant.id}`}｜${location || "按摩SPA"}`, 54)} | ${site.name}`;
   const description = truncate(
     compactText(merchant.description || merchant.services),
     160,
@@ -87,7 +87,7 @@ export default async function MerchantDetailPage({
         <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
           {location && <p className="text-xs text-gray-400">📍 {location}</p>}
           <h1 className="mt-2 text-lg font-bold text-gray-900">
-            {merchant.name}
+            {merchant.name || `商家 #${merchant.id}`}
           </h1>
           {merchant.price && (
             <p className="mt-2 text-xl font-bold text-rose-500">
@@ -96,12 +96,12 @@ export default async function MerchantDetailPage({
           )}
         </section>
 
-        <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
+        {merchant.services && <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
           <h2 className="mb-2 text-sm font-bold text-gray-800">服务项目</h2>
           <p className="whitespace-pre-line text-sm leading-6 text-gray-600">
             {merchant.services}
           </p>
-        </section>
+        </section>}
 
         {merchant.description && (
           <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">

@@ -72,9 +72,10 @@ export function MerchantForm({
       </div>
 
       <form action={action} className="space-y-4">
+        <p className="text-xs text-gray-500">所有字段均可留空，未填写的信息可稍后补充。</p>
         <div>
           <label className={label}>商家名称</label>
-          <input name="name" required maxLength={80} defaultValue={initial?.name} className={field} />
+          <input name="name" maxLength={80} defaultValue={initial?.name} className={field} />
         </div>
 
         <div className="flex gap-3">
@@ -133,7 +134,7 @@ export function MerchantForm({
 
         <div>
           <label className={label}>服务项目</label>
-          <textarea name="services" required maxLength={2000} rows={3} defaultValue={initial?.services} className={field} />
+          <textarea name="services" maxLength={2000} rows={3} defaultValue={initial?.services} className={field} />
         </div>
 
         <div>

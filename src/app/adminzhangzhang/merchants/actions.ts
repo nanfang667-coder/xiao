@@ -12,10 +12,8 @@ function readText(
   name: string,
   label: string,
   maxLength: number,
-  required = false,
 ): string {
   const value = String(formData.get(name) ?? "").trim();
-  if (required && !value) throw new Error(`${label}不能为空`);
   if (value.length > maxLength) throw new Error(`${label}不能超过 ${maxLength} 个字符`);
   return value;
 }
@@ -27,11 +25,11 @@ function extractMerchantFields(formData: FormData) {
   }
 
   return {
-    name: readText(formData, "name", "商家名称", 80, true),
+    name: readText(formData, "name", "商家名称", 80),
     city: readText(formData, "city", "省份", 40),
     district: readText(formData, "district", "城市", 60),
     price: readText(formData, "price", "价格", 100) || null,
-    services: readText(formData, "services", "服务项目", 2000, true),
+    services: readText(formData, "services", "服务项目", 2000),
     description: readText(formData, "description", "商家介绍", 5000) || null,
     phone: readText(formData, "phone", "电话", 100) || null,
     wechat: readText(formData, "wechat", "微信", 100) || null,

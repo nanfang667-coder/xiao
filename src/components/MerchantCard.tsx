@@ -5,7 +5,7 @@ import { isImage } from "@/lib/photo";
 
 export type MerchantCardData = Pick<
   Merchant,
-  "id" | "name" | "city" | "district" | "price" | "services" | "photos"
+  "id" | "name" | "city" | "district" | "price" | "services" | "photos" | "address"
 >;
 
 export function MerchantCard({ merchant }: { merchant: MerchantCardData }) {
@@ -21,8 +21,9 @@ export function MerchantCard({ merchant }: { merchant: MerchantCardData }) {
       )}
       <div className="min-w-0 flex-1 p-3">
         {location && <p className="text-xs text-gray-400">📍 {location}</p>}
-        <h2 className="mt-1 truncate text-sm font-bold text-gray-800">{merchant.name}</h2>
-        <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500">{merchant.services}</p>
+        <h2 className="mt-1 truncate text-sm font-bold text-gray-800">{merchant.name || `商家 #${merchant.id}`}</h2>
+        {merchant.services && <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500">{merchant.services}</p>}
+        {merchant.address && <p className="mt-1 break-words text-xs leading-5 text-gray-600">地址：{merchant.address}</p>}
         {merchant.price && <p className="mt-2 text-sm font-bold text-rose-500">{merchant.price}</p>}
       </div>
     </Link>
