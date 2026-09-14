@@ -41,6 +41,7 @@ export default async function AdminMerchantsPage() {
                 )}
               </div>
               <h2 className="mt-1 truncate text-sm font-semibold text-gray-800">{merchant.name || `商家 #${merchant.id}`}</h2>
+              <p className="mt-1 text-xs text-sky-600">阅读量 {merchant.viewCount.toLocaleString("zh-CN")} 次</p>
               <p className="truncate text-xs text-gray-400">
                 {[formatLocationLabel(merchant.city, merchant.district), merchant.price].filter(Boolean).join(" · ")}
               </p>

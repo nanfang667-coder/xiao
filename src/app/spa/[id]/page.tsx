@@ -6,6 +6,7 @@ import { formatLocationLabel } from "@/lib/location-label";
 import { getPublishedMerchantById } from "@/lib/merchants";
 import { getCurrentSite } from "@/lib/site";
 import { siteOrigin } from "@/lib/site-utils";
+import { MerchantViewTracker } from "./MerchantViewTracker";
 
 type MerchantPageProps = {
   params: Promise<{ id: string }>;
@@ -70,6 +71,7 @@ export default async function MerchantDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-md flex-1 pb-10">
+      <MerchantViewTracker merchantId={merchant.id} />
       <header className="sticky top-0 z-10 flex items-center gap-3 bg-gradient-to-r from-pink-500 to-rose-500 px-4 py-4 text-white shadow-md">
         <Link href="/spa" className="text-white/90">
           ← 返回

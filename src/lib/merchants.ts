@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 
 export type Merchant = {
   id: number;
+  viewCount: number;
   name: string;
   city: string;
   district: string;

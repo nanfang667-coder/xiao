@@ -167,6 +167,7 @@ model TeacherSubmission {
 // SPA 商家独立于老师资料，联系方式按产品决定对所有访客公开。
 model Merchant {
   id           Int      @id @default(autoincrement())
+  viewCount    Int      @default(0)
   name         String
   city         String
   district     String
