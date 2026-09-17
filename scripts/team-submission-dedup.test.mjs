@@ -84,4 +84,3 @@ test('migration preserves old submissions and allows multiple legacy null keys',
     assert.equal(api.db.prepare('SELECT COUNT(*) AS n FROM TeacherSubmission WHERE submissionKey IS NULL').get().n, 2);
   } finally { api.db.close(); }
 });
-
