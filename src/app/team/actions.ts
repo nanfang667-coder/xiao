@@ -45,8 +45,17 @@ export async function teamLogout() {
   redirect("/team/login");
 }
 
-export async function createTeamTeacherSubmission(formData: FormData) {
+export async function createTeamTeacherSubmission(requestId: string, formData: FormData) {
   const account = await requireTeamAccount();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)) {
+    throw new Error("Invalid submission request");
+  }
+  const submissionKey = `${account.id}:${requestId}`;
+  const alreadySubmitted = () => prisma.teacherSubmission.findUnique({
+    where: { submissionKey },
+    select: { id: true },
+  });
+  if (await alreadySubmitted()) redirect("/team/posts?submitted=1");
   let uploaded: string[] = [];
   let failure: "generic" | "quota" | null = null;
 
@@ -75,6 +84,7 @@ export async function createTeamTeacherSubmission(formData: FormData) {
       await tx.teacherSubmission.create({
         data: {
           ...fields,
+          submissionKey,
           kind: "create",
           status: "pending",
           teamAccountId: account.id,
@@ -89,6 +99,9 @@ export async function createTeamTeacherSubmission(formData: FormData) {
     if (uploaded.length > 0) {
       await deleteUploadedPhotos(JSON.stringify(uploaded));
     }
+    // A concurrent retry may have committed while this request was uploading.
+    // The unique database key is the final guard, even across server processes.
+    if (await alreadySubmitted()) failure = null;
   }
 
   if (failure) redirect(`/team/posts/new?error=${failure}`);

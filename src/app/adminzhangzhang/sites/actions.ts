@@ -217,14 +217,22 @@ export async function resetTeamPassword(accountId: number, formData: FormData) {
   revalidatePath("/adminzhangzhang/sites");
 }
 
-export async function disableTeamAccount(accountId: number) {
+export async function deleteTeamAccount(accountId: number) {
   await requireAdmin();
-  await prisma.$transaction([
-    prisma.teamAccount.update({
-      where: { id: accountId },
-      data: { isActive: false },
-    }),
-    prisma.teamSession.deleteMany({ where: { teamAccountId: accountId } }),
-  ]);
+  if (!Number.isSafeInteger(accountId) || accountId < 1) {
+    throw new Error("Invalid team account");
+  }
+  await prisma.$transaction(async (tx) => {
+    const where = { teamAccountId: accountId };
+    // Remove account relations, never published posts or their shared images.
+    await tx.teamSession.deleteMany({ where });
+    await tx.teacherSubmission.deleteMany({ where });
+    await tx.teacherOwnership.deleteMany({ where });
+    await tx.teamAccount.deleteMany({ where: { id: accountId } });
+  });
   revalidatePath("/adminzhangzhang/sites");
+  revalidatePath("/adminzhangzhang/submissions");
+  revalidatePath("/adminzhangzhang/teachers");
+  revalidatePath("/adminzhangzhang");
+  revalidatePath("/team", "layout");
 }

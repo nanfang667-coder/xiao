@@ -129,6 +129,7 @@ model TeacherOwnership {
 // Public pages only read Teacher, so a pending draft can never leak onto the public site.
 model TeacherSubmission {
   id            Int         @id @default(autoincrement())
+  submissionKey String?     @unique
   kind          String // create / update
   status        String      @default("pending") // pending / approved / rejected
   teamAccountId Int

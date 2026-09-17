@@ -1,6 +1,7 @@
 // 首页（server 组件）：负责从数据库读取老师，再交给下面的组件展示。
 import type { Metadata } from "next";
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
+import { parsePage, pageUrl } from "@/lib/pagination";
 import {
   getActiveNationalPromotions,
   getAvailableSeoLocationSlugs,
@@ -30,12 +31,14 @@ type HomeProps = {
 
 const PAGE_SIZE = 10;
 
-export async function generateMetadata(): Promise<Metadata> {
-  const site = await getCurrentSite();
+export async function generateMetadata({ searchParams }: HomeProps): Promise<Metadata> {
+  const [site, query] = await Promise.all([getCurrentSite(), searchParams]);
+  const page = parsePage(query.page);
+  const pageLabel = page > 1 ? ` - 第${page}页` : "";
   return {
-    title: { absolute: `${site.name}｜全国地区信息` },
+    title: { absolute: `${site.name}｜全国地区信息${pageLabel}` },
     description: `${site.name}汇集全国各城市公开的地区信息，可按地区查看个人介绍、价格和详细内容。`,
-    alternates: { canonical: siteOrigin(site) },
+    alternates: { canonical: new URL(pageUrl("/", page), siteOrigin(site)).toString() },
   };
 }
 
@@ -52,9 +55,7 @@ export default async function Home({ searchParams }: HomeProps) {
   const province = firstValue(query.province).trim();
   const city = firstValue(query.city).trim();
 
-  const rawPage = Number(firstValue(query.page));
-  const requestedPage =
-    Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+  const requestedPage = parsePage(query.page);
   // 旧地区筛选地址永久迁移到可收录的品牌地区页。
   if (province) {
     const location = getSeoLocationFromSelection(province, city || undefined);
@@ -86,6 +87,8 @@ export default async function Home({ searchParams }: HomeProps) {
     getCurrentUser(),
     getCurrentSite(),
   ]);
+  if (requestedPage !== result.page) redirect(pageUrl("/", result.page));
+
   return (
     <>
       <script

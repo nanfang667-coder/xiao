@@ -37,7 +37,7 @@ const entries = [
     ),
   },
   {
-    label: "按摩SPA",
+    label: "9895会所",
     href: "/spa",
     icon: (
       <svg

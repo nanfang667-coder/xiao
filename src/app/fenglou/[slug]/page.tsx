@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { parsePage, pageUrl } from "@/lib/pagination";
 import Link from "next/link";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { UserStatus } from "@/components/UserStatus";
@@ -29,19 +30,6 @@ type CityPageProps = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ page?: string | string[] }>;
 };
-
-function firstValue(value: string | string[] | undefined): string {
-  return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
-}
-
-function parsePage(value: string | string[] | undefined): number {
-  const page = Number(firstValue(value));
-  return Number.isSafeInteger(page) && page > 0 ? page : 1;
-}
-
-function pageUrl(path: string, page: number): string {
-  return page > 1 ? `${path}?page=${page}` : path;
-}
 
 function jsonLd(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");

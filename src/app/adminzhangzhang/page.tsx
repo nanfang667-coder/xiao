@@ -50,7 +50,7 @@ export default async function AdminDashboard() {
       href: "/adminzhangzhang/merchants",
       icon: "🏪",
       title: "商家管理",
-      desc: "添加、排序、公开或隐藏SPA商家",
+      desc: "添加、排序、公开或隐藏9895会所商家",
       count: `${merchantCount} 个商家`,
     },
     {

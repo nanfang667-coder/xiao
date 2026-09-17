@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { randomUUID } from "node:crypto";
 import { requireTeamAccount } from "@/lib/team-auth";
 import { TeacherForm } from "@/app/adminzhangzhang/TeacherForm";
 import { createTeamTeacherSubmission } from "../../actions";
@@ -52,7 +53,7 @@ export default async function NewTeamPostPage({
 
   return (
     <TeacherForm
-      action={createTeamTeacherSubmission}
+      action={createTeamTeacherSubmission.bind(null, randomUUID())}
       submitLabel="提交审核"
       title="发布新帖"
       backHref="/team/posts"

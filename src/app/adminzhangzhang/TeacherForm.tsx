@@ -1,10 +1,21 @@
 "use client"; // 表单有交互（城市联动、选文件、预览），要在浏览器运行
 
 import { useEffect, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { provinces, citiesOfProvince, normalizeProvince, resolveDistrict } from "@/data/locations";
 import { isImage } from "@/lib/photo";
 import type { Teacher } from "@/lib/teachers";
+
+function SubmitPostButton({ compressing, label }: { compressing: boolean; label: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" disabled={compressing || pending} aria-busy={pending}
+      className="w-full rounded-lg bg-pink-500 py-2.5 text-sm font-bold text-white active:bg-pink-600 disabled:opacity-50">
+      {pending ? "提交中，请稍候…" : compressing ? "图片压缩中..." : label}
+    </button>
+  );
+}
 function toChinaDateTimeLocal(value: Date | null | undefined): string {
   if (!value) return "";
   return new Intl.DateTimeFormat("sv-SE", {
@@ -445,13 +456,7 @@ export function TeacherForm({
           )}
         </div>
 
-        <button
-          type="submit"
-          disabled={compressing}
-          className="w-full rounded-lg bg-pink-500 py-2.5 text-sm font-bold text-white active:bg-pink-600 disabled:opacity-50"
-        >
-          {compressing ? "图片压缩中..." : submitLabel}
-        </button>
+        <SubmitPostButton compressing={compressing} label={submitLabel} />
       </form>
     </div>
   );

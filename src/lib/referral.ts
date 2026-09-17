@@ -46,6 +46,14 @@ const REF_COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 天
 // 真正的绑定发生在"新用户注册"那一刻（见 src/lib/user-auth.ts 的 registerUser）。
 export async function referralRedirect(req: NextRequest, code: string) {
   const referrer = await prisma.user.findUnique({ where: { referralCode: code } });
+  // Unknown root paths are missing resources, not aliases of the homepage.
+  if (!referrer) {
+    return new NextResponse("Not Found", {
+      status: 404,
+      headers: { "X-Robots-Tag": "noindex" },
+    });
+  }
+
 
   // Never construct security-sensitive redirects from attacker-controlled Host headers.
   const siteOrigin = getTrustedSiteOrigin();

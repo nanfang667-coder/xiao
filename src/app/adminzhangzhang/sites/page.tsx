@@ -5,11 +5,11 @@ import {
   addTeamMonthlyPostAllowance,
   createSite,
   createTeamAccount,
-  disableTeamAccount,
   resetTeamPassword,
   updateTeamMonthlyPostLimit,
   updateSite,
 } from "./actions";
+import { DeleteTeamAccountButton } from "./DeleteTeamAccountButton";
 import {
   getChinaCalendarMonthKey,
   getChinaCalendarMonthRange,
@@ -253,13 +253,7 @@ export default async function SiteManagementPage() {
                         重设并启用
                       </button>
                     </form>
-                    {account.isActive && (
-                      <form action={disableTeamAccount.bind(null, account.id)}>
-                        <button className="rounded-lg border border-red-200 px-2 py-1.5 text-xs text-red-600">
-                          停用账号
-                        </button>
-                      </form>
-                    )}
+                    <DeleteTeamAccountButton accountId={account.id} username={account.username} />
                   </div>
                 </div>
                 );

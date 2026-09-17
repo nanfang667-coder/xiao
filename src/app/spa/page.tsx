@@ -1,23 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import type { MerchantCardData } from "@/components/MerchantCard";
+import { MerchantCard } from "@/components/MerchantCard";
+import { SeoLocationPicker } from "@/components/SeoLocationPicker";
+import { getSeoLocationBySlug, getSeoLocationFromSelection, getSeoLocationsForRecord, getSeoLocationSlugsForRecords } from "@/lib/location-seo";
 import { getPublishedMerchants } from "@/lib/merchants";
 import { getCurrentSite } from "@/lib/site";
 import { siteOrigin } from "@/lib/site-utils";
-import { MerchantBrowser } from "./MerchantBrowser";
-import type { MerchantCityOption } from "./MerchantCityPicker";
 
 export async function generateMetadata(): Promise<Metadata> {
   const site = await getCurrentSite();
   return {
-    title: { absolute: `按摩SPA｜${site.name}` },
-    description: "查看公开展示的SPA商家、服务项目、价格、地址和联系方式。",
+    title: { absolute: `9895会所｜${site.name}` },
+    description: "查看公开展示的9895会所商家、服务项目、价格、地址和联系方式。",
     alternates: { canonical: `${siteOrigin(site)}/spa` },
   };
 }
 
 type SpaPageProps = {
-  searchParams: Promise<{ city?: string | string[] }>;
+  searchParams: Promise<{ city?: string | string[]; location?: string | string[] }>;
 };
 
 function readCityParam(value: string | string[] | undefined): string {
@@ -27,43 +27,19 @@ function readCityParam(value: string | string[] | undefined): string {
 export default async function SpaPage({ searchParams }: SpaPageProps) {
   const query = await searchParams;
   const merchants = await getPublishedMerchants();
-  const cityCounts = new Map<
-    string,
-    { province: string; city: string; count: number }
-  >();
-
-  for (const merchant of merchants) {
-    if (!merchant.district) continue;
-    const key = `${merchant.city}::${merchant.district}`;
-    const existing = cityCounts.get(key);
-    cityCounts.set(key, {
-      province: merchant.city,
-      city: merchant.district,
-      count: (existing?.count ?? 0) + 1,
-    });
-  }
-
-  const cityOptions: MerchantCityOption[] = [...cityCounts.entries()]
-    .map(([value, item]) => ({ value, ...item }))
-    .sort((left, right) =>
-      `${left.province}${left.city}`.localeCompare(
-        `${right.province}${right.city}`,
-        "zh-CN",
-      ),
-    );
-  const requestedCity = readCityParam(query.city);
-  const hasExplicitSelection = cityCounts.has(requestedCity);
-  const selectedCity = hasExplicitSelection ? requestedCity : "";
-  const merchantCards: MerchantCardData[] = merchants.map((merchant) => ({
-    id: merchant.id,
-    name: merchant.name,
-    city: merchant.city,
-    district: merchant.district,
-    price: merchant.price,
-    services: merchant.services,
-    address: merchant.address,
-    photos: merchant.photos,
-  }));
+  const availableLocationSlugs = getSeoLocationSlugsForRecords(merchants);
+  const [legacyProvince, legacyCity] = readCityParam(query.city).split("::");
+  const requestedLocation = query.location !== undefined
+    ? getSeoLocationBySlug(readCityParam(query.location))
+    : getSeoLocationFromSelection(legacyProvince, legacyCity);
+  const selectedLocation = requestedLocation && availableLocationSlugs.has(requestedLocation.slug)
+    ? requestedLocation : undefined;
+  const selectedProvince = selectedLocation
+    ? getSeoLocationFromSelection(selectedLocation.province) : undefined;
+  const visibleMerchants = selectedLocation
+    ? merchants.filter((merchant) => getSeoLocationsForRecord(merchant.city, merchant.district)
+      .some((location) => location.slug === selectedLocation.slug))
+    : merchants;
 
   return (
     <div className="mx-auto w-full max-w-md flex-1 pb-10">
@@ -71,14 +47,24 @@ export default async function SpaPage({ searchParams }: SpaPageProps) {
         <Link href="/" className="text-white/90">
           ← 返回
         </Link>
-        <h1 className="text-lg font-bold">按摩SPA</h1>
+        <h1 className="text-lg font-bold">9895会所</h1>
       </header>
 
-      <MerchantBrowser
-        options={cityOptions}
-        merchants={merchantCards}
-        initialSelectedValue={selectedCity}
-      />
+      <div className="px-4 pt-4">
+        <SeoLocationPicker
+          availableLocationSlugs={[...availableLocationSlugs]}
+          initialProvinceSlug={selectedProvince?.slug}
+          selectedLabel={selectedLocation?.region ?? selectedLocation?.province}
+          basePath="/spa"
+          defaultOpen={Boolean(selectedLocation)}
+        />
+      </div>
+      <div className="space-y-3 px-4 pt-4">
+        {visibleMerchants.length === 0 && (
+          <p className="py-20 text-center text-sm text-gray-400">暂时还没有公开商家</p>
+        )}
+        {visibleMerchants.map((merchant) => <MerchantCard key={merchant.id} merchant={merchant} />)}
+      </div>
     </div>
   );
 }

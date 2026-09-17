@@ -32,7 +32,7 @@ export async function generateMetadata({
     return { title: "商家不存在", robots: { index: false, follow: false } };
 
   const location = formatLocationLabel(merchant.city, merchant.district);
-  const title = `${truncate(`${merchant.name || `商家 #${merchant.id}`}｜${location || "按摩SPA"}`, 54)} | ${site.name}`;
+  const title = `${truncate(`${merchant.name || `商家 #${merchant.id}`}｜${location || "9895会所"}`, 54)} | ${site.name}`;
   const description = truncate(
     compactText(merchant.description || merchant.services),
     160,
@@ -76,7 +76,7 @@ export default async function MerchantDetailPage({
         <Link href="/spa" className="text-white/90">
           ← 返回
         </Link>
-        <h1 className="text-lg font-bold">按摩SPA</h1>
+        <h1 className="text-lg font-bold">9895会所</h1>
       </header>
 
       <Gallery
