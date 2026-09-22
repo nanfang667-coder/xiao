@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { SITE_NAME } from "@/lib/site-config";
 import {
   FALLBACK_SITE,
   normalizeHostname,
@@ -17,7 +18,9 @@ function toSiteConfig(site: {
   membershipPrice: number;
   membershipOriginalPrice: number;
 }): SiteConfig {
-  return site;
+  return site.hostname === FALLBACK_SITE.hostname
+    ? { ...site, name: SITE_NAME }
+    : site;
 }
 
 export async function getSiteByHostname(

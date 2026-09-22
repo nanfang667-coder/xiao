@@ -10,7 +10,7 @@ export type SiteConfig = {
 export const FALLBACK_SITE: SiteConfig = {
   id: "a",
   hostname: "fenglou1.com",
-  name: "\u51e4\u697c",
+  name: "免费凤楼信息",
   singlePostPrice: 10,
   membershipPrice: 38,
   membershipOriginalPrice: 58,

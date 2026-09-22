@@ -1,5 +1,5 @@
 export const SITE_URL = "https://fenglou1.com";
-export const SITE_NAME = "凤楼";
+export const SITE_NAME = "免费凤楼信息";
 
 const LOCAL_SITE_URL = "http://localhost:3000";
 
