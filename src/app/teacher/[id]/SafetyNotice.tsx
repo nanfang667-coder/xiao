@@ -21,7 +21,7 @@ export function SafetyNotice() {
           <span className="font-bold text-red-600">不要裸聊、刷单、下载陌生软件，</span>
           凡是要求提前转账、押金的可能是骗子，保护好个人财产。
           <span className="font-bold text-red-600">
-            QQ微信风控严重，建议下载与你APP沟通，手机应用商店或官网yuni.com.cn下载。
+            QQ微信风控严重，建议下载与你APP沟通，手机应用商店搜与你或官网yuni.com.cn下载。
           </span>
           有欺骗行为，联系邮箱举报。
         </p>
