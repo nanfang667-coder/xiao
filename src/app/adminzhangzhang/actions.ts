@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
+import { adminTeacherReturnTo } from "@/lib/admin-teacher-return";
 import { emojiFor, defaultGradients } from "@/lib/photo";
 import {
   getSelectedPhotoFiles,
@@ -240,12 +241,8 @@ export async function updateTeacher(
   revalidatePath("/adminzhangzhang");
   revalidatePath("/adminzhangzhang/teachers");
   revalidatePath(`/listing/${id}`);
-  const safeReturnTo =
-    returnTo === "/adminzhangzhang/teachers" ||
-    returnTo.startsWith("/adminzhangzhang/teachers?")
-      ? returnTo
-      : "/adminzhangzhang/teachers";
-  redirect(safeReturnTo);
+  revalidatePath("/adminzhangzhang/submissions");
+  redirect(adminTeacherReturnTo(returnTo));
 }
 
 export async function deleteTeacher(id: number) {
@@ -256,6 +253,7 @@ export async function deleteTeacher(id: number) {
   revalidatePath("/");
   revalidatePath("/adminzhangzhang");
   revalidatePath("/adminzhangzhang/teachers");
+  revalidatePath("/adminzhangzhang/submissions");
 }
 
 // ========== 用户管理 ==========

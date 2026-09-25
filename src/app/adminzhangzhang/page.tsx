@@ -21,16 +21,16 @@ export default async function AdminDashboard() {
   const modules = [
     {
       href: "/adminzhangzhang/sites",
-      icon: "🌐",
-      title: "网站与团队",
-      desc: "管理域名、价格和合作发布账号",
-      count: "渠道归属",
+      icon: "👥",
+      title: "团队账号管理",
+      desc: "添加、删除账号，重设密码和调整发帖额度",
+      count: "账号管理",
     },
     {
       href: "/adminzhangzhang/submissions",
       icon: "✅",
-      title: "合作帖子审核",
-      desc: "审核合作账号提交的新帖子",
+      title: "合作帖子管理",
+      desc: "按账号查看、审核和管理合作帖子",
       count: `${pendingSubmissions} 条待审核`,
     },
     {

@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth";
 import { getTeacherById } from "@/lib/teachers";
 import { updateTeacher } from "../../actions";
 import { TeacherForm } from "../../TeacherForm";
+import { adminTeacherReturnTo } from "@/lib/admin-teacher-return";
 
 export default async function EditTeacherPage({
   params,
@@ -15,10 +16,7 @@ export default async function EditTeacherPage({
   const { id } = await params;
   const query = await searchParams;
   const rawReturnTo = Array.isArray(query.returnTo) ? query.returnTo[0] : query.returnTo;
-  const returnTo =
-    rawReturnTo === "/adminzhangzhang/teachers" || rawReturnTo?.startsWith("/adminzhangzhang/teachers?")
-      ? rawReturnTo
-      : "/adminzhangzhang/teachers";
+  const returnTo = adminTeacherReturnTo(rawReturnTo);
   const teacher = await getTeacherById(id);
   if (!teacher) notFound();
 
@@ -29,6 +27,7 @@ export default async function EditTeacherPage({
     <TeacherForm
       action={action}
       initial={teacher}
+      backHref={returnTo}
       submitLabel="保存修改"
     />
   );

@@ -23,6 +23,7 @@ export function SafetyNotice() {
           <span className="font-bold text-red-600">
             QQ微信风控严重，建议下载与你APP沟通，手机应用商店或官网yuni.com.cn下载。
           </span>
+          有欺骗行为，联系邮箱举报。
         </p>
         <button
           type="button"

@@ -1,12 +1,9 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
 import bcrypt from "bcrypt";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isValidMoney, normalizeHostname } from "@/lib/site-utils";
 import {
   getChinaCalendarMonthKey,
   getTeamMonthlyPostBaseLimit,
@@ -16,60 +13,6 @@ import {
 
 function text(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
-}
-
-function price(formData: FormData, key: string): number {
-  const value = Number(text(formData, key));
-  if (!isValidMoney(value)) throw new Error("Invalid site price");
-  return Math.round(value * 100) / 100;
-}
-
-function siteInput(formData: FormData) {
-  const hostname = normalizeHostname(text(formData, "hostname"));
-  const name = text(formData, "name");
-  const singlePostPrice = price(formData, "singlePostPrice");
-  const membershipPrice = price(formData, "membershipPrice");
-  const membershipOriginalPrice = price(formData, "membershipOriginalPrice");
-  if (
-    !hostname ||
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    name.length < 1 ||
-    name.length > 50 ||
-    membershipOriginalPrice < membershipPrice
-  ) {
-    throw new Error("Invalid site configuration");
-  }
-  return {
-    hostname,
-    name,
-    singlePostPrice,
-    membershipPrice,
-    membershipOriginalPrice,
-  };
-}
-
-export async function createSite(formData: FormData) {
-  await requireAdmin();
-  await prisma.site.create({
-    data: {
-      id: randomUUID(),
-      ...siteInput(formData),
-    },
-  });
-  revalidatePath("/adminzhangzhang");
-  revalidatePath("/adminzhangzhang/sites");
-  redirect("/adminzhangzhang/sites");
-}
-
-export async function updateSite(siteId: string, formData: FormData) {
-  await requireAdmin();
-  await prisma.site.update({
-    where: { id: siteId },
-    data: siteInput(formData),
-  });
-  revalidatePath("/", "layout");
-  revalidatePath("/adminzhangzhang/sites");
 }
 
 export async function createTeamAccount(formData: FormData) {
@@ -104,6 +47,7 @@ export async function createTeamAccount(formData: FormData) {
     },
   });
   revalidatePath("/adminzhangzhang/sites");
+  revalidatePath("/adminzhangzhang/submissions");
 }
 
 export async function updateTeamMonthlyPostLimit(
@@ -203,7 +147,7 @@ export async function addTeamMonthlyPostAllowance(
 export async function resetTeamPassword(accountId: number, formData: FormData) {
   await requireAdmin();
   const password = String(formData.get("password") ?? "");
-  if (password.length < 12 || Buffer.byteLength(password, "utf8") > 128) {
+  if (!Number.isSafeInteger(accountId) || accountId < 1 || password.length < 12 || Buffer.byteLength(password, "utf8") > 128) {
     throw new Error("Invalid team password");
   }
   const passwordHash = await bcrypt.hash(password, 12);
@@ -215,6 +159,7 @@ export async function resetTeamPassword(accountId: number, formData: FormData) {
     prisma.teamSession.deleteMany({ where: { teamAccountId: accountId } }),
   ]);
   revalidatePath("/adminzhangzhang/sites");
+  revalidatePath("/adminzhangzhang/submissions");
 }
 
 export async function deleteTeamAccount(accountId: number) {

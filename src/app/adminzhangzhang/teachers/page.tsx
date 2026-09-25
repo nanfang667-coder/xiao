@@ -223,7 +223,11 @@ export default async function AdminTeachersPage({ searchParams }: { searchParams
                 添加于 {teacher.createdAt.toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}
               </p>
               <p className="mt-0.5 text-[11px] text-gray-400">
-                发布人：{teacher.publisherUsername ?? "管理员"}
+                {teacher.publisherAccountId ? (
+                  <Link href={`/adminzhangzhang/submissions?account=${teacher.publisherAccountId}&view=published`} className="text-pink-600">
+                    发布账号：{teacher.publisherUsername} · 查看全部帖子
+                  </Link>
+                ) : "发布人：管理员"}
               </p>
             </div>
 
