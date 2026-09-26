@@ -6,13 +6,11 @@ import { redirect } from "next/navigation";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
-import { generateUniqueReferralCode } from "@/lib/referral";
+import { randomUUID } from "node:crypto";
 import { userSessionCookieOptions } from "@/lib/user-session-cookie";
 import { GENERIC_LOGIN_ERROR } from "@/lib/user-auth-input";
 import type { User as UserRow } from "@prisma/client";
 import { getCurrentSite } from "@/lib/site";
-
-const REF_COOKIE_NAME = "ref_code"; // 与 /r/[code] 路由里写的 cookie 同名
 
 // 页面使用的"用户"格式（去掉敏感字段）
 export type User = {
@@ -91,8 +89,7 @@ export async function isLoggedIn(): Promise<boolean> {
 }
 
 // 获取当前登录的用户信息（未登录返回 null）
-// 以数据库为准读取最新的会员状态：后台开通/取消会员后，用户下次请求即生效，
-// 无需重新登录；被删除的用户其令牌也会立即失效。
+// 以数据库为准读取用户状态；已删除或封禁的用户无法继续使用原令牌登录。
 export async function getCurrentUser(): Promise<User | null> {
   const store = await cookies();
   const token = store.get(COOKIE_NAME)?.value;
@@ -122,17 +119,6 @@ export async function requireUser(): Promise<User> {
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login");
-  }
-  return user;
-}
-
-// 要求必须是会员，否则提示或跳转（查看联系方式用）
-export async function requireMember(): Promise<User> {
-  const user = await requireUser();
-  if (!user.isMember) {
-    // 这里可以跳转到会员开通页面，暂时先提示
-    // 实际使用时根据需求调整
-    throw new Error("需要开通会员才能查看联系方式");
   }
   return user;
 }
@@ -188,18 +174,8 @@ export async function registerUser(input: RegisterInput, ip: string): Promise<Us
   // 哈希密码
   const passwordHash = await hashPassword(input.password);
 
-  // 生成该用户自己的专属邀请码
-  const referralCode = await generateUniqueReferralCode();
-
-  // 邀请关系只在注册这一刻绑定一次：读取 /r/[code] 写入的 cookie，
-  // 查到有效推荐人就记下来，此后终身不变（老用户点邀请链接不算数）
-  const store = await cookies();
-  const refCode = store.get(REF_COOKIE_NAME)?.value;
-  let referredBy: number | null = null;
-  if (refCode) {
-    const referrer = await prisma.user.findUnique({ where: { referralCode: refCode } });
-    if (referrer?.siteId === site.id) referredBy = referrer.id;
-  }
+  // Keep the required legacy column populated without enabling referral links.
+  const referralCode = randomUUID();
 
   // 创建用户
   const user = await prisma.user.create({
@@ -209,7 +185,6 @@ export async function registerUser(input: RegisterInput, ip: string): Promise<Us
       passwordHash,
       isMember: false, // 新用户默认不是会员
       referralCode,
-      referredBy,
       registrationIp: ip === "unknown" ? null : ip,
       siteId: site.id,
     },
@@ -274,8 +249,7 @@ export async function logoutUser(): Promise<void> {
 }
 
 // 重新签发当前登录用户的令牌。
-// 会员状态（isMember 等）存在 JWT 里，后台/支付改动数据库后，
-// 调用这个方法用最新数据重签 Cookie，用户无需重新登录即可生效。
+// 用数据库中的最新用户信息重签 Cookie。
 export async function refreshSession(): Promise<void> {
   const current = await getCurrentUser();
   if (!current) return;

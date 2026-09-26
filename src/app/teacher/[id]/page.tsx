@@ -16,17 +16,11 @@ import { Gallery } from "./Gallery";
 import { SafetyNotice } from "./SafetyNotice";
 import { BackButton } from "./BackButton";
 import { TeacherViewTracker } from "./TeacherViewTracker";
-import { getCurrentUser } from "@/lib/user-auth";
-import { MEMBERSHIP_PLAN } from "@/lib/membership";
-import { PAYMENT_FEATURE_ENABLED } from "@/lib/feature-flags";
-import { canAccessTeacherContact } from "@/lib/teacher-access";
-import { TeacherUnlockPurchase } from "./TeacherUnlockPurchase";
 import { getCurrentSite } from "@/lib/site";
 import { siteOrigin } from "@/lib/site-utils";
 
 type TeacherPageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ paid?: string; paymentError?: string }>;
 };
 
 function compactText(value: string) {
@@ -87,30 +81,17 @@ export async function generateMetadata({
 
 export default async function TeacherDetail({
   params,
-  searchParams,
 }: TeacherPageProps) {
-  const [{ id }, query] = await Promise.all([params, searchParams]);
-  const [teacher, user, site] = await Promise.all([
+  const { id } = await params;
+  const [teacher, site] = await Promise.all([
     getTeacherPublicById(id),
-    getCurrentUser(),
     getCurrentSite(),
   ]);
 
   if (!teacher) notFound();
 
-  const teacherPostId = Number(teacher.id);
-  const canViewContact = await canAccessTeacherContact(user, teacherPostId);
-  const contact = canViewContact ? await getTeacherContactById(id) : null;
-  if (canViewContact && !contact) notFound();
-
-  const paymentErrorMessages: Record<string, string> = {
-    configuration: "支付配置暂不可用，请稍后重试。",
-    unavailable: "暂时无法连接支付平台，请稍后重试；本次没有扣款。",
-    rejected: "支付平台拒绝了下单请求，请稍后重试。",
-    invalid_response: "支付平台返回内容未通过安全校验，本次没有扣款。",
-    rate: "操作过于频繁，请一分钟后再试。",
-    method: "暂不支持所选支付方式。",
-  };
+  const contact = await getTeacherContactById(id);
+  if (!contact) notFound();
 
   const location = formatLocationLabel(teacher.city, teacher.district);
   const seoLocations = getSeoLocationsForRecord(teacher.city, teacher.district);
@@ -184,17 +165,6 @@ export default async function TeacherDetail({
       />
 
       <div className="px-4">
-        {query.paid === "1" && contact && (
-          <div className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-center text-sm font-medium text-green-600">
-            🎉 支付成功，当前帖子联系方式已永久解锁！
-          </div>
-        )}
-        {query.paymentError && paymentErrorMessages[query.paymentError] && (
-          <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-center text-sm text-red-600">
-            {paymentErrorMessages[query.paymentError]}
-          </div>
-        )}
-
         {/* 标题区 */}
         <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
           {location && (
@@ -252,131 +222,33 @@ export default async function TeacherDetail({
           </section>
         )}
 
-        {/* 联系方式：有效会员显示真实信息，其他用户显示软付费墙。 */}
-        {contact ? (
-          <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-sm font-bold text-gray-800">联系方式</h2>
+        {/* 联系方式公开展示。 */}
+        <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
+          <h2 className="mb-3 text-sm font-bold text-gray-800">联系方式</h2>
 
-            <div className="space-y-2">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <span className="text-gray-400">电话</span>
+              <span className="font-medium">{contact.phone}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <span className="text-gray-400">微信</span>
+              <span className="font-medium">{contact.wechat}</span>
+            </div>
+            {contact.qq && (
               <div className="flex items-center gap-2 text-sm text-gray-700">
-                <span className="text-gray-400">电话</span>
-                <span className="font-medium">{contact.phone}</span>
+                <span className="text-gray-400">QQ</span>
+                <span className="font-medium">{contact.qq}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm text-gray-700">
-                <span className="text-gray-400">微信</span>
-                <span className="font-medium">{contact.wechat}</span>
-              </div>
-              {contact.qq && (
-                <div className="flex items-center gap-2 text-sm text-gray-700">
-                  <span className="text-gray-400">QQ</span>
-                  <span className="font-medium">{contact.qq}</span>
-                </div>
-              )}
-              {contact.other && (
-                <div className="flex items-center gap-2 text-sm text-gray-700">
-                  <span className="text-gray-400">其他</span>
-                  <span className="font-medium">{contact.other}</span>
-                </div>
-              )}
-            </div>
-          </section>
-        ) : (
-          <section className="mt-4 rounded-2xl border border-amber-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2">
-              <span
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100"
-                aria-hidden="true"
-              >
-                🔒
-              </span>
-              <div>
-                <h2 className="text-sm font-bold text-gray-800">
-                  联系方式 · 付费解锁
-                </h2>
-                <p className="mt-0.5 text-xs text-gray-400">
-                  可单独解锁当前帖子，或开通会员查看全部
-                </p>
-              </div>
-            </div>
-
-            <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2.5 text-sm leading-6 text-amber-800">
-              用户新增过多，现在改为付费会员模式，会员费用将用于网站日常维护和信息持续更新，感谢您的支持。
-            </p>
-
-            <div className="mt-4 space-y-2 rounded-xl bg-gray-50 p-3 text-sm">
-              {[
-                ["电话", "付费后查看"],
-                ["微信", "付费后查看"],
-                ["QQ / 其他", "付费后查看"],
-              ].map(([label, value]) => (
-                <div
-                  key={label}
-                  className="flex items-center justify-between gap-3"
-                >
-                  <span className="text-gray-500">{label}</span>
-                  <span className="text-gray-400">{value}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-pink-200 bg-pink-50 p-3">
-                <p className="text-sm font-bold text-gray-800">解锁当前帖子</p>
-                <p className="mt-1 text-2xl font-bold text-rose-500">
-                  ¥{site.singlePostPrice}
-                </p>
-                <p className="mt-1 text-xs text-gray-500">当前帖子永久有效</p>
-              </div>
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-                <p className="text-sm font-bold text-gray-800">
-                  {MEMBERSHIP_PLAN.name}
-                </p>
-                <p className="mt-1 text-xs font-bold text-orange-500">限时价</p>
-                <p className="text-2xl font-bold text-orange-500">
-                  ¥{site.membershipPrice}
-                </p>
-                <p className="text-xs text-gray-400 line-through">
-                  原价 ¥{site.membershipOriginalPrice}
-                </p>
-                <p className="mt-1 text-xs text-gray-500">全部帖子永久可看</p>
-              </div>
-            </div>
-
-            {!PAYMENT_FEATURE_ENABLED ? (
-              <p className="mt-4 rounded-xl bg-gray-50 px-3 py-3 text-center text-sm text-gray-500">
-                支付功能暂时关闭，联系方式仍受权限保护
-              </p>
-            ) : user ? (
-              <div className="mt-4 space-y-3">
-                <TeacherUnlockPurchase
-                  teacherPostId={teacherPostId}
-                  price={site.singlePostPrice}
-                />
-                <Link
-                  href="/vip"
-                  className="block w-full rounded-full border border-orange-300 py-2.5 text-center text-sm font-bold text-orange-600"
-                >
-                  ¥{site.membershipPrice} 开通永久会员
-                </Link>
-              </div>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="mt-4 block w-full rounded-full bg-pink-500 py-3 text-center text-sm font-bold text-white active:bg-pink-600"
-                >
-                  登录后选择解锁方式
-                </Link>
-                <p className="mt-3 text-center text-xs text-gray-500">
-                  还没有账号？
-                  <Link href="/register" className="ml-1 text-pink-500">
-                    立即注册
-                  </Link>
-                </p>
-              </>
             )}
-          </section>
-        )}
+            {contact.other && (
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <span className="text-gray-400">其他</span>
+                <span className="font-medium">{contact.other}</span>
+              </div>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );

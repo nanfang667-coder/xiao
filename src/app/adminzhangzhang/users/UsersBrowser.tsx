@@ -2,28 +2,16 @@
 
 import { useState } from "react";
 import {
-  GrantMembershipForm,
-  RevokeMembershipButton,
   BanUserButton,
   UnbanUserButton,
   DeleteUserButton,
 } from "./UserActions";
 
 // 传给客户端的用户数据（日期已在服务端格式化好，且不含密码等敏感字段）
-export type SinglePostUnlockRecord = {
-  id: number;
-  username: string;
-  amountLabel: string;
-  paidAtLabel: string;
-  merchantOrderNo: string;
-};
-
 export type AdminUser = {
   id: number;
   username: string;
   email: string | null;
-  referralCode: string;
-  referralVisitorCount: number;
   isMember: boolean;
   createdAtLabel: string;
   expiryLabel: string | null; // 仅会员有：「永久会员」或「会员到期：xxxx」
@@ -41,34 +29,25 @@ export type SiteVisitorStats = {
   month: number;
 };
 
-type Filter = "all" | "member" | "normal" | "banned" | "single";
-
-const HIGH_VISITOR_THRESHOLD = 10;
+type Filter = "all" | "member" | "normal" | "banned";
 
 export function UsersBrowser({
   users,
   siteVisitorStats,
-  unlockRecords,
 }: {
   users: AdminUser[];
   siteVisitorStats: SiteVisitorStats;
-  unlockRecords: SinglePostUnlockRecord[];
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
-  const [showHighVisitorOnly, setShowHighVisitorOnly] = useState(false);
 
   const memberCount = users.filter((u) => u.isMember).length;
   const normalCount = users.length - memberCount;
   const bannedCount = users.filter((u) => u.isBanned).length;
-  const highVisitorCount = users.filter(
-    (u) => u.referralVisitorCount > HIGH_VISITOR_THRESHOLD,
-  ).length;
 
   const tabs: { key: Filter; label: string; count: number }[] = [
     { key: "all", label: "全部", count: users.length },
     { key: "member", label: "👑 会员", count: memberCount },
-    { key: "single", label: "单帖", count: unlockRecords.length },
     { key: "normal", label: "普通用户", count: normalCount },
     { key: "banned", label: "🚫 已封禁", count: bannedCount },
   ];
@@ -81,23 +60,14 @@ export function UsersBrowser({
       if (filter === "normal" && u.isMember) return false;
       if (filter === "banned" && !u.isBanned) return false;
       if (
-        showHighVisitorOnly &&
-        u.referralVisitorCount <= HIGH_VISITOR_THRESHOLD
-      )
-        return false;
-      if (
         trimmedSearch &&
         !String(u.id).includes(trimmedSearch) &&
         !u.username.toLowerCase().includes(trimmedSearch) &&
-        !u.referralCode.toLowerCase().includes(trimmedSearch) &&
         !(u.email ?? "").toLowerCase().includes(trimmedSearch)
       )
         return false;
       return true;
-    })
-    .sort((a, b) =>
-      showHighVisitorOnly ? b.referralVisitorCount - a.referralVisitorCount : 0,
-    );
+    });
 
   return (
     <>
@@ -120,18 +90,16 @@ export function UsersBrowser({
       </div>
 
       {/* 按用户ID / 用户名 / 邮箱搜索 */}
-      {filter !== "single" && (
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="搜索用户ID / 用户名 / 邮箱 / 邀请码"
-          className="mb-3 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-pink-400"
-        />
-      )}
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="搜索用户ID / 用户名 / 邮箱"
+        className="mb-3 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-pink-400"
+      />
 
       {/* 筛选标签页（带数量） */}
-      <div className="mb-3 grid grid-cols-5 gap-1.5">
+      <div className="mb-3 grid grid-cols-4 gap-1.5">
         {tabs.map((t) => (
           <button
             key={t.key}
@@ -154,56 +122,8 @@ export function UsersBrowser({
         ))}
       </div>
 
-      {/* 高访客邀请链接快捷筛选；可与用户类型和搜索条件组合使用 */}
-      {filter !== "single" && (
-        <button
-          type="button"
-          aria-pressed={showHighVisitorOnly}
-          onClick={() => setShowHighVisitorOnly((current) => !current)}
-          className={`mb-4 flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
-            showHighVisitorOnly
-              ? "border-pink-500 bg-pink-500 text-white shadow"
-              : "border-pink-200 bg-white text-gray-600 shadow-sm"
-          }`}
-        >
-          <span>独立访客 &gt; {HIGH_VISITOR_THRESHOLD}</span>
-          <span
-            className={`rounded-full px-2 py-0.5 text-xs ${
-              showHighVisitorOnly
-                ? "bg-white/20 text-white"
-                : "bg-pink-50 text-pink-500"
-            }`}
-          >
-            {highVisitorCount} 个链接
-            {showHighVisitorOnly ? " · 人数从高到低" : ""}
-          </span>
-        </button>
-      )}
-
-      {filter === "single" && (
-        <div className="space-y-3">
-          {unlockRecords.length === 0 ? (
-            <p className="rounded-2xl bg-white py-12 text-center text-sm text-gray-400 shadow-sm">
-              暂无支付成功的单帖解锁记录
-            </p>
-          ) : (
-            unlockRecords.map((record) => (
-              <div key={record.id} className="rounded-2xl bg-white p-4 text-sm shadow-sm">
-                <div className="space-y-1.5 text-gray-600">
-                  <p>用户名：{record.username}</p>
-                  <p>支付金额：{record.amountLabel}</p>
-                  <p>支付成功时间：{record.paidAtLabel}</p>
-                  <p className="break-all">商户订单号：{record.merchantOrderNo}</p>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
       {/* 用户列表 */}
-      {filter !== "single" && (
-        <div className="space-y-3">
+      <div className="space-y-3">
         {list.length === 0 && (
           <p className="py-16 text-center text-sm text-gray-400">
             没有符合条件的用户
@@ -237,12 +157,6 @@ export function UsersBrowser({
             <div className="mt-1.5 space-y-0.5 text-xs text-gray-400">
               {u.email && <p>📮 {u.email}</p>}
               <p>注册于 {u.createdAtLabel}</p>
-              <p className="flex flex-wrap items-center gap-1.5 font-medium text-pink-500">
-                <span>🔗 邀请码 {u.referralCode}</span>
-                <span className="rounded-full bg-pink-50 px-2 py-0.5">
-                  独立访客 <strong>{u.referralVisitorCount}</strong> 人
-                </span>
-              </p>
               {u.isMember && u.expiryLabel && (
                 <p className="text-amber-500">{u.expiryLabel}</p>
               )}
@@ -258,25 +172,17 @@ export function UsersBrowser({
             </div>
 
             {/* 第三行：操作按钮 */}
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-50 pt-3">
-              {u.isMember ? (
-                <RevokeMembershipButton id={u.id} username={u.username} />
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-50 pt-3">
+              {u.isBanned ? (
+                <UnbanUserButton id={u.id} username={u.username} />
               ) : (
-                <GrantMembershipForm id={u.id} username={u.username} />
+                <BanUserButton id={u.id} username={u.username} />
               )}
-              <div className="flex items-center gap-2">
-                {u.isBanned ? (
-                  <UnbanUserButton id={u.id} username={u.username} />
-                ) : (
-                  <BanUserButton id={u.id} username={u.username} />
-                )}
-                <DeleteUserButton id={u.id} username={u.username} />
-              </div>
+              <DeleteUserButton id={u.id} username={u.username} />
             </div>
           </div>
         ))}
-        </div>
-      )}
+      </div>
     </>
   );
 }

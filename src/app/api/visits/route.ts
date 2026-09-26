@@ -7,8 +7,7 @@ import {
   VISITOR_COOKIE_NAME,
 } from "@/lib/visitor";
 import { getSiteByHostname } from "@/lib/site";
-
-const ADMIN_PATH_PREFIX = "/adminzhangzhang";
+import { isBackofficePath } from "@/lib/visitor-tracking";
 
 function isSameOrigin(req: NextRequest): boolean {
   const host = req.headers.get("host");
@@ -25,16 +24,15 @@ function isSameOrigin(req: NextRequest): boolean {
   return req.headers.get("sec-fetch-site") === "same-origin";
 }
 
-function isAdminPageRequest(req: NextRequest): boolean {
+function isBackofficePageRequest(req: NextRequest): boolean {
   const referer = req.headers.get("referer");
   if (!referer) return false;
 
   try {
     const url = new URL(referer);
     return (
-      url.host === req.nextUrl.host &&
-      (url.pathname === ADMIN_PATH_PREFIX ||
-        url.pathname.startsWith(`${ADMIN_PATH_PREFIX}/`))
+      url.host === (req.headers.get("host") ?? req.nextUrl.host) &&
+      isBackofficePath(url.pathname)
     );
   } catch {
     return false;
@@ -46,7 +44,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  if (isAdminPageRequest(req)) {
+  if (isBackofficePageRequest(req)) {
     return new NextResponse(null, { status: 204 });
   }
 

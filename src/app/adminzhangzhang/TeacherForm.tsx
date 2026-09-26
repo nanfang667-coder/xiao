@@ -256,23 +256,23 @@ export function TeacherForm({
         </div>
 
         <div>
-          <label className={label}>联系电话（会员可见）</label>
+          <label className={label}>联系电话</label>
           <input name="phone" defaultValue={initial?.contact.phone} className={field} />
         </div>
 
         <div>
-          <label className={label}>微信号（会员可见）</label>
+          <label className={label}>微信号</label>
           <input name="wechat" defaultValue={initial?.contact.wechat} className={field} />
           {!showPromotion && <p className="mt-1 text-xs text-gray-400">电话、微信、QQ 或其他联系方式至少填写一项</p>}
         </div>
 
         <div>
-          <label className={label}>QQ（会员可见）</label>
+          <label className={label}>QQ</label>
           <input name="qq" defaultValue={initial?.contact.qq ?? ""} className={field} />
         </div>
 
         <div>
-          <label className={label}>其他联系方式（会员可见）</label>
+          <label className={label}>其他联系方式</label>
           <input
             name="otherContact"
             defaultValue={initial?.contact.other ?? ""}
@@ -282,7 +282,7 @@ export function TeacherForm({
         </div>
 
         <div>
-          <label className={label}>详细地址（会员可见）</label>
+          <label className={label}>详细地址</label>
           <input
             name="address"
             defaultValue={initial?.contact.address ?? ""}

@@ -11,31 +11,9 @@ import { NationalPromotionCard } from "@/components/NationalPromotionCard";
 import { Pagination } from "@/components/Pagination";
 import { SeoLocationPicker } from "@/components/SeoLocationPicker";
 import type { User } from "@/lib/user-auth";
-import type { PublicPartnerLink } from "@/lib/partner-links";
 
 // 功能入口配置（仿照 App 首页图标区）
 const entries = [
-  {
-    label: "暗巷",
-    href: "/alley",
-    feature: "alley" as const,
-    icon: (
-      <svg
-        width="28"
-        height="28"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M4 21V8l8-5 8 5v13" />
-        <path d="M9 21v-7h6v7" />
-        <path d="M3 21h18" />
-      </svg>
-    ),
-  },
   {
     label: "9895会所",
     href: "/spa",
@@ -54,26 +32,6 @@ const entries = [
         <path d="M5 10v10h14V10" />
         <path d="m4 10 2-6h12l2 6" />
         <path d="M9 20v-6h6v6" />
-      </svg>
-    ),
-  },
-  {
-    label: "开通会员",
-    href: "/vip",
-    feature: "payment" as const,
-    icon: (
-      <svg
-        width="28"
-        height="28"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="m3 7 4 4 5-7 5 7 4-4-2 12H5L3 7Z" />
-        <path d="M5 19h14" />
       </svg>
     ),
   },
@@ -121,41 +79,23 @@ const entries = [
 export function TeacherBrowser({
   teachers,
   nationalPromotions,
-  partnerLinks,
   user,
   availableLocationSlugs,
   page,
   totalPages,
-  alleyPublicEnabled,
-  paymentEnabled,
   siteName,
 }: {
   teachers: TeacherCardItem[];
   nationalPromotions: TeacherCardItem[];
-  partnerLinks: PublicPartnerLink[];
   user?: User | null;
   availableLocationSlugs: string[];
   page: number;
   totalPages: number;
-  alleyPublicEnabled: boolean;
-  paymentEnabled: boolean;
   siteName: string;
 }) {
   const router = useRouter();
 
   const [notice, setNotice] = useState<"contact" | null>(null);
-  const visibleEntries = entries.filter(
-    (entry) =>
-      (entry.feature !== "alley" || alleyPublicEnabled) &&
-      (entry.feature !== "payment" || paymentEnabled),
-  );
-  const entryGridColumns =
-    visibleEntries.length >= 5
-      ? "grid-cols-5"
-      : visibleEntries.length === 4
-        ? "grid-cols-4"
-        : "grid-cols-3";
-
   const setPage = (nextPage: number) => {
     router.replace(nextPage > 1 ? `/?page=${nextPage}` : "/", {
       scroll: false,
@@ -178,12 +118,12 @@ export function TeacherBrowser({
         </div>
       </header>
 
-      {/* 关闭中的功能不会出现在前台入口中。 */}
+      {/* 前台功能入口。 */}
       <div className="px-4 pt-4">
         <div
-          className={`grid ${entryGridColumns} gap-1 rounded-2xl bg-white p-3 shadow-sm`}
+          className="grid grid-cols-3 gap-1 rounded-2xl bg-white p-3 shadow-sm"
         >
-          {visibleEntries.map((e) =>
+          {entries.map((e) =>
             e.href ? (
               <Link
                 key={e.label}
@@ -277,49 +217,6 @@ export function TeacherBrowser({
 
       {/* 分页控件 */}
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
-
-      {partnerLinks.length > 0 && (
-        <section className="mx-4 mt-5 rounded-2xl bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-gray-800">合作伙伴</h2>
-              <p className="mt-0.5 text-xs text-gray-400">优质网站推荐</p>
-            </div>
-            <span className="rounded-full bg-pink-50 px-2.5 py-1 text-xs text-pink-500">
-              友情链接
-            </span>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {partnerLinks.map((partner) => (
-              <a
-                key={partner.id}
-                href={partner.url}
-                target="_blank"
-                rel={
-                  partner.linkType === "sponsored"
-                    ? "sponsored nofollow noopener noreferrer"
-                    : "noopener noreferrer"
-                }
-                className="flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5 active:bg-pink-50"
-              >
-                <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-pink-50 text-sm text-pink-500">
-                  🔗
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-xs font-semibold text-gray-700">
-                    {partner.name}
-                  </span>
-                  {partner.description && (
-                    <span className="mt-0.5 block truncate text-[11px] text-gray-400">
-                      {partner.description}
-                    </span>
-                  )}
-                </span>
-              </a>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

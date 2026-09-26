@@ -258,38 +258,6 @@ export async function deleteTeacher(id: number) {
 
 // ========== 用户管理 ==========
 
-// 开通会员（可选传入有效期天数，不传表示永久）
-export async function grantMembership(id: number, formData: FormData) {
-  await requireAdmin();
-  const days = Number(formData.get("days") ?? 0);
-  const expiresAt =
-    days > 0 ? new Date(Date.now() + days * 24 * 60 * 60 * 1000) : null;
-
-  // 只有"从非会员变成会员"才算新增，给已是会员的人延期不重置这个时间
-  const existing = await prisma.user.findUnique({ where: { id } });
-
-  await prisma.user.update({
-    where: { id },
-    data: {
-      isMember: true,
-      membershipExpiresAt: expiresAt,
-      ...(existing && !existing.isMember ? { memberSince: new Date() } : {}),
-    },
-  });
-
-  revalidatePath("/adminzhangzhang/users");
-}
-
-// 取消会员
-export async function revokeMembership(id: number) {
-  await requireAdmin();
-  await prisma.user.update({
-    where: { id },
-    data: { isMember: false, membershipExpiresAt: null },
-  });
-  revalidatePath("/adminzhangzhang/users");
-}
-
 // 封禁用户（管理员手动封禁；批量注册触发的自动封禁见 src/lib/user-auth.ts）
 export async function banUser(id: number) {
   await requireAdmin();
@@ -330,32 +298,4 @@ export async function deleteUser(id: number) {
   }); // 避免遗留悬空引用
   await prisma.user.delete({ where: { id } });
   revalidatePath("/adminzhangzhang/users");
-}
-
-// ========== 推广提现管理 ==========
-
-// 标记提现已发放（人工转完 USDT 后点击）
-export async function markWithdrawalPaid(id: number) {
-  await requireAdmin();
-  await prisma.withdrawal.update({
-    where: { id },
-    data: { status: "paid", paidAt: new Date() },
-  });
-  revalidatePath("/adminzhangzhang/withdrawals");
-}
-
-// 驳回提现申请：解除关联的佣金记录，恢复用户的可提现余额
-export async function rejectWithdrawal(id: number) {
-  await requireAdmin();
-  await prisma.$transaction(async (tx) => {
-    await tx.commission.updateMany({
-      where: { withdrawalId: id },
-      data: { withdrawalId: null },
-    });
-    await tx.withdrawal.update({
-      where: { id },
-      data: { status: "rejected" },
-    });
-  });
-  revalidatePath("/adminzhangzhang/withdrawals");
 }

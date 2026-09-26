@@ -504,7 +504,7 @@ export type PublicTeacherDetail = Omit<Teacher, "contact"> & {
 
 export type TeacherContact = Omit<Teacher["contact"], "address">;
 
-// 详情页公开内容单独查询，避免非会员请求顺带读取联系方式。
+// 详情内容与联系方式分别查询，便于调用方按需读取字段。
 export async function getTeacherPublicById(
   id: string,
 ): Promise<PublicTeacherDetail | null> {
@@ -543,7 +543,7 @@ export async function getTeacherPublicById(
   };
 }
 
-// 只有服务端确认会员有效后才调用；查询结果不包含公开详情字段。
+// 供详情页展示联系方式；查询结果不包含其他详情字段。
 export async function getTeacherContactById(
   id: string,
 ): Promise<TeacherContact | null> {

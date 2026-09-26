@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import {
+  getLast24HourVisitorCount,
+  getTodayNewVisitorCount,
+} from "@/lib/site-visitor-stats";
 import { requireTeamAccount } from "@/lib/team-auth";
 import {
   getEffectiveTeamMonthlyPostLimit,
@@ -10,21 +14,18 @@ import { teamLogout } from "./actions";
 
 export default async function TeamDashboardPage() {
   const account = await requireTeamAccount();
-  // Keep this metric identical to the administrator dashboard's rolling 24-hour count.
-  // eslint-disable-next-line react-hooks/purity
-  const dayStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   const [
     todayNewVisitors,
+    last24HourVisitors,
     totalVisitors,
     postCount,
     postViews,
     pendingCount,
     monthlyPostUsage,
   ] = await Promise.all([
-      prisma.siteVisit.count({
-        where: { lastVisitedAt: { gte: dayStart } },
-      }),
+      getTodayNewVisitorCount(),
+      getLast24HourVisitorCount(),
       prisma.siteVisit.count(),
       prisma.teacherOwnership.count({ where: { teamAccountId: account.id } }),
       prisma.teacher.aggregate({
@@ -45,6 +46,7 @@ export default async function TeamDashboardPage() {
 
   const cards = [
     ["今日新增", todayNewVisitors],
+    ["近24小时访问量", last24HourVisitors],
     ["全站累计独立访客", totalVisitors],
     ["我的已发布帖子", postCount],
     ["我的帖子总浏览次数", postViews._sum.viewCount ?? 0],
@@ -63,7 +65,7 @@ export default async function TeamDashboardPage() {
         </form>
       </header>
 
-      <section className="grid grid-cols-2 gap-3">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {cards.map(([label, value]) => (
           <div key={label} className="rounded-2xl bg-white p-4 shadow-sm">
             <p className="text-xs text-gray-500">{label}</p>

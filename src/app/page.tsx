@@ -14,11 +14,6 @@ import {
 } from "@/lib/location-seo";
 import { getCurrentSite } from "@/lib/site";
 import { siteOrigin } from "@/lib/site-utils";
-import { getPublishedPartnerLinks } from "@/lib/partner-links";
-import {
-  ALLEY_PUBLIC_ENABLED,
-  PAYMENT_FEATURE_ENABLED,
-} from "@/lib/feature-flags";
 import { TeacherBrowser } from "./TeacherBrowser";
 
 type HomeProps = {
@@ -75,14 +70,12 @@ export default async function Home({ searchParams }: HomeProps) {
   const [
     result,
     nationalPromotions,
-    partnerLinks,
     availableLocationSlugs,
     user,
     site,
   ] = await Promise.all([
     getHomeTeachers(requestedPage, PAGE_SIZE, now),
     getActiveNationalPromotions(now),
-    getPublishedPartnerLinks(),
     getAvailableSeoLocationSlugs(),
     getCurrentUser(),
     getCurrentSite(),
@@ -105,13 +98,10 @@ export default async function Home({ searchParams }: HomeProps) {
       <TeacherBrowser
         teachers={result.teachers}
         nationalPromotions={nationalPromotions}
-        partnerLinks={partnerLinks}
         user={user}
         availableLocationSlugs={[...availableLocationSlugs]}
         page={result.page}
         totalPages={result.totalPages}
-        alleyPublicEnabled={ALLEY_PUBLIC_ENABLED}
-        paymentEnabled={PAYMENT_FEATURE_ENABLED}
         siteName={site.name}
       />
     </>

@@ -1,18 +1,16 @@
 // 后台：用户管理模块
-// 查看所有注册用户，按「会员/普通用户」筛选并统计数量，开通/取消会员，删除用户。
+// 查看所有注册用户和历史会员状态，支持筛选、封禁、解封和删除用户。
 
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
-import { getChinaCalendarDayRange } from "@/lib/china-calendar";
-import { prisma } from "@/lib/prisma";
 import {
-  ALLEY_POST_PRODUCT_TYPE,
-  TEACHER_POST_PRODUCT_TYPE,
-} from "@/lib/payment-products";
+  getLast24HourVisitorCount,
+  getTodayNewVisitorCount,
+} from "@/lib/site-visitor-stats";
+import { prisma } from "@/lib/prisma";
 import {
   UsersBrowser,
   type AdminUser,
-  type SinglePostUnlockRecord,
   type SiteVisitorStats,
 } from "./UsersBrowser";
 
@@ -22,27 +20,14 @@ function formatDate(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function formatDateTime(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${formatDate(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-
-// 全站独立访客统计：直接访问域名和通过邀请链接进入都会记录。
-// 按最后访问时间统计近期访问过公开页面的访客，不包含后台页面。
+// 全站独立访客统计：与合作后台共用今日新增和近24小时口径。
+// 今日新增按首次访问时间；近24小时和近30天按最后访问时间。
 async function getSiteVisitorStats(): Promise<SiteVisitorStats> {
   const now = Date.now();
   const DAY_MS = 24 * 60 * 60 * 1000;
-  const { start: todayStart, end: tomorrowStart } =
-    getChinaCalendarDayRange(new Date(now));
   const [today, day, total, month] = await Promise.all([
-    prisma.siteVisit.count({
-      where: {
-        firstVisitedAt: { gte: todayStart, lt: tomorrowStart },
-      },
-    }),
-    prisma.siteVisit.count({
-      where: { lastVisitedAt: { gte: new Date(now - DAY_MS) } },
-    }),
+    getTodayNewVisitorCount(new Date(now)),
+    getLast24HourVisitorCount(new Date(now)),
     prisma.siteVisit.count(),
     prisma.siteVisit.count({
       where: { lastVisitedAt: { gte: new Date(now - 30 * DAY_MS) } },
@@ -54,30 +39,11 @@ async function getSiteVisitorStats(): Promise<SiteVisitorStats> {
 
 export default async function AdminUsersPage() {
   await requireAdmin();
-  const [rows, siteVisitorStats, unlockOrders] = await Promise.all([
+  const [rows, siteVisitorStats] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: "desc" },
-      include: {
-        _count: { select: { referralVisits: true } },
-      },
     }),
     getSiteVisitorStats(),
-    prisma.order.findMany({
-      where: {
-        status: "paid",
-        productType: {
-          in: [ALLEY_POST_PRODUCT_TYPE, TEACHER_POST_PRODUCT_TYPE],
-        },
-      },
-      orderBy: [{ paidAt: "desc" }, { id: "desc" }],
-      select: {
-        id: true,
-        userId: true,
-        amount: true,
-        paidAt: true,
-        merchantOrderNo: true,
-      },
-    }),
   ]);
 
   // 转成安全的展示数据（去掉密码等敏感字段，日期先格式化好）
@@ -85,8 +51,6 @@ export default async function AdminUsersPage() {
     id: u.id,
     username: u.username,
     email: u.email,
-    referralCode: u.referralCode,
-    referralVisitorCount: u._count.referralVisits,
     isMember: u.isMember,
     createdAtLabel: formatDate(u.createdAt),
     expiryLabel: u.isMember
@@ -100,15 +64,6 @@ export default async function AdminUsersPage() {
     banReason: u.banReason,
   }));
 
-  const usernames = new Map(rows.map((user) => [user.id, user.username]));
-  const unlockRecords: SinglePostUnlockRecord[] = unlockOrders.map((order) => ({
-    id: order.id,
-    username: usernames.get(order.userId) ?? `已删除用户 #${order.userId}`,
-    amountLabel: `¥${order.amount}`,
-    paidAtLabel: order.paidAt ? formatDateTime(order.paidAt) : "—",
-    merchantOrderNo: order.merchantOrderNo ?? "—",
-  }));
-
   return (
     <div className="mx-auto w-full max-w-md flex-1 px-4 pb-10">
       {/* 顶部栏 */}
@@ -119,12 +74,10 @@ export default async function AdminUsersPage() {
         <h1 className="text-lg font-bold">用户管理</h1>
       </header>
 
-
       {/* 筛选 + 列表（客户端交互） */}
       <UsersBrowser
         users={users}
         siteVisitorStats={siteVisitorStats}
-        unlockRecords={unlockRecords}
       />
     </div>
   );
