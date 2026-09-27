@@ -35,6 +35,8 @@ const users = [
 ].map(user => ({
   ...user,
   email: `${user.username}@example.test`,
+  referralCode: `invite-${user.id}`,
+  referralVisitorCount: user.id - 101,
   createdAtLabel: '2026/09/01',
   expiryLabel: user.isMember ? '永久会员' : null,
   memberSinceLabel: user.isMember ? '2026/09/02' : null,
@@ -43,7 +45,7 @@ const users = [
 }));
 
 function renderUsers(filter = 'all', search = '') {
-  const state = [filter, search];
+  const state = [filter, search, false];
   const { UsersBrowser } = load('src/app/adminzhangzhang/users/UsersBrowser.tsx', {
     'react/jsx-runtime': jsx,
     react: { useState: () => [state.shift(), () => {}] },

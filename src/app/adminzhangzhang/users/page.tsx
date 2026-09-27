@@ -42,6 +42,9 @@ export default async function AdminUsersPage() {
   const [rows, siteVisitorStats] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: "desc" },
+      include: {
+        _count: { select: { referralVisits: true } },
+      },
     }),
     getSiteVisitorStats(),
   ]);
@@ -51,6 +54,8 @@ export default async function AdminUsersPage() {
     id: u.id,
     username: u.username,
     email: u.email,
+    referralCode: u.referralCode,
+    referralVisitorCount: u._count.referralVisits,
     isMember: u.isMember,
     createdAtLabel: formatDate(u.createdAt),
     expiryLabel: u.isMember

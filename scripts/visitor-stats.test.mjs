@@ -137,7 +137,16 @@ function pages({ authorized = true } = {}) {
       assert.equal(query.where.teamAccountId, 17);
       return query.where.status === 'pending' ? 3 : 9;
     } },
-    user: { findMany: async () => { authenticatedRead(); return []; } },
+    user: { findMany: async (query) => {
+      authenticatedRead();
+      assert.equal(query.include._count.select.referralVisits, true);
+      return [{
+        id: 21, username: 'fixture-user', email: null, referralCode: 'existing-code',
+        _count: { referralVisits: 7 }, createdAt: new Date(START),
+        isMember: false, membershipExpiresAt: null, memberSince: null,
+        isBanned: false, bannedAt: null, banReason: null,
+      }];
+    } },
   };
   const actualHelper = visitorHelper(prisma.siteVisit.count, FixedDate);
   const common = {
@@ -183,6 +192,8 @@ test('team and user management share today and last 24 hour counts while keeping
   const teamHtml = renderToStaticMarkup(await fixture.TeamPage());
   renderToStaticMarkup(await fixture.AdminPage());
   assert.equal(fixture.helperCalls, 4);
+  assert.equal(fixture.browserProps.users[0].referralCode, 'existing-code');
+  assert.equal(fixture.browserProps.users[0].referralVisitorCount, 7);
   assert.equal(fixture.browserProps.siteVisitorStats.today, 2);
   assert.equal(fixture.browserProps.siteVisitorStats.total, visits.length);
   assert.equal(fixture.browserProps.siteVisitorStats.day, 5);

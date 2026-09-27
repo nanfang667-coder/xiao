@@ -12,6 +12,8 @@ export type AdminUser = {
   id: number;
   username: string;
   email: string | null;
+  referralCode: string;
+  referralVisitorCount: number;
   isMember: boolean;
   createdAtLabel: string;
   expiryLabel: string | null; // 仅会员有：「永久会员」或「会员到期：xxxx」
@@ -31,6 +33,8 @@ export type SiteVisitorStats = {
 
 type Filter = "all" | "member" | "normal" | "banned";
 
+const HIGH_VISITOR_THRESHOLD = 10;
+
 export function UsersBrowser({
   users,
   siteVisitorStats,
@@ -40,10 +44,14 @@ export function UsersBrowser({
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
+  const [showHighVisitorOnly, setShowHighVisitorOnly] = useState(false);
 
   const memberCount = users.filter((u) => u.isMember).length;
   const normalCount = users.length - memberCount;
   const bannedCount = users.filter((u) => u.isBanned).length;
+  const highVisitorCount = users.filter(
+    (u) => u.referralVisitorCount > HIGH_VISITOR_THRESHOLD,
+  ).length;
 
   const tabs: { key: Filter; label: string; count: number }[] = [
     { key: "all", label: "全部", count: users.length },
@@ -60,14 +68,23 @@ export function UsersBrowser({
       if (filter === "normal" && u.isMember) return false;
       if (filter === "banned" && !u.isBanned) return false;
       if (
+        showHighVisitorOnly &&
+        u.referralVisitorCount <= HIGH_VISITOR_THRESHOLD
+      )
+        return false;
+      if (
         trimmedSearch &&
         !String(u.id).includes(trimmedSearch) &&
         !u.username.toLowerCase().includes(trimmedSearch) &&
+        !u.referralCode.toLowerCase().includes(trimmedSearch) &&
         !(u.email ?? "").toLowerCase().includes(trimmedSearch)
       )
         return false;
       return true;
-    });
+    })
+    .sort((a, b) =>
+      showHighVisitorOnly ? b.referralVisitorCount - a.referralVisitorCount : 0,
+    );
 
   return (
     <>
@@ -89,12 +106,12 @@ export function UsersBrowser({
         ))}
       </div>
 
-      {/* 按用户ID / 用户名 / 邮箱搜索 */}
+      {/* 按用户ID / 用户名 / 邮箱 / 邀请码搜索 */}
       <input
         type="text"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="搜索用户ID / 用户名 / 邮箱"
+        placeholder="搜索用户ID / 用户名 / 邮箱 / 邀请码"
         className="mb-3 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-pink-400"
       />
 
@@ -121,6 +138,30 @@ export function UsersBrowser({
           </button>
         ))}
       </div>
+
+      {/* 高访客邀请码可与用户类型和搜索条件组合筛选 */}
+      <button
+        type="button"
+        aria-pressed={showHighVisitorOnly}
+        onClick={() => setShowHighVisitorOnly((current) => !current)}
+        className={`mb-4 flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
+          showHighVisitorOnly
+            ? "border-pink-500 bg-pink-500 text-white shadow"
+            : "border-pink-200 bg-white text-gray-600 shadow-sm"
+        }`}
+      >
+        <span>独立访客 &gt; {HIGH_VISITOR_THRESHOLD}</span>
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs ${
+            showHighVisitorOnly
+              ? "bg-white/20 text-white"
+              : "bg-pink-50 text-pink-500"
+          }`}
+        >
+          {highVisitorCount} 个链接
+          {showHighVisitorOnly ? " · 人数从高到低" : ""}
+        </span>
+      </button>
 
       {/* 用户列表 */}
       <div className="space-y-3">
@@ -157,6 +198,12 @@ export function UsersBrowser({
             <div className="mt-1.5 space-y-0.5 text-xs text-gray-400">
               {u.email && <p>📮 {u.email}</p>}
               <p>注册于 {u.createdAtLabel}</p>
+              <p className="flex flex-wrap items-center gap-1.5 font-medium text-pink-500">
+                <span className="break-all">🔗 邀请码 {u.referralCode}</span>
+                <span className="rounded-full bg-pink-50 px-2 py-0.5">
+                  独立访客 <strong>{u.referralVisitorCount}</strong> 人
+                </span>
+              </p>
               {u.isMember && u.expiryLabel && (
                 <p className="text-amber-500">{u.expiryLabel}</p>
               )}

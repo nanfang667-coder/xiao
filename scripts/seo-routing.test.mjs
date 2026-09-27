@@ -77,13 +77,14 @@ test('sitemap retains listing and merchant URLs without querying retired models'
   assert.ok(urls.every(url => !/alley|vip|promote/.test(url)));
 });
 
-test('registration ignores old referral cookies while preserving account creation', async () => {
+test('registration without a referral preserves account creation and generates a shareable code', async () => {
   let saved;
   const auth = loadSource('src/lib/user-auth.ts', {
-    'next/headers': { cookies: () => { throw new Error('Registration must not read referral cookies'); } },
+    'next/headers': { cookies: async () => ({ get: () => undefined }) },
     'next/navigation': {}, jsonwebtoken: {},
     bcrypt: { default: { hash: async () => 'hashed-test-password' } },
-    'node:crypto': { randomUUID: () => 'legacy-unique-value' },
+    '@/lib/referral': { generateUniqueReferralCode: async () => 'AB3', REF_COOKIE_NAME: 'ref_code',
+      findReferralOwner: () => { throw new Error('No referral lookup without a cookie'); } },
     '@/lib/prisma': { prisma: { user: {
       findUnique: async ({ where }) => { assert.ok('username' in where); return null; },
       create: async ({ data }) => { saved = data; return { ...data, id: 1 }; },
@@ -95,7 +96,7 @@ test('registration ignores old referral cookies while preserving account creatio
   assert.equal(user.username, 'test');
   assert.equal(saved.passwordHash, 'hashed-test-password');
   assert.equal(saved.siteId, 'test-site');
-  assert.equal(saved.referralCode, 'legacy-unique-value');
-  assert.equal('referredBy' in saved, false);
+  assert.equal(saved.referralCode, 'AB3');
+  assert.equal(saved.referredBy, null);
   assert.equal('passwordHash' in user, false);
 });

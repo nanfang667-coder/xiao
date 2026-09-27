@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
-import { randomUUID } from "node:crypto";
+import { findReferralOwner, generateUniqueReferralCode, REF_COOKIE_NAME } from "@/lib/referral";
 import { userSessionCookieOptions } from "@/lib/user-session-cookie";
 import { GENERIC_LOGIN_ERROR } from "@/lib/user-auth-input";
 import type { User as UserRow } from "@prisma/client";
@@ -174,8 +174,13 @@ export async function registerUser(input: RegisterInput, ip: string): Promise<Us
   // 哈希密码
   const passwordHash = await hashPassword(input.password);
 
-  // Keep the required legacy column populated without enabling referral links.
-  const referralCode = randomUUID();
+  const referralCode = await generateUniqueReferralCode();
+
+  // 来源关系只在注册时绑定，已有用户浏览邀请链接不会改变其归属。
+  const store = await cookies();
+  const refCode = store.get(REF_COOKIE_NAME)?.value;
+  const referrer = refCode ? await findReferralOwner(refCode) : null;
+  const referredBy = referrer?.siteId === site.id ? referrer.id : null;
 
   // 创建用户
   const user = await prisma.user.create({
@@ -185,6 +190,7 @@ export async function registerUser(input: RegisterInput, ip: string): Promise<Us
       passwordHash,
       isMember: false, // 新用户默认不是会员
       referralCode,
+      referredBy,
       registrationIp: ip === "unknown" ? null : ip,
       siteId: site.id,
     },
