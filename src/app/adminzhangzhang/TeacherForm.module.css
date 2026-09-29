@@ -1,0 +1,402 @@
+/* Keep this form usable when an older browser cannot read Tailwind's layers. */
+.page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 448px;
+  margin: 0 auto;
+  padding: 16px 16px 40px;
+  color: #364153;
+  font-family: "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+.page *,
+.page *::before,
+.page *::after {
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.backLink {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  color: #f6339a;
+  text-decoration: none;
+}
+
+.title {
+  margin: 0 8px;
+  color: #101828;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.headerSpacer {
+  width: 40px;
+}
+
+.notice {
+  margin: 0 0 20px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #fffbeb;
+  color: #953d00;
+  font-size: 14px;
+  line-height: 24px;
+  overflow-wrap: break-word;
+}
+
+.form {
+  margin: 0;
+}
+
+.form > * + * {
+  margin-top: 20px;
+}
+
+.label {
+  display: block;
+  margin-bottom: 6px;
+  color: #364153;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.field {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #d1d5dc;
+  border-radius: 8px;
+  background: #fff;
+  color: #1e2939;
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+textarea.field {
+  resize: vertical;
+}
+
+.field::placeholder {
+  color: #7c8796;
+  opacity: 1;
+}
+
+.field:focus {
+  border-color: #fb64b6;
+  outline: 2px solid #fce7f3;
+  outline-offset: 1px;
+}
+
+.columns,
+.promotionColumns {
+  display: flex;
+}
+
+.columns > *,
+.promotionColumns > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.columns > * + *,
+.promotionColumns > * + * {
+  margin-left: 12px;
+}
+
+.column {
+  min-width: 0;
+}
+
+.hint,
+.existingPhotoHint {
+  display: block;
+  margin: 6px 0 0;
+  color: #6a7282;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.promotion {
+  min-width: 0;
+  margin-right: 0;
+  margin-left: 0;
+  padding: 16px;
+  border: 1px solid #fee685;
+  border-radius: 16px;
+  background: #fffbeb;
+}
+
+.legend {
+  padding: 0 4px;
+  color: #7b3306;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.promotionToggle {
+  display: flex;
+  align-items: flex-start;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.checkbox {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  margin: 3px 12px 0 0;
+}
+
+.promotionTitle {
+  display: block;
+  color: #1e2939;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.promotionDescription {
+  display: block;
+  margin-top: 2px;
+  color: #6a7282;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.promotionField,
+.promotionColumns {
+  margin-top: 16px;
+}
+
+.promotionHint,
+.promotionFootnote {
+  margin: 6px 0 0;
+  color: #953d00;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.promotionFootnote {
+  margin-top: 8px;
+}
+
+.compressionStatus {
+  margin-left: 8px;
+  color: #e30076;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* Retain keyboard access while the associated label is the large tap target. */
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.uploadZone {
+  display: block;
+  min-height: 112px;
+  padding: 24px 12px;
+  border: 2px dashed #d1d5dc;
+  border-radius: 12px;
+  background: #f9fafb;
+  text-align: center;
+  cursor: pointer;
+}
+
+.fileInput:focus + .uploadZone {
+  outline: 2px solid #f6339a;
+  outline-offset: 2px;
+}
+
+.uploadZone:active,
+.uploadActive {
+  border-color: #fb64b6;
+  background: #fdf2f8;
+}
+
+.uploadDisabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.uploadTitle {
+  display: block;
+  color: #e30076;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.photoGrid {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 8px -4px -4px;
+}
+
+.photoCard,
+.existingPhoto {
+  width: calc(50% - 8px);
+  margin: 4px;
+}
+
+.photoCard {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #e5e7eb;
+}
+
+.photoImage {
+  display: block;
+  width: 100%;
+  height: 136px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.photoImage.existingPhoto {
+  width: calc(50% - 8px);
+}
+
+.photoPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #a685ff;
+  background: linear-gradient(135deg, #a685ff, #ac4bff);
+  font-size: 30px;
+}
+
+.photoNumber {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  min-width: 22px;
+  padding: 1px 6px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 12px;
+  text-align: center;
+}
+
+.removePhoto,
+.movePhoto {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 22px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font: inherit;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.removePhoto {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+.photoControls {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  left: 4px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.movePhoto:disabled {
+  visibility: hidden;
+}
+
+.existingPhotos {
+  margin-top: 12px;
+}
+
+.existingPhotoHint {
+  margin-top: 0;
+}
+
+.submitButton {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #f6339a;
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+.submitButton:active {
+  background: #e30076;
+}
+
+.submitButton:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.backLink:focus,
+.removePhoto:focus,
+.movePhoto:focus,
+.submitButton:focus {
+  outline: 2px solid #e30076;
+  outline-offset: 2px;
+}
+
+@media (max-width: 420px) {
+  .columns,
+  .promotionColumns {
+    display: block;
+  }
+
+  .columns > * + *,
+  .promotionColumns > * + * {
+    margin-top: 20px;
+    margin-left: 0;
+  }
+}
+
+@media (min-width: 440px) {
+  .photoCard,
+  .photoImage.existingPhoto {
+    width: calc(33.333333% - 8px);
+  }
+}

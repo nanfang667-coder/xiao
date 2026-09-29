@@ -19,6 +19,13 @@ export default async function AdminDashboard() {
 
   const modules = [
     {
+      href: "/adminzhangzhang/partner-import",
+      icon: "📥",
+      title: "合作网站导入",
+      desc: "按分页网址导入帖子，私密待审后手动发布",
+      count: "导入与审查",
+    },
+    {
       href: "/adminzhangzhang/sites",
       icon: "👥",
       title: "团队账号管理",

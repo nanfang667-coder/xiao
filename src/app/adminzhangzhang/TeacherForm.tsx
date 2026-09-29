@@ -6,12 +6,14 @@ import Link from "next/link";
 import { provinces, citiesOfProvince, normalizeProvince, resolveDistrict } from "@/data/locations";
 import { isImage } from "@/lib/photo";
 import type { Teacher } from "@/lib/teachers";
+import { withSelectedPostPhotos } from "@/lib/post-photo-selection";
+import styles from "./TeacherForm.module.css";
 
 function SubmitPostButton({ compressing, label }: { compressing: boolean; label: string }) {
   const { pending } = useFormStatus();
   return (
     <button type="submit" disabled={compressing || pending} aria-busy={pending}
-      className="w-full rounded-lg bg-pink-500 py-2.5 text-sm font-bold text-white active:bg-pink-600 disabled:opacity-50">
+      className={styles.submitButton}>
       {pending ? "提交中，请稍候…" : compressing ? "图片压缩中..." : label}
     </button>
   );
@@ -60,7 +62,7 @@ export function TeacherForm({
   const [previews, setPreviews] = useState<string[]>([]);
   const [compressing, setCompressing] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const compressingRef = useRef(false);
 
   // 每次累加的文件变化时，重新生成预览图地址，并在下次变化前回收旧的
   useEffect(() => {
@@ -70,14 +72,10 @@ export function TeacherForm({
     return () => urls.forEach((u) => URL.revokeObjectURL(u));
   }, [photoFiles]);
 
-  // 把累加后的完整文件列表同步回真正的 <input type="file">，
-  // 这样表单提交时读到的才是全部选中的照片，而不是最后一次选/拖的那一张
-  useEffect(() => {
-    if (!fileInputRef.current) return;
-    const dt = new DataTransfer();
-    photoFiles.forEach((f) => dt.items.add(f));
-    fileInputRef.current.files = dt.files;
-  }, [photoFiles]);
+  // 直接提交预览中的完整照片列表，兼容不支持 DataTransfer 构造器的浏览器。
+  async function submitPost(formData: FormData) {
+    await action(withSelectedPostPhotos(formData, photoFiles));
+  }
 
   // 手机原图动辄几MB到十几MB，多选/多次拖拽累加后很容易超过服务器单次请求大小上限，
   // 导致提交时连接被直接断开（浏览器表现为"网页无法打开"，而不是清晰的报错提示）。
@@ -112,24 +110,28 @@ export function TeacherForm({
 
   // 无论是点击选文件，还是把一批文件一起拖进拖拽区，都走这里——追加而不是替换
   const processFiles = async (files: File[]) => {
-    if (files.length === 0) return;
+    if (files.length === 0 || compressingRef.current) return;
+    compressingRef.current = true;
     setCompressing(true);
     try {
       const compressed = await Promise.all(files.map(compressImage));
       setPhotoFiles((prev) => [...prev, ...compressed]);
     } finally {
+      compressingRef.current = false;
       setCompressing(false);
     }
   };
 
   const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    processFiles(Array.from(e.target.files ?? []));
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    void processFiles(files);
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
     setDragActive(false);
-    processFiles(Array.from(e.dataTransfer.files ?? []));
+    void processFiles(Array.from(e.dataTransfer.files ?? []));
   };
 
   const removePhoto = (index: number) => {
@@ -147,39 +149,38 @@ export function TeacherForm({
     });
   };
 
-  const label = "mb-1 block text-sm font-medium text-gray-700";
-  const field =
-    "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-pink-400";
+  const label = styles.label;
+  const field = styles.field;
 
   return (
-    <div className="mx-auto w-full max-w-md flex-1 px-4 pb-10 pt-4">
-      <div className="mb-4 flex items-center justify-between">
-        <Link href={backHref} className="text-pink-500">
+    <div className={styles.page}>
+      <div className={styles.header}>
+        <Link href={backHref} className={styles.backLink}>
           ← 返回
         </Link>
-        <h1 className="text-base font-bold text-gray-900">
+        <h1 className={styles.title}>
           {title ?? (initial ? "编辑老师" : "添加老师")}
         </h1>
-        <span className="w-10" />
+        <span className={styles.headerSpacer} />
       </div>
 
       {notice && (
-        <p className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+        <p className={styles.notice}>
           {notice}
         </p>
       )}
 
-      <form action={action} className="space-y-4">
+      <form action={submitPost} className={styles.form}>
         <div>
-          <label className={label}>标题</label>
-          <input name="name" required maxLength={100} defaultValue={initial?.name} className={field} />
+          <label htmlFor="post-name" className={label}>标题</label>
+          <input id="post-name" name="name" required maxLength={100} defaultValue={initial?.name} className={field} />
         </div>
 
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <label className={label}>省份（选填）</label>
+        <div className={styles.columns}>
+          <div className={styles.column}>
+            <label htmlFor="post-city" className={label}>省份（选填）</label>
             <input
-              name="city"
+              id="post-city" name="city"
               list="province-options"
               value={city}
               onChange={(e) => setCity(e.target.value)}
@@ -197,10 +198,10 @@ export function TeacherForm({
               ))}
             </datalist>
           </div>
-          <div className="flex-1">
-            <label className={label}>城市（选填）</label>
+          <div className={styles.column}>
+            <label htmlFor="post-district" className={label}>城市（选填）</label>
             <input
-              name="district"
+              id="post-district" name="district"
               list="district-options"
               value={district}
               onChange={(e) => setDistrict(e.target.value)}
@@ -225,14 +226,14 @@ export function TeacherForm({
         </div>
 
         <div>
-          <label className={label}>价格</label>
-          <input name="price" defaultValue={initial?.price} className={field} />
+          <label htmlFor="post-price" className={label}>价格</label>
+          <input id="post-price" name="price" defaultValue={initial?.price} className={field} />
         </div>
 
         <div>
-          <label className={label}>年龄</label>
+          <label htmlFor="post-age" className={label}>年龄</label>
           <input
-            name="age"
+            id="post-age" name="age"
             defaultValue={initial?.age ?? ""}
             placeholder="例如：28 或 25-30"
             className={field}
@@ -240,14 +241,14 @@ export function TeacherForm({
         </div>
 
         <div>
-          <label className={label}>服务内容</label>
-          <textarea name="services" required maxLength={4000} defaultValue={initial?.services} rows={1} className={field} />
+          <label htmlFor="post-services" className={label}>服务内容</label>
+          <textarea id="post-services" name="services" required maxLength={4000} defaultValue={initial?.services} rows={1} className={field} />
         </div>
 
         <div>
-          <label className={label}>教学案例 / 课程记录</label>
+          <label htmlFor="post-courseNotes" className={label}>教学案例 / 课程记录</label>
           <textarea
-            name="courseNotes"
+            id="post-courseNotes" name="courseNotes"
             defaultValue={initial?.courseNotes ?? ""}
             rows={4}
             placeholder="例如：学员上课频率、教材进度、阶段性成果等"
@@ -256,25 +257,25 @@ export function TeacherForm({
         </div>
 
         <div>
-          <label className={label}>联系电话</label>
-          <input name="phone" defaultValue={initial?.contact.phone} className={field} />
+          <label htmlFor="post-phone" className={label}>联系电话</label>
+          <input id="post-phone" name="phone" defaultValue={initial?.contact.phone} className={field} />
         </div>
 
         <div>
-          <label className={label}>微信号</label>
-          <input name="wechat" defaultValue={initial?.contact.wechat} className={field} />
-          {!showPromotion && <p className="mt-1 text-xs text-gray-400">电话、微信、QQ 或其他联系方式至少填写一项</p>}
+          <label htmlFor="post-wechat" className={label}>微信号</label>
+          <input id="post-wechat" name="wechat" defaultValue={initial?.contact.wechat} className={field} />
+          {!showPromotion && <p className={styles.hint}>电话、微信、QQ 或其他联系方式至少填写一项</p>}
         </div>
 
         <div>
-          <label className={label}>QQ</label>
-          <input name="qq" defaultValue={initial?.contact.qq ?? ""} className={field} />
+          <label htmlFor="post-qq" className={label}>QQ</label>
+          <input id="post-qq" name="qq" defaultValue={initial?.contact.qq ?? ""} className={field} />
         </div>
 
         <div>
-          <label className={label}>其他联系方式</label>
+          <label htmlFor="post-otherContact" className={label}>其他联系方式</label>
           <input
-            name="otherContact"
+            id="post-otherContact" name="otherContact"
             defaultValue={initial?.contact.other ?? ""}
             placeholder="例如：邮箱、Telegram，选填"
             className={field}
@@ -282,32 +283,33 @@ export function TeacherForm({
         </div>
 
         <div>
-          <label className={label}>详细地址</label>
+          <label htmlFor="post-address" className={label}>详细地址</label>
           <input
-            name="address"
+            id="post-address" name="address"
             defaultValue={initial?.contact.address ?? ""}
             placeholder="例如：XX路XX号，帮学员判断通勤距离，选填"
             className={field}
           />
         </div>
-        {showPromotion && <fieldset className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
-          <legend className="px-1 text-sm font-bold text-amber-900">{"\u5168\u56fd\u63a8\u5e7f"}</legend>
-          <label className="flex cursor-pointer items-start gap-3">
+        {showPromotion && <fieldset className={styles.promotion}>
+          <legend className={styles.legend}>{"\u5168\u56fd\u63a8\u5e7f"}</legend>
+          <label htmlFor="post-promotion" className={styles.promotionToggle}>
             <input
               type="checkbox"
+              id="post-promotion"
               name="isNationallyPromoted"
               defaultChecked={initial?.isNationallyPromoted ?? false}
-              className="mt-0.5 h-4 w-4 accent-amber-500"
+              className={styles.checkbox}
             />
             <span>
-              <span className="block text-sm font-medium text-gray-800">{"\u5728\u5168\u56fd\u63a8\u5e7f\u4f4d\u5c55\u793a"}</span>
-              <span className="mt-0.5 block text-xs leading-relaxed text-gray-500">
+              <span className={styles.promotionTitle}>{"\u5728\u5168\u56fd\u63a8\u5e7f\u4f4d\u5c55\u793a"}</span>
+              <span className={styles.promotionDescription}>
                 {"\u5f00\u542f\u540e\u4f1a\u51fa\u73b0\u5728\u9996\u9875\u548c\u6240\u6709\u5730\u533a\u9875\u9876\u90e8\uff0c\u5e76\u6e05\u695a\u6807\u6ce8\u4e3a\u63a8\u5e7f\u5185\u5bb9\u3002"}
               </span>
             </span>
           </label>
 
-          <div className="mt-4">
+          <div className={styles.promotionField}>
             <label htmlFor="promotionOrder" className={label}>{"\u5e7f\u544a\u6392\u5e8f"}</label>
             <input
               id="promotionOrder"
@@ -318,10 +320,10 @@ export function TeacherForm({
               defaultValue={initial?.promotionOrder ?? 100}
               className={field}
             />
-            <p className="mt-1 text-xs text-amber-800/70">{"\u6570\u5b57\u8d8a\u5c0f\u8d8a\u9760\u524d\uff0c\u4f8b\u5982 1 \u6392\u7b2c\u4e00\u30012 \u6392\u7b2c\u4e8c\uff1b\u672a\u586b\u5199\u9ed8\u8ba4 100\u3002"}</p>
+            <p className={styles.promotionHint}>{"\u6570\u5b57\u8d8a\u5c0f\u8d8a\u9760\u524d\uff0c\u4f8b\u5982 1 \u6392\u7b2c\u4e00\u30012 \u6392\u7b2c\u4e8c\uff1b\u672a\u586b\u5199\u9ed8\u8ba4 100\u3002"}</p>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className={styles.promotionColumns}>
             <div>
               <label htmlFor="promotionStartsAt" className={label}>{"\u5f00\u59cb\u65f6\u95f4"}</label>
               <input
@@ -343,74 +345,74 @@ export function TeacherForm({
               />
             </div>
           </div>
-          <p className="mt-2 text-xs text-amber-800/70">
+          <p className={styles.promotionFootnote}>
             {"\u65f6\u95f4\u7559\u7a7a\u8868\u793a\u7acb\u5373\u5f00\u59cb\u6216\u957f\u671f\u5c55\u793a\uff08\u5317\u4eac\u65f6\u95f4\uff09\u3002"}
           </p>
         </fieldset>}
 
 
         <div>
-          <label className={label}>
+          <label htmlFor="post-photos" className={label}>
             照片（可多选，也可以一次拖拽好几张进来）
-            {compressing && <span className="ml-2 text-xs font-normal text-pink-500">压缩中...</span>}
+            {compressing && <span className={styles.compressionStatus}>压缩中...</span>}
           </label>
           <input
-            ref={fileInputRef}
+            id="post-photos"
             type="file"
             name="photos"
             accept="image/jpeg,image/png,image/webp"
             multiple
+            disabled={compressing}
             onChange={handleFiles}
-            className="hidden"
+            className={styles.fileInput}
           />
-          <div
-            onClick={() => fileInputRef.current?.click()}
+          <label
+            htmlFor="post-photos"
+            aria-disabled={compressing}
             onDragOver={(e) => {
               e.preventDefault();
-              setDragActive(true);
+              if (!compressingRef.current) setDragActive(true);
             }}
             onDragLeave={() => setDragActive(false)}
             onDrop={handleDrop}
-            className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed py-8 text-center transition-colors ${
-              dragActive
-                ? "border-pink-400 bg-pink-50"
-                : "border-gray-200 bg-gray-50 active:bg-gray-100"
-            }`}
+            className={`${styles.uploadZone}${dragActive ? ` ${styles.uploadActive}` : ""}${compressing ? ` ${styles.uploadDisabled}` : ""}`}
           >
-            <span className="text-sm font-medium text-pink-500">点击选择照片</span>
-            <span className="mt-1 text-xs text-gray-400">
+            <span className={styles.uploadTitle}>点击选择照片</span>
+            <span className={styles.hint}>
               支持 JPEG、PNG、WebP；最多 8 张，单张不超过 5MB
             </span>
-          </div>
+          </label>
 
           {/* 新选择的照片预览：左上角是顺序号，第1张会作为封面图；
               可点右上角 × 移除，或用左右箭头调整这张图排第几 */}
           {previews.length > 0 && (
-            <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className={styles.photoGrid}>
               {previews.map((src, i) => (
-                <div key={i} className="relative">
+                <div key={i} className={styles.photoCard}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={src}
                     alt=""
-                    className="h-24 w-full rounded-lg object-cover"
+                    className={styles.photoImage}
                   />
-                  <span className="absolute left-1 top-1 rounded-full bg-black/60 px-1.5 text-xs text-white">
+                  <span className={styles.photoNumber}>
                     {i + 1}
                   </span>
                   <button
                     type="button"
                     onClick={() => removePhoto(i)}
-                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs text-white"
+                    aria-label={`移除第 ${i + 1} 张照片`}
+                    className={styles.removePhoto}
                   >
                     ×
                   </button>
-                  <div className="absolute bottom-1 left-1 right-1 flex justify-between">
+                  <div className={styles.photoControls}>
                     <button
                       type="button"
                       onClick={() => movePhoto(i, -1)}
                       disabled={i === 0}
-                      className="flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs text-white disabled:opacity-0"
+                      aria-label={`将第 ${i + 1} 张照片前移`}
+                      className={styles.movePhoto}
                     >
                       ←
                     </button>
@@ -418,7 +420,8 @@ export function TeacherForm({
                       type="button"
                       onClick={() => movePhoto(i, 1)}
                       disabled={i === previews.length - 1}
-                      className="flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs text-white disabled:opacity-0"
+                      aria-label={`将第 ${i + 1} 张照片后移`}
+                      className={styles.movePhoto}
                     >
                       →
                     </button>
@@ -430,9 +433,9 @@ export function TeacherForm({
 
           {/* 编辑时，若没选新图，显示当前照片 */}
           {previews.length === 0 && initial && (
-            <div className="mt-3">
-              <p className="mb-1 text-xs text-gray-400">当前照片（不选新图就保留）：</p>
-              <div className="grid grid-cols-3 gap-2">
+            <div className={styles.existingPhotos}>
+              <p className={styles.existingPhotoHint}>当前照片（不选新图就保留）：</p>
+              <div className={styles.photoGrid}>
                 {initial.photos.map((p, i) =>
                   isImage(p) ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -440,12 +443,12 @@ export function TeacherForm({
                       key={i}
                       src={p}
                       alt=""
-                      className="h-24 w-full rounded-lg object-cover"
+                      className={`${styles.photoImage} ${styles.existingPhoto}`}
                     />
                   ) : (
                     <div
                       key={i}
-                      className={`flex h-24 w-full items-center justify-center rounded-lg bg-gradient-to-br text-3xl ${p}`}
+                      className={`${styles.photoImage} ${styles.existingPhoto} ${styles.photoPlaceholder}`}
                     >
                       {initial.emoji}
                     </div>

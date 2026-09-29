@@ -10,6 +10,7 @@ TARGET_REF="${1:-origin/main}"
 HEALTH_PATH="${HEALTH_PATH:-/}"
 DATABASE_RELATIVE_PATH="prisma/prisma/prod.db"
 ALLEY_DETAIL_STORAGE_DIR="$SOURCE_DIR/storage/alley-detail"
+PARTNER_IMPORT_STORAGE_DIR="$SOURCE_DIR/storage/partner-import"
 HEALTH_HOST="${HEALTH_HOST:-fenglou1.com}"
 DRAIN_SECONDS="${DRAIN_SECONDS:-10}"
 ALLOW_DATABASE_MIGRATIONS="${ALLOW_DATABASE_MIGRATIONS:-0}"
@@ -128,6 +129,15 @@ for previous_storage in "$RELEASES_DIR"/*/storage/alley-detail; do
   fi
 done
 
+# Imported drafts keep private photos across every release switch.
+mkdir -p "$PARTNER_IMPORT_STORAGE_DIR"
+chmod 700 "$PARTNER_IMPORT_STORAGE_DIR"
+for previous_storage in "$RELEASES_DIR"/*/storage/partner-import; do
+  if [[ -d "$previous_storage" && ! -L "$previous_storage" ]]; then
+    cp -a -n "$previous_storage"/. "$PARTNER_IMPORT_STORAGE_DIR"/
+  fi
+done
+
 log "Fetching origin/main without modifying the live checkout"
 git -C "$SOURCE_DIR" fetch --prune origin main
 TARGET_REVISION="$(git -C "$SOURCE_DIR" rev-parse --verify "$TARGET_REF^{commit}")"
@@ -158,6 +168,7 @@ if [[ -e "$NEW_RELEASE/public/uploads" ]]; then
 fi
 mkdir -p "$NEW_RELEASE/public/uploads"
 mkdir -p "$NEW_RELEASE/storage/alley-detail"
+mkdir -p "$NEW_RELEASE/storage/partner-import"
 
 ACTIVE_MIGRATIONS="$(migration_fingerprint "$ACTIVE_RELEASE")"
 TARGET_MIGRATIONS="$(migration_fingerprint "$NEW_RELEASE")"
@@ -185,6 +196,8 @@ rmdir -- "$NEW_RELEASE/public/uploads"
 ln -s "$SOURCE_DIR/public/uploads" "$NEW_RELEASE/public/uploads"
 rmdir -- "$NEW_RELEASE/storage/alley-detail"
 ln -s "$ALLEY_DETAIL_STORAGE_DIR" "$NEW_RELEASE/storage/alley-detail"
+rmdir -- "$NEW_RELEASE/storage/partner-import"
+ln -s "$PARTNER_IMPORT_STORAGE_DIR" "$NEW_RELEASE/storage/partner-import"
 
 pm2 delete "$NEW_PROCESS" >/dev/null 2>&1 || true
 NODE_ENV=production NEXT_DEPLOYMENT_ID="$TARGET_REVISION" \

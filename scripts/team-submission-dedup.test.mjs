@@ -15,7 +15,8 @@ function setup({ authorized = true, quota = 100, fail = false } = {}) {
   const submission = {
     findUnique: async ({ where }) => db.prepare('SELECT id FROM TeacherSubmission WHERE submissionKey = ?').get(where.submissionKey),
     count: async () => 0,
-    create: async ({ data }) => {
+    create: async ({ data, select }) => {
+      assert.deepEqual(JSON.parse(JSON.stringify(select)), { id: true }, "Do not return new columns before schema activation");
       if (fail) throw new Error('failed write');
       db.prepare('INSERT INTO TeacherSubmission (submissionKey, photos) VALUES (?, ?)').run(data.submissionKey, data.photos);
     },

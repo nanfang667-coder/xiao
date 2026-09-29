@@ -37,6 +37,7 @@ export default async function TeamPostsPage({
       orderBy: { createdAt: "desc" },
     }),
     prisma.teacherSubmission.findMany({
+      select: { id: true, name: true, status: true, reviewNote: true },
       where: {
         teamAccountId: account.id,
         kind: "create",

@@ -17,7 +17,9 @@ export default async function TeamLoginPage({
         <p className="mt-1 text-sm text-gray-500">查看访客数据，发布和管理自己的帖子</p>
         {error && (
           <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
-            账号或密码错误，请稍后重试
+            {error === "rate-limit"
+              ? "登录尝试过于频繁，请等待 15 分钟后重试。"
+              : "登录失败，请核对账号、密码和登录网址；仍无法登录请联系管理员检查账号状态。"}
           </p>
         )}
         <form action={teamLogin} className="mt-4 space-y-3">

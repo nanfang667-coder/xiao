@@ -22,17 +22,15 @@ import {
 class TeamPostQuotaExceededError extends Error {}
 
 export async function teamLogin(formData: FormData) {
-  const username = String(formData.get("username") ?? "").trim();
+  const username = String(formData.get("username") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const ip = await getClientIp();
 
-  if (
-    !username ||
-    !password ||
-    (ip !== "unknown" &&
-      !checkRateLimit(`team-login:${ip}`, 10, 15 * 60 * 1000))
-  ) {
+  if (!username || !password) {
     redirect("/team/login?error=1");
+  }
+  if (ip !== "unknown" && !checkRateLimit(`team-login:${ip}`, 10, 15 * 60 * 1000)) {
+    redirect("/team/login?error=rate-limit");
   }
   if (!(await loginTeamAccount(username, password))) {
     redirect("/team/login?error=1");
@@ -82,6 +80,7 @@ export async function createTeamTeacherSubmission(requestId: string, formData: F
         throw new TeamPostQuotaExceededError();
       }
       await tx.teacherSubmission.create({
+        select: { id: true },
         data: {
           ...fields,
           submissionKey,

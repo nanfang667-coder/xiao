@@ -213,28 +213,36 @@ export async function updateTeacher(
   const files = getSelectedPhotoFiles(formData);
   const uploaded = await saveUploadedPhotos(files);
 
-  // 如果这次没上传新图片，就保留原来的图片
-  let photos: string[];
-  if (uploaded.length > 0) {
-    photos = uploaded;
-  } else {
-    const existing = await prisma.teacher.findUnique({ where: { id } });
-    try {
-      photos = existing
-        ? JSON.parse(existing.photos)
-        : defaultGradients(fields.type);
-    } catch {
-      photos = defaultGradients(fields.type);
-    }
-  }
+  await prisma.$transaction(async (tx) => {
+    // 管理后台的手动修改也使旧导入草稿失效，防止稍后发布覆盖人工编辑。
+    await tx.partnerImportedPost.updateMany({
+      where: { teacherId: id },
+      data: { revision: { increment: 1 } },
+    });
 
-  await prisma.teacher.update({
-    where: { id },
-    data: {
-      ...fields,
-      photos: JSON.stringify(photos),
-      emoji: emojiFor(fields.type),
-    },
+    // 在同一事务内读取当前图片，避免保留事务开始前已被替换的旧图片。
+    let photos: string[];
+    if (uploaded.length > 0) {
+      photos = uploaded;
+    } else {
+      const existing = await tx.teacher.findUnique({ where: { id } });
+      try {
+        photos = existing
+          ? JSON.parse(existing.photos)
+          : defaultGradients(fields.type);
+      } catch {
+        photos = defaultGradients(fields.type);
+      }
+    }
+
+    await tx.teacher.update({
+      where: { id },
+      data: {
+        ...fields,
+        photos: JSON.stringify(photos),
+        emoji: emojiFor(fields.type),
+      },
+    });
   });
 
   revalidatePath("/");
@@ -247,8 +255,16 @@ export async function updateTeacher(
 
 export async function deleteTeacher(id: number) {
   await requireAdmin();
-  const existing = await prisma.teacher.findUnique({ where: { id } });
-  await prisma.teacher.delete({ where: { id } });
+  const existing = await prisma.$transaction(async (tx) => {
+    // 清除公开记录关联并递增版本，旧待审稿必须重新确认后才能再次发布。
+    await tx.partnerImportedPost.updateMany({
+      where: { teacherId: id },
+      data: { revision: { increment: 1 }, teacherId: null },
+    });
+    const current = await tx.teacher.findUnique({ where: { id } });
+    await tx.teacher.delete({ where: { id } });
+    return current;
+  });
   if (existing) await deleteUploadedPhotos(existing.photos); // 顺带清理图片文件
   revalidatePath("/");
   revalidatePath("/adminzhangzhang");

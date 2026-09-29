@@ -4,15 +4,17 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 
-function setup({ authorized = true, fail = false } = {}) {
+function setup({ authorized = true, fail = false, ready = true, foreignKeyFailure = false } = {}) {
   const calls = [];
   const refreshed = [];
   const tx = Object.fromEntries(['teamSession', 'teacherSubmission', 'teacherOwnership', 'teamAccount'].map(name => [name, {
     deleteMany: async (args) => {
       calls.push([name, JSON.parse(JSON.stringify(args))]);
       if (fail && name === 'teacherSubmission') throw new Error('database failure');
+      if (foreignKeyFailure && name === 'teamAccount') throw new Error('SYNTHETIC_FOREIGN_KEY');
     },
   }]));
+  tx.partnerImportDraft = { updateMany: async args => { calls.push(['partnerImportDraft.updateMany', JSON.parse(JSON.stringify(args))]); } };
   const mocks = {
     'node:crypto': {}, bcrypt: {}, 'next/navigation': {},
     'next/cache': { revalidatePath: path => refreshed.push(path) },
@@ -23,6 +25,7 @@ function setup({ authorized = true, fail = false } = {}) {
       catch (error) { calls.push('rollback'); throw error; }
     } } },
     '@/lib/site-utils': {}, '@/lib/team-post-quota': {},
+    '@/lib/partner-import-assignment-readiness': { isPartnerImportAssignmentReady: async () => ready },
   };
   const source = fs.readFileSync(new URL('../src/app/adminzhangzhang/sites/actions.ts', import.meta.url), 'utf8');
   const exports = {};
@@ -47,6 +50,8 @@ test('deletion removes only selected account relations in one transaction and ke
   const api = setup();
   await api.deleteTeamAccount(7);
   assert.deepEqual(api.calls, ['begin',
+    ['partnerImportDraft.updateMany', { where: { teamAccountId: 7, status: { in: ['assigned', 'returned', 'submitted'] } }, data: { teamAccountId: null, status: 'ready', version: { increment: 1 } } }],
+    ['partnerImportDraft.updateMany', { where: { teamAccountId: 7 }, data: { teamAccountId: null, version: { increment: 1 } } }],
     ['teamSession', { where: { teamAccountId: 7 } }],
     ['teacherSubmission', { where: { teamAccountId: 7 } }],
     ['teacherOwnership', { where: { teamAccountId: 7 } }],
@@ -62,4 +67,22 @@ test('failed relation cleanup aborts deletion and does not refresh as successful
   assert.equal(api.calls.at(-1), 'rollback');
   assert.ok(!api.calls.some(call => Array.isArray(call) && call[0] === 'teamAccount'));
   assert.deepEqual(api.refreshed, []);
+});
+
+test('old-schema account deletion skips assignment fields and keeps the existing deletion transaction', async () => {
+  const f = setup({ ready: false });
+  await f.deleteTeamAccount(7);
+  assert.equal(f.calls.some(call => Array.isArray(call) && call[0] === 'partnerImportDraft.updateMany'), false);
+  assert.deepEqual(f.calls, ['begin',
+    ['teamSession', { where: { teamAccountId: 7 } }],
+    ['teacherSubmission', { where: { teamAccountId: 7 } }],
+    ['teacherOwnership', { where: { teamAccountId: 7 } }],
+    ['teamAccount', { where: { id: 7 } }], 'commit']);
+});
+
+test('old clients cannot delete accounts with migrated assignments when restrict ownership remains', async () => {
+  const f = setup({ ready: false, foreignKeyFailure: true });
+  await assert.rejects(f.deleteTeamAccount(7), /账号删除未完成/);
+  assert.equal(f.calls.at(-1), 'rollback');
+  assert.deepEqual(f.refreshed, []);
 });

@@ -113,6 +113,10 @@ export default async function TeamDashboardPage() {
         )}
       </div>
 
+      <Link href="/team/assigned" className="mt-3 block rounded-xl border border-pink-200 bg-white px-4 py-3 text-center text-sm font-bold text-pink-600">
+        分配给我的帖子
+      </Link>
+
       <p className="mt-5 rounded-xl bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-700">
         新帖子提交后由管理员审核；已发布的帖子只能由管理员修改。
       </p>

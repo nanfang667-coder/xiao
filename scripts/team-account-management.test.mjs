@@ -37,6 +37,7 @@ function actions({ authorized = true, activeSite = true } = {}) {
     'next/cache': { revalidatePath: path => refreshed.push(path) },
     '@/lib/auth': { requireAdmin: async () => { if (!authorized) throw new Error('UNAUTHORIZED'); } },
     '@/lib/team-post-quota': quota,
+    '@/lib/partner-import-assignment-readiness': { isPartnerImportAssignmentReady: async () => true },
     '@/lib/prisma': { prisma: {
       site: { findFirst: async ({ where }) => activeSite && where.id === 'fixture-site' && where.isActive ? { id: 'fixture-site' } : null },
       teamAccount: { create: async ({ data }) => writes.push(data) },

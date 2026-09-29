@@ -45,6 +45,7 @@ model TeamAccount {
   sessions                 TeamSession[]
   teacherOwnerships        TeacherOwnership[]
   submissions              TeacherSubmission[]
+  assignedImportDrafts     PartnerImportDraft[]
 
   @@index([siteId, isActive])
 }
@@ -130,6 +131,7 @@ model TeacherOwnership {
 model TeacherSubmission {
   id            Int         @id @default(autoincrement())
   submissionKey String?     @unique
+  partnerImportDraftId Int? @unique
   kind          String // create / update
   status        String      @default("pending") // pending / approved / rejected
   teamAccountId Int
@@ -157,6 +159,7 @@ model TeacherSubmission {
   account       TeamAccount @relation(fields: [teamAccountId], references: [id], onDelete: Restrict)
   site          Site        @relation(fields: [siteId], references: [id], onDelete: Restrict)
   teacher       Teacher?    @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  partnerImportDraft PartnerImportDraft? @relation(fields: [partnerImportDraftId], references: [id], onDelete: Restrict)
 
   @@index([status, createdAt])
   @@index([teamAccountId, status, updatedAt])
@@ -326,4 +329,79 @@ model Withdrawal {
   status    String    @default("pending") // pending 待处理 / paid 已发放 / rejected 已驳回
   createdAt DateTime  @default(now())
   paidAt    DateTime?
+}
+
+// Partner imports are isolated from Teacher until an administrator publishes a reviewed version.
+model PartnerImportSource {
+  id           Int                   @id @default(autoincrement())
+  name         String
+  origin       String                @unique
+  rules        String
+  imageOrigins String                @default("[]")
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  jobs         PartnerImportJob[]
+  posts        PartnerImportedPost[]
+}
+
+model PartnerImportJob {
+  id           String                @id @default(uuid())
+  sourceId     Int
+  listUrl      String
+  rules        String
+  imageOrigins String
+  createdAt    DateTime              @default(now())
+  source       PartnerImportSource   @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  items        PartnerImportItem[]
+
+  @@index([createdAt])
+}
+
+model PartnerImportItem {
+  id           Int                  @id @default(autoincrement())
+  jobId        String
+  sourceUrl    String
+  status       String               @default("queued")
+  errorCode    String?
+  draftId      Int?
+  lockedAt     DateTime?
+  lockToken    String?
+  job          PartnerImportJob     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, sourceUrl])
+  @@index([jobId, status])
+}
+
+model PartnerImportedPost {
+  id           Int                   @id @default(autoincrement())
+  sourceId     Int
+  sourceUrl    String
+  teacherId    Int?
+  revision     Int                   @default(0)
+  source       PartnerImportSource   @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  drafts       PartnerImportDraft[]
+
+  @@unique([sourceId, sourceUrl])
+}
+
+model PartnerImportDraft {
+  teamAccountId Int?
+  id           Int                   @id @default(autoincrement())
+  postId       Int
+  contentHash  String
+  status       String                @default("pending")
+  fields       String
+  photos       String
+  version      Int                   @default(1)
+  baseRevision Int                   @default(0)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  reviewedAt   DateTime?
+  post         PartnerImportedPost   @relation(fields: [postId], references: [id], onDelete: Restrict)
+  assignedAccount TeamAccount? @relation(fields: [teamAccountId], references: [id], onDelete: Restrict)
+  submission TeacherSubmission?
+
+  @@unique([postId, contentHash])
+  @@index([status, createdAt])
+  @@index([teamAccountId, status, updatedAt])
 }

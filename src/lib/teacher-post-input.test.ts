@@ -36,3 +36,26 @@ test("extractTeacherPostFields accepts an alternative contact method", () => {
     "example@example.com",
   );
 });
+
+test("extractTeacherPostFields permits missing contact details only for an explicit draft option", () => {
+  const form = new FormData();
+  form.set("name", "待审示例");
+  form.set("services", "待审核正文");
+
+  const draft = extractTeacherPostFields(form, { requireContact: false });
+  assert.equal(draft.name, "待审示例");
+  assert.equal(draft.phone, "");
+  assert.equal(draft.wechat, "");
+  assert.equal(draft.qq, null);
+  assert.equal(draft.otherContact, null);
+  assert.throws(() => extractTeacherPostFields(form), /contact method/);
+  assert.throws(() => extractTeacherPostFields(form, { requireContact: true }), /contact method/);
+});
+
+test("the draft contact option still enforces required content and field lengths", () => {
+  const form = new FormData();
+  form.set("name", "待审示例");
+  assert.throws(() => extractTeacherPostFields(form, { requireContact: false }), /name and services/);
+  form.set("services", "文".repeat(4001));
+  assert.throws(() => extractTeacherPostFields(form, { requireContact: false }), /services is too long/);
+});

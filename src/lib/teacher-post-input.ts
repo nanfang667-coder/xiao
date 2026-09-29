@@ -24,7 +24,10 @@ function optional(value: string): string | null {
   return value || null;
 }
 
-export function extractTeacherPostFields(formData: FormData): TeacherPostFields {
+export function extractTeacherPostFields(
+  formData: FormData,
+  options: { requireContact?: boolean } = {},
+): TeacherPostFields {
   const name = field(formData, "name", 100);
   const services = field(formData, "services", 4_000);
   const phone = field(formData, "phone", 100);
@@ -35,7 +38,7 @@ export function extractTeacherPostFields(formData: FormData): TeacherPostFields 
   if (!name || !services) {
     throw new Error("name and services are required");
   }
-  if (!phone && !wechat && !qq && !otherContact) {
+  if (options.requireContact !== false && !phone && !wechat && !qq && !otherContact) {
     throw new Error("at least one contact method is required");
   }
 
