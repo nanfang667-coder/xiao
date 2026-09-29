@@ -247,6 +247,7 @@ async function pageFixture({ status = "pending", page = "1", jobsPage = "1", job
     "@/lib/pagination": { parsePage: value => Number(value) || 1 },
     "@/lib/partner-import-parser": { DEFAULT_PARTNER_IMPORT_RULES: {} },
     "./ImportForms": { ImportForms: () => null },
+    "./TransferUpload": { TransferUpload: () => null },
     "./DraftList": { DraftList: draftList },
     "./JobList": { JobList: jobList },
   });

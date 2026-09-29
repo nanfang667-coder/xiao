@@ -34,6 +34,10 @@ export default async function PartnerImportJobPage({ params }: { params: Promise
       <p className="mt-2 break-all text-xs text-gray-500">任务编号：{job.id}</p>
       <p className="mt-1 text-xs text-gray-500">建立于 {job.createdAt.toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false })}</p>
     </div>
+    <section className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
+      <a href={"/adminzhangzhang/partner-import/transfer?job=" + encodeURIComponent(job.id)} className="inline-block rounded-lg border border-pink-200 px-4 py-2 text-sm font-bold text-pink-600">下载中转文件 →</a>
+      <p className="mt-2 text-xs leading-5 text-gray-500">完成本地导入后下载，再到正式站“上传本地中转文件”。仅导出本任务中仍待初审的草稿及照片；下载后请妥善保管。</p>
+    </section>
     <JobRunner key={job.id} jobId={job.id} initialProgress={initialProgress} />
   </main>;
 }

@@ -8,6 +8,7 @@ import { DEFAULT_PARTNER_IMPORT_RULES } from "@/lib/partner-import-parser";
 import { ImportForms } from "./ImportForms";
 import { DraftList } from "./DraftList";
 import { JobList } from "./JobList";
+import { TransferUpload } from "./TransferUpload";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "合作网站导入", robots: { index: false, follow: false }, referrer: "no-referrer" };
@@ -64,6 +65,7 @@ export default async function PartnerImportPage({ searchParams }: {
     </header>
     {!assignmentReady && <p role="status" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">团队分配功能尚未启用，当前可继续导入和审核。</p>}
     <ImportForms sources={sources} defaultRules={JSON.stringify(DEFAULT_PARTNER_IMPORT_RULES, null, 2)} />
+    <TransferUpload sources={sources} />
 
     <section className="mt-5 rounded-2xl bg-white p-4 shadow-sm" aria-labelledby="jobs-heading">
       <h2 id="jobs-heading" className="font-bold text-gray-800">导入任务</h2>
