@@ -26,6 +26,7 @@ function setup({ authorized = true, fail = false, ready = true, foreignKeyFailur
     } } },
     '@/lib/site-utils': {}, '@/lib/team-post-quota': {},
     '@/lib/partner-import-assignment-readiness': { isPartnerImportAssignmentReady: async () => ready },
+    '@/lib/team-quota-history-readiness': {},
   };
   const source = fs.readFileSync(new URL('../src/app/adminzhangzhang/sites/actions.ts', import.meta.url), 'utf8');
   const exports = {};

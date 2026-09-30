@@ -5,15 +5,32 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isPartnerImportAssignmentReady } from "@/lib/partner-import-assignment-readiness";
+import { requireTeamQuotaHistoryReady } from "@/lib/team-quota-history-readiness";
 import {
-  getChinaCalendarMonthKey,
-  getTeamMonthlyPostBaseLimit,
-  parseNewTeamMonthlyPostLimit,
-  parseTeamMonthlyPostLimit,
+  getEffectiveTeamPostLimit,
+  getTeamPostBaseLimit,
+  parseNewTeamPostLimit,
+  parseTeamPostLimit,
 } from "@/lib/team-post-quota";
 
 function text(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
+}
+
+const quotaAccountSelect = {
+  id: true,
+  username: true,
+  monthlyPostLimit: true,
+  monthlyPostLimitOverride: true,
+  monthlyPostBonus: true,
+} as const;
+
+function refreshQuotaPages() {
+  revalidatePath("/adminzhangzhang/sites");
+  revalidatePath("/adminzhangzhang/sites/quota-history");
+  revalidatePath("/team");
+  revalidatePath("/team/posts");
+  revalidatePath("/team/posts/new");
 }
 
 export async function createTeamAccount(formData: FormData) {
@@ -21,7 +38,7 @@ export async function createTeamAccount(formData: FormData) {
   const username = text(formData, "username").toLowerCase();
   const password = String(formData.get("password") ?? "");
   const siteId = text(formData, "siteId");
-  const monthlyPostLimit = parseNewTeamMonthlyPostLimit(
+  const monthlyPostLimit = parseNewTeamPostLimit(
     formData.get("monthlyPostLimit"),
   );
   if (
@@ -38,16 +55,28 @@ export async function createTeamAccount(formData: FormData) {
   });
   if (!site) throw new Error("Invalid team site");
 
-  await prisma.teamAccount.create({
-    data: {
-      username,
-      passwordHash: await bcrypt.hash(password, 12),
-      siteId: site.id,
-      monthlyPostLimit: monthlyPostLimit === 150 ? 150 : 30,
-      monthlyPostLimitOverride: monthlyPostLimit,
-    },
+  await requireTeamQuotaHistoryReady();
+  const passwordHash = await bcrypt.hash(password, 12);
+  await prisma.$transaction(async tx => {
+    const account = await tx.teamAccount.create({
+      select: quotaAccountSelect,
+      data: {
+        username,
+        passwordHash,
+        siteId: site.id,
+        monthlyPostLimit: monthlyPostLimit === 150 ? 150 : 30,
+        monthlyPostLimitOverride: monthlyPostLimit,
+      },
+    });
+    const limit = getEffectiveTeamPostLimit(account);
+    await tx.teamPostQuotaEvent.create({
+      data: {
+        teamAccountId: account.id, teamUsername: account.username,
+        kind: "account_created", delta: limit, previousLimit: 0, newLimit: limit,
+      },
+    });
   });
-  revalidatePath("/adminzhangzhang/sites");
+  refreshQuotaPages();
   revalidatePath("/adminzhangzhang/submissions");
 }
 
@@ -56,7 +85,7 @@ export async function updateTeamMonthlyPostLimit(
   formData: FormData,
 ) {
   await requireAdmin();
-  const monthlyPostLimit = parseTeamMonthlyPostLimit(
+  const monthlyPostLimit = parseTeamPostLimit(
     formData.get("monthlyPostLimit"),
   );
   if (
@@ -64,36 +93,36 @@ export async function updateTeamMonthlyPostLimit(
     accountId < 1 ||
     monthlyPostLimit === null
   ) {
-    throw new Error("Invalid team monthly post limit");
+    throw new Error("Invalid team post limit");
   }
-  const account = await prisma.teamAccount.findUnique({
-    where: { id: accountId },
-    select: {
-      monthlyPostLimit: true,
-      monthlyPostLimitOverride: true,
-    },
-  });
-  if (
-    !account ||
-    (monthlyPostLimit === 30 &&
-      getTeamMonthlyPostBaseLimit(account) !== 30)
-  ) {
-    throw new Error("Legacy 30-post tier cannot be newly assigned");
-  }
-  if (monthlyPostLimit !== getTeamMonthlyPostBaseLimit(account)) {
-    await prisma.teamAccount.update({
+  await requireTeamQuotaHistoryReady();
+  await prisma.$transaction(async tx => {
+    const account = await tx.teamAccount.findUnique({
+      where: { id: accountId }, select: quotaAccountSelect,
+    });
+    if (!account || (monthlyPostLimit === 30 && getTeamPostBaseLimit(account) !== 30)) {
+      throw new Error("Legacy 30-post tier cannot be newly assigned");
+    }
+    if (monthlyPostLimit === getTeamPostBaseLimit(account)) return;
+    const before = getEffectiveTeamPostLimit(account);
+    const updated = await tx.teamAccount.update({
       where: { id: accountId },
+      select: quotaAccountSelect,
       data: {
         monthlyPostLimit: monthlyPostLimit === 150 ? 150 : 30,
         monthlyPostLimitOverride:
           monthlyPostLimit === 30 ? null : monthlyPostLimit,
       },
     });
-  }
-  revalidatePath("/adminzhangzhang/sites");
-  revalidatePath("/team");
-  revalidatePath("/team/posts");
-  revalidatePath("/team/posts/new");
+    const after = getEffectiveTeamPostLimit(updated);
+    await tx.teamPostQuotaEvent.create({
+      data: {
+        teamAccountId: account.id, teamUsername: account.username,
+        kind: "base_changed", delta: after - before, previousLimit: before, newLimit: after,
+      },
+    });
+  });
+  refreshQuotaPages();
 }
 
 export async function addTeamMonthlyPostAllowance(
@@ -109,40 +138,31 @@ export async function addTeamMonthlyPostAllowance(
     amount < 1 ||
     amount > 1000
   ) {
-    throw new Error("Invalid team monthly post allowance");
+    throw new Error("Invalid team post allowance");
   }
 
-  const monthKey = getChinaCalendarMonthKey();
-  await prisma.$transaction(async (tx) => {
+  await requireTeamQuotaHistoryReady();
+  await prisma.$transaction(async tx => {
+    // Acquire the write lock before reading the resulting balance, so the log
+    // describes this exact increment even when administrators submit together.
+    const updated = await tx.teamAccount.updateMany({
+      where: { id: accountId, monthlyPostBonus: { gte: 0, lte: 10000 - amount } },
+      data: { monthlyPostBonus: { increment: amount } },
+    });
+    if (updated.count !== 1) throw new Error("Team account not found or post allowance is too large");
     const account = await tx.teamAccount.findUnique({
-      where: { id: accountId },
-      select: {
-        monthlyPostBonus: true,
-        monthlyPostBonusMonth: true,
-      },
+      where: { id: accountId }, select: quotaAccountSelect,
     });
     if (!account) throw new Error("Team account not found");
-
-    const existingBonus =
-      account.monthlyPostBonusMonth === monthKey
-        ? account.monthlyPostBonus
-        : 0;
-    if (existingBonus + amount > 10000) {
-      throw new Error("Team monthly post allowance is too large");
-    }
-    await tx.teamAccount.update({
-      where: { id: accountId },
+    const after = getEffectiveTeamPostLimit(account);
+    await tx.teamPostQuotaEvent.create({
       data: {
-        monthlyPostBonus: existingBonus + amount,
-        monthlyPostBonusMonth: monthKey,
+        teamAccountId: account.id, teamUsername: account.username,
+        kind: "allowance_added", delta: amount, previousLimit: after - amount, newLimit: after,
       },
     });
   });
-
-  revalidatePath("/adminzhangzhang/sites");
-  revalidatePath("/team");
-  revalidatePath("/team/posts");
-  revalidatePath("/team/posts/new");
+  refreshQuotaPages();
 }
 
 export async function resetTeamPassword(accountId: number, formData: FormData) {

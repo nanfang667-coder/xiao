@@ -301,10 +301,10 @@ test("save permits missing contact while submit requires one and submitted draft
   assert.equal(f.state().submissions.length, 1);
 });
 
-test("assignments do not consume quota; submission checks current month usage atomically", async () => {
+test("assignments do not consume quota; historical usage blocks submissions atomically", async () => {
   const f = setup();
   f.state().submissions = Array.from({ length: 22 }, (_, i) => ({
-    id: i + 1, teamAccountId: 1, kind: "create", status: "pending", createdAt: new Date(),
+    id: i + 1, teamAccountId: 1, kind: "create", status: i % 2 ? "pending" : "approved", createdAt: new Date("2026-08-01T00:00:00Z"),
   }));
   await f.assign();
   await assert.rejects(f.submit(), /额度已用完/);
@@ -313,13 +313,13 @@ test("assignments do not consume quota; submission checks current month usage at
   assert.equal(f.state().submissions.length, 22);
 });
 
-test("concurrent submissions cannot exceed the remaining monthly allowance", async () => {
+test("concurrent submissions cannot exceed the remaining lifetime allowance", async () => {
   const f = setup();
   f.addDraft();
   await f.assign(1);
   await f.assign(2);
   f.state().submissions = Array.from({ length: 21 }, (_, i) => ({
-    id: i + 1, teamAccountId: 1, kind: "create", status: "approved", createdAt: new Date(),
+    id: i + 1, teamAccountId: 1, kind: "create", status: "approved", createdAt: new Date("2026-08-01T00:00:00Z"),
   }));
   const results = await Promise.allSettled([f.submit(1), f.submit(2)]);
   assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
@@ -537,24 +537,23 @@ test("the final version claim remains authoritative and a late conflict rolls ba
   assert.deepEqual(f.state(), before);
 });
 
-test("final approval retains one monthly quota charge while return and resubmit reuse that charge", async () => {
-  const usage = (fixture, now) => {
-    const where = quota.getTeamMonthlyPostUsageWhere(1, now);
+test("final approval retains one lifetime quota charge while return and resubmit reuse that charge", async () => {
+  const usage = fixture => {
+    const where = quota.getTeamPostUsageWhere(1);
     return fixture.state().submissions.filter(row =>
       row.teamAccountId === where.teamAccountId && row.kind === where.kind &&
-      where.status.in.includes(row.status) &&
-      new Date(row.createdAt) >= where.createdAt.gte && new Date(row.createdAt) < where.createdAt.lt
+      where.status.in.includes(row.status)
     ).length;
   };
 
   const approved = setup();
   await approved.assign();
-  assert.equal(usage(approved, new Date()), 0);
+  assert.equal(usage(approved), 0);
   const first = await approved.submit();
   const submittedAt = new Date(approved.state().submissions[0].createdAt);
-  assert.equal(usage(approved, submittedAt), 1);
+  assert.equal(usage(approved), 1);
   await approved.api.reviewAssignedImportDraft(first.submissionId, "approve", undefined, approved.state().drafts[0].version);
-  assert.equal(usage(approved, submittedAt), 1);
+  assert.equal(usage(approved), 1);
   assert.equal(approved.state().submissions.length, 1);
   assert.equal(approved.state().submissions[0].id, first.submissionId);
   assert.equal(approved.state().submissions[0].status, "approved");
@@ -563,13 +562,12 @@ test("final approval retains one monthly quota charge while return and resubmit 
   const returned = setup();
   await returned.assign();
   const initial = await returned.submit();
-  const initialSubmittedAt = new Date(returned.state().submissions[0].createdAt);
-  assert.equal(usage(returned, initialSubmittedAt), 1);
+  assert.equal(usage(returned), 1);
   await returned.api.reviewAssignedImportDraft(initial.submissionId, "return", "虚构退回说明", returned.state().drafts[0].version);
-  assert.equal(usage(returned, initialSubmittedAt), 0);
+  assert.equal(usage(returned), 0);
   const resubmitted = await returned.submit();
   assert.equal(resubmitted.submissionId, initial.submissionId);
   assert.equal(returned.state().submissions.length, 1);
   assert.equal(returned.state().submissions[0].status, "pending");
-  assert.equal(usage(returned, new Date(returned.state().submissions[0].createdAt)), 1);
+  assert.equal(usage(returned), 1);
 });

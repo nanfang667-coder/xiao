@@ -34,10 +34,10 @@ model TeamAccount {
   username                 String              @unique
   passwordHash             String
   siteId                   String
-  monthlyPostLimit         Int                 @default(30) // Compatibility value constrained to 30/150 by the existing database.
+  monthlyPostLimit         Int                 @default(30) // Fixed base quota; legacy column name and 30/150 database constraint are retained.
   monthlyPostLimitOverride Int? // New/changed accounts use 22 or 150; null preserves a legacy account's original limit.
-  monthlyPostBonus         Int                 @default(0) // Administrator-added allowance for one Beijing calendar month.
-  monthlyPostBonusMonth    String?
+  monthlyPostBonus         Int                 @default(0) // Permanent administrator-added quota; never resets across months.
+  monthlyPostBonusMonth    String? // Legacy metadata, no longer used to expire or reset quota.
   isActive                 Boolean             @default(true)
   createdAt                DateTime            @default(now())
   updatedAt                DateTime            @updatedAt
@@ -46,8 +46,30 @@ model TeamAccount {
   teacherOwnerships        TeacherOwnership[]
   submissions              TeacherSubmission[]
   assignedImportDrafts     PartnerImportDraft[]
+  quotaEvents              TeamPostQuotaEvent[]
 
   @@index([siteId, isActive])
+}
+
+// Immutable quota audit rows retain the account name after account deletion.
+// legacy_snapshot records only the balance captured during rollout, never a historical operation.
+model TeamPostQuotaEvent {
+  id            Int          @id @default(autoincrement())
+  teamAccountId Int?
+  teamUsername  String
+  kind          String // allowance_added / base_changed / account_created / legacy_snapshot
+  delta         Int? // Unknown for a legacy snapshot; never infer individual historic additions.
+  previousLimit Int?
+  newLimit      Int
+  legacyBonus   Int?
+  legacyMonth   String?
+  createdAt     DateTime     @default(now())
+  account       TeamAccount? @relation(fields: [teamAccountId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([createdAt, id])
+  @@index([teamAccountId, createdAt])
+  @@index([teamUsername, createdAt])
+  @@index([legacyMonth])
 }
 
 model TeamSession {

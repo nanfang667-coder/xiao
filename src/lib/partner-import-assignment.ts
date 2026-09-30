@@ -6,7 +6,7 @@ import { extractTeacherPostFields, type TeacherPostFields } from "./teacher-post
 import { cleanPartnerImportFields } from "./partner-import-declarations";
 import { parsePartnerPhotoKeys, removePartnerPrivatePhotos } from "./partner-import-photos";
 import { readPartnerPhotoCover, type PartnerPhotoCover } from "./partner-import-photo-cover";
-import { getEffectiveTeamMonthlyPostLimit, getTeamMonthlyPostUsageWhere } from "./team-post-quota";
+import { getEffectiveTeamPostLimit, getTeamPostUsageWhere } from "./team-post-quota";
 import { emojiFor } from "./photo";
 
 const ACTIVE_STATES = ["ready", "assigned", "returned", "submitted"];
@@ -179,8 +179,8 @@ export async function saveAssignedImportDraft(
       let submissionId: number | undefined;
       if (intent === "submit") {
         const now = new Date();
-        const used = await tx.teacherSubmission.count({ where: getTeamMonthlyPostUsageWhere(accountId, now) });
-        if (used >= getEffectiveTeamMonthlyPostLimit(account, now)) fail("本月发帖额度已用完，请联系管理员增加额度后再提交。");
+        const used = await tx.teacherSubmission.count({ where: getTeamPostUsageWhere(accountId) });
+        if (used >= getEffectiveTeamPostLimit(account)) fail("发帖额度已用完，请联系管理员增加额度后再提交。");
         const existing = await tx.teacherSubmission.findUnique({ where: { partnerImportDraftId: id } });
         const data = {
           ...fields, kind: "create", status: "pending", teamAccountId: accountId, siteId: account.siteId,

@@ -74,8 +74,8 @@ test("new Prisma client can create and display ordinary team submissions against
     const site = await prisma.site.findFirstOrThrow({ select: { id: true } });
     const account = { id: 1, siteId: site.id };
     const quota = {
-      getEffectiveTeamMonthlyPostLimit: () => 10,
-      getTeamMonthlyPostUsageWhere: () => ({ teamAccountId: account.id }),
+      getEffectiveTeamPostLimit: () => 10,
+      getTeamPostUsageWhere: () => ({ teamAccountId: account.id }),
       summarizeTeamPostQuota: (limit, used) => ({ limit, used, remaining: limit - used, exhausted: used >= limit }),
     };
     const actions = loadModule("src/app/team/actions.ts", {

@@ -1,82 +1,56 @@
 import type { Prisma } from "@prisma/client";
 
-export const NEW_TEAM_MONTHLY_POST_LIMITS = [22, 150] as const;
-export const ALLOWED_TEAM_MONTHLY_POST_LIMITS = [22, 30, 150] as const;
+export const NEW_TEAM_POST_LIMITS = [22, 150] as const;
+export const ALLOWED_TEAM_POST_LIMITS = [22, 30, 150] as const;
 
-export function parseTeamMonthlyPostLimit(
+export function parseTeamPostLimit(
   value: unknown,
 ): 22 | 30 | 150 | null {
   const limit = Number(value);
-  return ALLOWED_TEAM_MONTHLY_POST_LIMITS.includes(limit as 22 | 30 | 150)
+  return ALLOWED_TEAM_POST_LIMITS.includes(limit as 22 | 30 | 150)
     ? (limit as 22 | 30 | 150)
     : null;
 }
 
-export function parseNewTeamMonthlyPostLimit(value: unknown): 22 | 150 | null {
+export function parseNewTeamPostLimit(value: unknown): 22 | 150 | null {
   const limit = Number(value);
-  return NEW_TEAM_MONTHLY_POST_LIMITS.includes(limit as 22 | 150)
+  return NEW_TEAM_POST_LIMITS.includes(limit as 22 | 150)
     ? (limit as 22 | 150)
     : null;
 }
 
-export function getChinaCalendarMonthKey(now: Date = new Date()): string {
-  const chinaOffsetMs = 8 * 60 * 60 * 1000;
-  const chinaTime = new Date(now.getTime() + chinaOffsetMs);
-  return `${chinaTime.getUTCFullYear()}-${String(
-    chinaTime.getUTCMonth() + 1,
-  ).padStart(2, "0")}`;
-}
-
-export function getEffectiveTeamMonthlyPostLimit(
+// Keep the existing database columns so switching to a fixed quota preserves
+// stored allowances without a destructive migration. The old month is ignored.
+export function getEffectiveTeamPostLimit(
   account: {
     monthlyPostLimit: number;
     monthlyPostLimitOverride: number | null;
     monthlyPostBonus: number;
-    monthlyPostBonusMonth: string | null;
   },
-  now: Date = new Date(),
 ): number {
-  const baseLimit = getTeamMonthlyPostBaseLimit(account);
-  const currentBonus =
-    account.monthlyPostBonusMonth === getChinaCalendarMonthKey(now)
-      ? Math.max(0, Math.trunc(account.monthlyPostBonus))
-      : 0;
-  return baseLimit + currentBonus;
+  return getTeamPostBaseLimit(account) + Math.max(0, Math.trunc(account.monthlyPostBonus));
 }
 
-export function getTeamMonthlyPostBaseLimit(account: {
+export function getTeamPostBaseLimit(account: {
   monthlyPostLimit: number;
   monthlyPostLimitOverride: number | null;
 }): number {
-  const override = parseNewTeamMonthlyPostLimit(
+  const override = parseNewTeamPostLimit(
     account.monthlyPostLimitOverride,
   );
   if (override !== null) return override;
-  return parseTeamMonthlyPostLimit(account.monthlyPostLimit) ?? 30;
+  return parseTeamPostLimit(account.monthlyPostLimit) ?? 30;
 }
 
-export function getChinaCalendarMonthRange(now: Date = new Date()) {
-  const chinaOffsetMs = 8 * 60 * 60 * 1000;
-  const chinaTime = new Date(now.getTime() + chinaOffsetMs);
-  const year = chinaTime.getUTCFullYear();
-  const month = chinaTime.getUTCMonth();
-
-  return {
-    start: new Date(Date.UTC(year, month, 1) - chinaOffsetMs),
-    end: new Date(Date.UTC(year, month + 1, 1) - chinaOffsetMs),
-  };
-}
-
-export function getTeamMonthlyPostUsageWhere(
-  teamAccountId: number,
-  now: Date = new Date(),
+// Historical submissions remain the usage ledger, including approved posts
+// whose public Teacher row was later deleted. Rejected submissions release quota.
+export function getTeamPostUsageWhere(
+  teamAccountId?: number,
 ): Prisma.TeacherSubmissionWhereInput {
-  const { start, end } = getChinaCalendarMonthRange(now);
   return {
-    teamAccountId,
+    ...(teamAccountId === undefined ? {} : { teamAccountId }),
     kind: "create",
     status: { in: ["pending", "approved"] },
-    createdAt: { gte: start, lt: end },
   };
 }
 

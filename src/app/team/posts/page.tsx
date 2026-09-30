@@ -3,8 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireTeamAccount } from "@/lib/team-auth";
 import { isImage } from "@/lib/photo";
 import {
-  getEffectiveTeamMonthlyPostLimit,
-  getTeamMonthlyPostUsageWhere,
+  getEffectiveTeamPostLimit,
+  getTeamPostUsageWhere,
   summarizeTeamPostQuota,
 } from "@/lib/team-post-quota";
 
@@ -30,7 +30,7 @@ export default async function TeamPostsPage({
 }) {
   const account = await requireTeamAccount();
   const { submitted } = await searchParams;
-  const [ownerships, submissions, monthlyPostUsage] = await Promise.all([
+  const [ownerships, submissions, postUsage] = await Promise.all([
     prisma.teacherOwnership.findMany({
       where: { teamAccountId: account.id },
       include: { teacher: true },
@@ -47,12 +47,12 @@ export default async function TeamPostsPage({
       take: 50,
     }),
     prisma.teacherSubmission.count({
-      where: getTeamMonthlyPostUsageWhere(account.id),
+      where: getTeamPostUsageWhere(account.id),
     }),
   ]);
   const quota = summarizeTeamPostQuota(
-    getEffectiveTeamMonthlyPostLimit(account),
-    monthlyPostUsage,
+    getEffectiveTeamPostLimit(account),
+    postUsage,
   );
   const newSubmissions = submissions;
 
@@ -69,7 +69,7 @@ export default async function TeamPostsPage({
       </header>
 
       <p className="mb-4 rounded-xl bg-pink-50 px-4 py-3 text-sm text-pink-700">
-        本月新帖：已用 {quota.used}/{quota.limit} 条，剩余 {quota.remaining} 条。已发布帖子只能由管理员修改。
+        发帖总额度：已用 {quota.used}/{quota.limit} 条，剩余 {quota.remaining} 条。剩余额度跨月保留，总额度仅由管理员追加；审核拒绝会释放额度。已发布帖子只能由管理员修改。
       </p>
 
       {submitted && (
