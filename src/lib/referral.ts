@@ -3,7 +3,7 @@ import "server-only";
 import { randomInt } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "./prisma";
-import { getTrustedSiteOrigin } from "./site-config";
+import { getReferralSiteOrigin } from "./site-config";
 import {
   getOrCreateVisitorId,
   hashVisitorKey,
@@ -57,8 +57,8 @@ export async function referralRedirect(req: NextRequest, code: string) {
     });
   }
 
-  // 跳转地址来自站点配置，不能使用请求中的 Host 或任意外部地址。
-  const siteOrigin = getTrustedSiteOrigin();
+  // 保持已允许的新旧域名入口；不接受任意 Host 作为跳转目标。
+  const siteOrigin = getReferralSiteOrigin(req.headers);
   const response = NextResponse.redirect(new URL("/", siteOrigin));
   response.headers.set("Cache-Control", "private, no-store");
   response.headers.set("X-Robots-Tag", "noindex");

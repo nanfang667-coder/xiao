@@ -7,6 +7,22 @@ export function getTrustedSiteOrigin(nodeEnv = process.env.NODE_ENV): string {
   return nodeEnv === "production" ? SITE_URL : LOCAL_SITE_URL;
 }
 
+// Only these public entry points may determine an invitation redirect.
+export function getReferralSiteOrigin(
+  requestHeaders: Pick<Headers, "get">,
+  nodeEnv = process.env.NODE_ENV,
+): string {
+  const host = (requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host"))
+    ?.trim().toLowerCase();
+  if (host && /^(?:www\.)?fenglou2\.com(?::443|:80)?$/.test(host)) {
+    return "https://fenglou2.com";
+  }
+  if (host && /^(?:www\.)?fenglou1\.com(?::443|:80)?$/.test(host)) {
+    return SITE_URL;
+  }
+  return getTrustedSiteOrigin(nodeEnv);
+}
+
 // 地区只要有一条公开资料，就开放访问、进入 Sitemap 并允许搜索引擎收录。
 // 没有公开资料的地区页返回 404，也不在站内地区导航中提供链接。
 export const MIN_ACCESSIBLE_LOCATION_RECORDS = 1;
