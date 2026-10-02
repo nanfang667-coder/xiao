@@ -14,6 +14,9 @@ export function getReferralSiteOrigin(
 ): string {
   const host = (requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host"))
     ?.trim().toLowerCase();
+  if (host && /^(?:www\.)?sjeeqw\.fit(?::443|:80)?$/.test(host)) {
+    return "https://sjeeqw.fit";
+  }
   if (host && /^(?:www\.)?fenglou2\.com(?::443|:80)?$/.test(host)) {
     return "https://fenglou2.com";
   }

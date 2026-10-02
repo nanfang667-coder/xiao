@@ -20,6 +20,12 @@ function load(file, mocks = {}) {
 const config = load('src/lib/site-config.ts');
 
 test('only approved public hosts select an HTTPS invitation destination', () => {
+  for (const host of ['sjeeqw.fit', 'www.sjeeqw.fit', 'SJEEQW.FIT:443', 'sjeeqw.fit:80']) {
+    assert.equal(config.getReferralSiteOrigin(new Headers({ host })), 'https://sjeeqw.fit');
+  }
+  for (const host of ['sjeeqw.fit.evil.example', 'sjeeqw.fit@evil.example', 'sjeeqw.fit, evil.example', 'sjeeqw.fit:1234']) {
+    assert.equal(config.getReferralSiteOrigin(new Headers({ host })), 'https://fenglou1.com');
+  }
   for (const host of ['fenglou2.com', 'www.fenglou2.com', 'FENGLOU2.COM:443', 'fenglou2.com:80']) {
     assert.equal(config.getReferralSiteOrigin(new Headers({ host })), 'https://fenglou2.com');
   }
@@ -47,7 +53,7 @@ function handler(owner, failStats = false) {
   return { ...referral, visits };
 }
 
-for (const host of ['fenglou1.com', 'fenglou2.com']) {
+for (const host of ['fenglou1.com', 'fenglou2.com', 'sjeeqw.fit']) {
   test(`${host} invitation retains domain, attribution and secure cookies`, async () => {
     const app = handler({ id: 42, siteId: 'a', referralCode: 'HEV' });
     const response = await app.referralRedirect(new NextRequest(`http://localhost:3000/HEV`, {
