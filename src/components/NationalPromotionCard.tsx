@@ -2,6 +2,7 @@ import Link from "next/link";
 import { isImage } from "@/lib/photo";
 import { formatLocationLabel } from "@/lib/location-label";
 import type { TeacherCardItem } from "@/lib/teachers";
+import { CompensationBadge } from "@/components/CompensationBadge";
 
 export function NationalPromotionCard({
   teacher,
@@ -33,6 +34,7 @@ export function NationalPromotionCard({
         href={`/listing/${teacher.id}`}
         className="group relative flex overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-rose-50 shadow-[0_8px_24px_rgba(190,120,25,0.12)] transition active:scale-[0.99]"
       >
+        {teacher.supportsCompensation && <CompensationBadge />}
         <div className="absolute right-0 top-0 h-16 w-16 rounded-bl-full bg-gradient-to-bl from-amber-200/50 to-transparent" />
         {isImage(teacher.photos[0]) ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -50,14 +52,14 @@ export function NationalPromotionCard({
           </div>
         )}
 
-        <div className="relative flex min-w-0 flex-1 flex-col justify-between p-3.5">
+        <div className={`relative flex min-w-0 flex-1 flex-col justify-between px-3.5 pb-3.5 ${teacher.supportsCompensation ? "pt-9" : "pt-3.5"}`}>
           <div>
             {location && (
               <p className="truncate text-[11px] text-amber-700">
                 {"\ud83d\udccd"} {location}
               </p>
             )}
-            <h2 className="mt-1 line-clamp-1 text-base font-bold text-gray-900">{teacher.name}</h2>
+            <h2 className="mt-1 truncate text-base font-bold text-gray-900">{teacher.name}</h2>
             <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-gray-500">
               {teacher.services}
             </p>

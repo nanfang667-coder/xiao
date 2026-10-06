@@ -43,6 +43,7 @@ export function TeacherForm({
   backHref = "/adminzhangzhang/teachers",
   title,
   showPromotion = true,
+  showCompensation = false,
   notice,
 }: {
   action: (formData: FormData) => void | Promise<void>;
@@ -51,6 +52,7 @@ export function TeacherForm({
   backHref?: string;
   title?: string;
   showPromotion?: boolean;
+  showCompensation?: boolean;
   notice?: string;
 }) {
   const [city, setCity] = useState(initial?.city ?? "");
@@ -291,6 +293,25 @@ export function TeacherForm({
             className={field}
           />
         </div>
+        {showCompensation && (
+          <div className={styles.compensation}>
+            <label htmlFor="post-supports-compensation" className={styles.compensationToggle}>
+              <span className={styles.compensationTitle}>显示已交定金，支持赔付标识</span>
+              <input
+                id="post-supports-compensation"
+                type="checkbox"
+                role="switch"
+                name="supportsCompensation"
+                defaultChecked={initial?.supportsCompensation ?? false}
+                aria-describedby="post-compensation-description"
+                className={styles.compensationSwitch}
+              />
+            </label>
+            <p id="post-compensation-description" className={styles.compensationDescription}>
+              开启后，该帖子的前台卡片显示「已交定金，支持赔付」；关闭后隐藏。
+            </p>
+          </div>
+        )}
         {showPromotion && <fieldset className={styles.promotion}>
           <legend className={styles.legend}>{"\u5168\u56fd\u63a8\u5e7f"}</legend>
           <label htmlFor="post-promotion" className={styles.promotionToggle}>

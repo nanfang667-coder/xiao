@@ -35,6 +35,7 @@ export type Teacher = {
     address: string | null;
   };
   createdAt: Date;
+  supportsCompensation: boolean;
   isNationallyPromoted: boolean;
   promotionOrder: number;
   promotionStartsAt: Date | null;
@@ -70,6 +71,7 @@ function toTeacher(row: TeacherRow): Teacher {
       address: row.address,
     },
     createdAt: row.createdAt,
+    supportsCompensation: row.supportsCompensation,
     isNationallyPromoted: row.isNationallyPromoted,
     promotionOrder: row.promotionOrder,
     promotionStartsAt: row.promotionStartsAt,
@@ -282,6 +284,7 @@ export type TeacherCardItem = Pick<
   | "district"
   | "price"
   | "services"
+  | "supportsCompensation"
   | "age"
   | "photos"
   | "emoji"
@@ -324,6 +327,7 @@ export async function getActiveNationalPromotions(
       district: true,
       price: true,
       services: true,
+      supportsCompensation: true,
       age: true,
       photos: true,
       emoji: true,
@@ -377,6 +381,7 @@ export async function getHomeTeachers(
       district: true,
       price: true,
       services: true,
+      supportsCompensation: true,
       age: true,
       photos: true,
       emoji: true,
@@ -451,6 +456,7 @@ export const getTeachersForSeoLocation = cache(
         district: true,
         price: true,
         services: true,
+        supportsCompensation: true,
         age: true,
         photos: true,
         emoji: true,
@@ -522,6 +528,7 @@ export async function getTeacherPublicById(
       price: true,
       services: true,
       courseNotes: true,
+      supportsCompensation: true,
       age: true,
       photos: true,
       emoji: true,

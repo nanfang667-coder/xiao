@@ -121,6 +121,7 @@ model Teacher {
   otherContact         String? // 其他联系方式（会员可见，可空，如 Telegram/邮箱等）
   address              String? // 详细地址（会员可见，可空，帮学员判断通勤距离）
   createdAt            DateTime            @default(now()) // 创建时间，自动记录
+  supportsCompensation Boolean             @default(false) // 仅管理员控制是否展示“支持赔付”标识
   isNationallyPromoted Boolean             @default(false) // nationwide promotion switch
   promotionOrder       Int                 @default(100) // smaller numbers appear first
   promotionStartsAt    DateTime? // empty means immediately

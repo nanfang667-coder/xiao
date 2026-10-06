@@ -169,6 +169,7 @@ function extractFields(formData: FormData) {
     qq: String(formData.get("qq") ?? "").trim(),
     otherContact: String(formData.get("otherContact") ?? "").trim() || null,
     address: String(formData.get("address") ?? "").trim() || null,
+    supportsCompensation: formData.get("supportsCompensation") === "on",
     isNationallyPromoted: formData.get("isNationallyPromoted") === "on",
     promotionOrder,
     promotionStartsAt,
@@ -199,6 +200,7 @@ export async function createTeacher(formData: FormData) {
   revalidatePath("/");
   revalidatePath("/adminzhangzhang");
   revalidatePath("/adminzhangzhang/teachers");
+  revalidatePath("/fenglou/[slug]", "page");
   redirect("/adminzhangzhang/teachers");
 }
 
@@ -249,6 +251,7 @@ export async function updateTeacher(
   revalidatePath("/adminzhangzhang");
   revalidatePath("/adminzhangzhang/teachers");
   revalidatePath(`/listing/${id}`);
+  revalidatePath("/fenglou/[slug]", "page");
   revalidatePath("/adminzhangzhang/submissions");
   redirect(adminTeacherReturnTo(returnTo));
 }
