@@ -1,0 +1,40 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { resolveEntry, mountEntry } from './entry.mjs';
+
+test('preserves short and legacy invitation codes', () => {
+  for (const code of ['NVG', 'abc', '12345678-1234-4123-8123-123456789abc']) {
+    assert.equal(resolveEntry(`?code=${code}`).destination, `https://sjeeqw.fit/${code}`);
+  }
+});
+test('rejects missing, duplicate and malformed codes', () => {
+  for (const query of ['', '?code=', '?code=NVG&code=ABC', '?code=//evil.test', '?code=%3Cscript%3E', '?code=ab', '?code=NVG%0a']) {
+    assert.equal(resolveEntry(query).destination, null);
+  }
+});
+test('query cannot override target or append injected URL parameters', () => {
+  assert.equal(resolveEntry('?code=NVG&target=https://evil.test&url=https://evil.test').destination, 'https://sjeeqw.fit/NVG');
+});
+function fixture(search) {
+  const nodes = new Map();
+  const doc = { getElementById(id) {
+    if (!nodes.has(id)) nodes.set(id, { hidden: true, addEventListener(type, callback) { this[type] = callback; } });
+    return nodes.get(id);
+  } };
+  const jumps = [];
+  mountEntry(doc, { search, replace: url => jumps.push(url) });
+  return { nodes, jumps };
+}
+test('preview automatically displays destination without real traffic', () => {
+  const app = fixture('?code=NVG&preview=1');
+  assert.match(app.nodes.get('status').textContent, /https:\/\/sjeeqw.fit\/NVG/);
+  assert.deepEqual(app.jumps, []);
+});
+test('real mode redirects immediately without timer or click', () => {
+  const app = fixture('?code=NVG');
+  assert.deepEqual(app.jumps, ['https://sjeeqw.fit/NVG']);
+});
+test('invalid invitation never redirects', () => {
+  const app = fixture('?code=../');
+  assert.deepEqual(app.jumps, []);
+});

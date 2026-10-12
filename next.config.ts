@@ -37,6 +37,8 @@ const nextConfig: NextConfig = {
     ];
   },
   experimental: {
+    // Keep complete transfer requests (up to 18MiB) through the admin proxy.
+    proxyClientMaxBodySize: "20mb",
     serverActions: {
       // 允许上传较大的图片（默认只有 1MB，这里放宽到 15MB）
       bodySizeLimit: "15mb",

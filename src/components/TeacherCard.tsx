@@ -2,6 +2,7 @@ import Link from "next/link";
 import { isImage } from "@/lib/photo";
 import { formatLocationLabel } from "@/lib/location-label";
 import type { TeacherCardItem } from "@/lib/teachers";
+import { CompensationBadge } from "@/components/CompensationBadge";
 
 function formatDate(date: Date): string {
   const chinaTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
@@ -15,8 +16,9 @@ export function TeacherCard({ teacher }: { teacher: TeacherCardItem }) {
   return (
     <Link
       href={`/listing/${teacher.id}`}
-      className="flex overflow-hidden rounded-2xl bg-white shadow-sm active:scale-[0.99] transition"
+      className="relative flex overflow-hidden rounded-2xl bg-white shadow-sm active:scale-[0.99] transition"
     >
+      {teacher.supportsCompensation && <CompensationBadge />}
       {isImage(teacher.photos[0]) ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -33,7 +35,7 @@ export function TeacherCard({ teacher }: { teacher: TeacherCardItem }) {
         </div>
       )}
 
-      <div className="flex flex-1 flex-col justify-between p-3">
+      <div className={`flex min-w-0 flex-1 flex-col justify-between px-3 pb-3 ${teacher.supportsCompensation ? "pt-9" : "pt-3"}`}>
         <div>
           {location && (
             <p className="text-xs text-gray-400">📍 {location}</p>
@@ -41,7 +43,7 @@ export function TeacherCard({ teacher }: { teacher: TeacherCardItem }) {
           {teacher.address && (
             <p className="mt-0.5 line-clamp-1 text-xs text-gray-400">{teacher.address}</p>
           )}
-          <h2 className="mt-1 line-clamp-1 text-sm font-semibold text-gray-800">
+          <h2 className="mt-1 truncate text-sm font-semibold text-gray-800">
             {teacher.name}
             {teacher.age != null && (
               <span className="ml-2 text-xs font-normal text-gray-400">年龄{teacher.age}</span>

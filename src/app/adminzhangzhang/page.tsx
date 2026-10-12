@@ -19,6 +19,13 @@ export default async function AdminDashboard() {
 
   const modules = [
     {
+      href: "/adminzhangzhang/partner-import",
+      icon: "📥",
+      title: "合作网站导入",
+      desc: "按分页网址导入帖子，私密待审后手动发布",
+      count: "导入与审查",
+    },
+    {
       href: "/adminzhangzhang/sites",
       icon: "👥",
       title: "团队账号管理",
@@ -38,6 +45,13 @@ export default async function AdminDashboard() {
       title: "用户管理",
       desc: "查看用户、封禁、解封和删除用户",
       count: `${userCount} 个用户`,
+    },
+    {
+      href: "/adminzhangzhang/channels",
+      icon: "🔗",
+      title: "推广渠道",
+      desc: "按短链统计独立访客，管理渠道和重定向地址",
+      count: "渠道统计",
     },    {
       href: "/adminzhangzhang/teachers",
       icon: "🎹",

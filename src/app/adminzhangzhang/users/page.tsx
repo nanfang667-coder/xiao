@@ -79,6 +79,11 @@ export default async function AdminUsersPage() {
         <h1 className="text-lg font-bold">用户管理</h1>
       </header>
 
+      <Link href="/adminzhangzhang/channels" className="mb-4 flex items-center justify-between rounded-2xl bg-pink-50 px-4 py-3 text-sm text-pink-600">
+        <span>推广渠道 · 查看短链带来的访客</span>
+        <span aria-hidden="true">›</span>
+      </Link>
+
       {/* 筛选 + 列表（客户端交互） */}
       <UsersBrowser
         users={users}

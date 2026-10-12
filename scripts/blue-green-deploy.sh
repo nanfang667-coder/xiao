@@ -10,6 +10,7 @@ TARGET_REF="${1:-origin/main}"
 HEALTH_PATH="${HEALTH_PATH:-/}"
 DATABASE_RELATIVE_PATH="prisma/prisma/prod.db"
 ALLEY_DETAIL_STORAGE_DIR="$SOURCE_DIR/storage/alley-detail"
+PARTNER_IMPORT_STORAGE_DIR="$SOURCE_DIR/storage/partner-import"
 HEALTH_HOST="${HEALTH_HOST:-fenglou1.com}"
 DRAIN_SECONDS="${DRAIN_SECONDS:-10}"
 ALLOW_DATABASE_MIGRATIONS="${ALLOW_DATABASE_MIGRATIONS:-0}"
@@ -19,6 +20,7 @@ NEW_RELEASE=""
 UPSTREAM_BACKUP=""
 NGINX_SWITCHED=0
 DEPLOYMENT_SUCCEEDED=0
+DATABASE_MIGRATIONS_STARTED=0
 
 log() {
   printf '[deploy] %s\n' "$*"
@@ -34,19 +36,19 @@ require_command() {
 }
 
 migration_fingerprint() {
-  local directory="$1"
-  if [[ ! -d "$directory/prisma/migrations" ]]; then
+  local revision="$1" commit tree_entry tree_oid
+  # Only immutable, complete commit IDs can establish the active schema baseline.
+  [[ "$revision" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]] || return 1
+  commit="$(git -C "$SOURCE_DIR" rev-parse --verify "$revision^{commit}" 2>/dev/null)" || return 1
+  [[ "$commit" == "$revision" ]] || return 1
+  tree_entry="$(git -C "$SOURCE_DIR" ls-tree "$commit" -- prisma/migrations)" || return 1
+  if [[ -z "$tree_entry" ]]; then
     printf none
     return
   fi
-  (
-    cd "$directory"
-    find prisma/migrations -type f -print0 \
-      | sort -z \
-      | xargs -0 sha256sum \
-      | sha256sum \
-      | awk '{print $1}'
-  )
+  tree_oid="$(git -C "$SOURCE_DIR" rev-parse --verify "$commit:prisma/migrations")" || return 1
+  [[ "$(git -C "$SOURCE_DIR" cat-file -t "$tree_oid")" == "tree" ]] || return 1
+  printf '%s\n' "$tree_oid"
 }
 
 write_state() {
@@ -74,6 +76,10 @@ write_upstream() {
 cleanup() {
   local exit_code=$?
   if [[ "$DEPLOYMENT_SUCCEEDED" -ne 1 ]]; then
+    if [[ "$DATABASE_MIGRATIONS_STARTED" -eq 1 ]]; then
+      log "WARNING: Database migrations were started. The shared database may already be changed; application rollback does not undo migrations."
+      log "Review migration status and the pre-migration backup before retrying or restoring. No database restore was performed automatically."
+    fi
     if [[ "$NGINX_SWITCHED" -eq 1 && -f "$UPSTREAM_BACKUP" ]]; then
       log "Rolling Nginx back to the previous application"
       cp -a "$UPSTREAM_BACKUP" "$UPSTREAM_INCLUDE"
@@ -95,7 +101,7 @@ cleanup() {
 trap cleanup EXIT
 
 [[ "$EUID" -eq 0 ]] || die "Run as root"
-for command_name in git npm npx pm2 curl nginx systemctl flock tar sha256sum awk mktemp; do
+for command_name in git npm npx pm2 curl nginx systemctl flock tar mktemp; do
   require_command "$command_name"
 done
 
@@ -118,6 +124,7 @@ source "$STATE_FILE"
 [[ "$ACTIVE_PROCESS" =~ ^[A-Za-z0-9._-]+$ ]] || die "Invalid PM2 process name in state"
 [[ "$ACTIVE_RELEASE" == "$SOURCE_DIR" || "$ACTIVE_RELEASE" == "$RELEASES_DIR/"* ]] || die "Invalid active release path"
 [[ "$(pm2 pid "$ACTIVE_PROCESS" | tr -d '[:space:]')" =~ ^[1-9][0-9]*$ ]] || die "Active PM2 process is not online"
+ACTIVE_MIGRATIONS="$(migration_fingerprint "${ACTIVE_REVISION:-}")" || die "Active Git revision is unknown or unavailable. Verify the running release baseline before deploying."
 
 mkdir -p "$ALLEY_DETAIL_STORAGE_DIR"
 chmod 700 "$SOURCE_DIR/storage" "$ALLEY_DETAIL_STORAGE_DIR"
@@ -125,6 +132,15 @@ log "Recovering private alley images from retained releases"
 for previous_storage in "$RELEASES_DIR"/*/storage/alley-detail; do
   if [[ -d "$previous_storage" && ! -L "$previous_storage" ]]; then
     cp -a -n "$previous_storage"/. "$ALLEY_DETAIL_STORAGE_DIR"/
+  fi
+done
+
+# Imported drafts keep private photos across every release switch.
+mkdir -p "$PARTNER_IMPORT_STORAGE_DIR"
+chmod 700 "$PARTNER_IMPORT_STORAGE_DIR"
+for previous_storage in "$RELEASES_DIR"/*/storage/partner-import; do
+  if [[ -d "$previous_storage" && ! -L "$previous_storage" ]]; then
+    cp -a -n "$previous_storage"/. "$PARTNER_IMPORT_STORAGE_DIR"/
   fi
 done
 
@@ -158,9 +174,9 @@ if [[ -e "$NEW_RELEASE/public/uploads" ]]; then
 fi
 mkdir -p "$NEW_RELEASE/public/uploads"
 mkdir -p "$NEW_RELEASE/storage/alley-detail"
+mkdir -p "$NEW_RELEASE/storage/partner-import"
 
-ACTIVE_MIGRATIONS="$(migration_fingerprint "$ACTIVE_RELEASE")"
-TARGET_MIGRATIONS="$(migration_fingerprint "$NEW_RELEASE")"
+TARGET_MIGRATIONS="$(migration_fingerprint "$TARGET_REVISION")" || die "Target Git migration tree could not be verified"
 MIGRATIONS_CHANGED=0
 if [[ "$ACTIVE_MIGRATIONS" != "$TARGET_MIGRATIONS" ]]; then
   [[ "$ALLOW_DATABASE_MIGRATIONS" == "1" ]] || die "Database migrations changed. Use a reviewed maintenance deployment instead of blue-green deployment."
@@ -175,9 +191,18 @@ log "Installing dependencies and building away from the live application"
   cd "$NEW_RELEASE"
   npm ci --no-audit --no-fund
   npx prisma generate
-  if [[ "$MIGRATIONS_CHANGED" -eq 1 ]]; then
+)
+if [[ "$MIGRATIONS_CHANGED" -eq 1 ]]; then
+  # Keep this flag in the parent shell so EXIT can report a partial migration or
+  # a later build/start/health-check failure without claiming database rollback.
+  DATABASE_MIGRATIONS_STARTED=1
+  (
+    cd "$NEW_RELEASE"
     npx prisma migrate deploy
-  fi
+  )
+fi
+(
+  cd "$NEW_RELEASE"
   NEXT_DEPLOYMENT_ID="$TARGET_REVISION" npm run build
 )
 
@@ -185,6 +210,8 @@ rmdir -- "$NEW_RELEASE/public/uploads"
 ln -s "$SOURCE_DIR/public/uploads" "$NEW_RELEASE/public/uploads"
 rmdir -- "$NEW_RELEASE/storage/alley-detail"
 ln -s "$ALLEY_DETAIL_STORAGE_DIR" "$NEW_RELEASE/storage/alley-detail"
+rmdir -- "$NEW_RELEASE/storage/partner-import"
+ln -s "$PARTNER_IMPORT_STORAGE_DIR" "$NEW_RELEASE/storage/partner-import"
 
 pm2 delete "$NEW_PROCESS" >/dev/null 2>&1 || true
 NODE_ENV=production NEXT_DEPLOYMENT_ID="$TARGET_REVISION" \

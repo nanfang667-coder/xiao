@@ -29,6 +29,7 @@ export default async function EditTeacherPage({
       initial={teacher}
       backHref={returnTo}
       submitLabel="保存修改"
+      showCompensation
     />
   );
 }

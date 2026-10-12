@@ -7,6 +7,7 @@ import {
 import { isImage } from "@/lib/photo";
 import { DeleteTeacherButton } from "../DeleteTeacherButton";
 import { approveTeacherSubmission, rejectTeacherSubmission } from "./actions";
+import { InlineImportReview } from "./InlineImportReview";
 
 function photosFrom(value: string): string[] {
   try {
@@ -67,6 +68,8 @@ export default async function CooperationManagementPage({ searchParams }: {
         <h1 className="font-bold">合作帖子管理</h1>
         <Link href="/adminzhangzhang/sites" className="ml-auto text-sm text-white/90">团队账号 →</Link>
       </header>
+
+      {result.assignmentReady === false && <p role="status" className="mb-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700">团队分配功能尚未启用，普通投稿仍可审核。</p>}
 
       <section aria-label="合作账号汇总" className="mb-5 rounded-2xl bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -178,7 +181,8 @@ export default async function CooperationManagementPage({ searchParams }: {
             <details className="mt-3 rounded-xl bg-gray-50 p-3 text-sm text-gray-700">
               <summary className="cursor-pointer font-medium text-pink-600">展开投稿详情</summary>
               <div className="mt-3 space-y-2 break-words leading-6">
-                <p>服务内容：{submission.services}</p>
+                {submission.age && <p>年龄：{submission.age}</p>}
+                <p className="whitespace-pre-wrap">服务内容：{submission.services}</p>
                 {submission.courseNotes && <p className="whitespace-pre-wrap">详细说明：{submission.courseNotes}</p>}
                 <p>联系方式：{[submission.phone, submission.wechat, submission.qq, submission.otherContact].filter(Boolean).join(" / ") || "未填写"}</p>
                 {submission.address && <p>地址：{submission.address}</p>}
@@ -193,7 +197,15 @@ export default async function CooperationManagementPage({ searchParams }: {
             {submission.teacherId ? (
               <Link href={`/listing/${submission.teacherId}`} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-xs text-sky-600">查看当前线上版本 ↗</Link>
             ) : submission.status === "approved" && <p className="mt-3 text-xs text-gray-400">原帖已删除，保留审核记录</p>}
-            {submission.status === "pending" && <div className="mt-3 grid gap-2 sm:grid-cols-[auto_1fr_auto]">
+            {submission.status === "pending" && result.assignmentReady !== false && submission.partnerImportDraftId && <>
+              {submission.importReview
+                ? <InlineImportReview key={submission.id + ":" + submission.importReview.draftId + ":" + submission.importReview.version}
+                    submissionId={submission.id} {...submission.importReview} />
+                : <p role="status" className="mt-3 text-sm text-amber-700">稿件状态已变化，请刷新后重新核对。</p>}
+              <Link href={"/adminzhangzhang/partner-import/drafts/" + submission.partnerImportDraftId} className="mt-3 inline-block text-sm text-pink-600">打开导入稿终审 →</Link>
+            </>}
+            {submission.status === "pending" && result.assignmentReady === false && submission.isPartnerImport && <p className="mt-3 text-sm text-amber-700">此稿件需要导入终审，团队分配功能启用后方可处理。</p>}
+            {submission.status === "pending" && !submission.isPartnerImport && !submission.partnerImportDraftId && <div className="mt-3 grid gap-2 sm:grid-cols-[auto_1fr_auto]">
               <form action={approveTeacherSubmission.bind(null, submission.id)}>
                 <button className="w-full rounded-lg bg-green-600 px-4 py-2 text-sm font-bold text-white">审核通过</button>
               </form>

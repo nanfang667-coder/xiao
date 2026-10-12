@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/output/
+/.playwright-cli/
 
 # next.js
 /.next/
@@ -23,6 +25,9 @@
 # misc
 .DS_Store
 *.pem
+/.codex-recover.bat
+# Legacy local bootstrap; incremental releases use scripts/blue-green-deploy.sh.
+/deploy.sh
 
 # debug
 npm-debug.log*
@@ -56,3 +61,5 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+/.partner-import-check/

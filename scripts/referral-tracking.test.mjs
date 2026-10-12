@@ -62,7 +62,7 @@ function fixture({ failStats = false, origin = 'https://example.test', randomVal
   const referral = load('src/lib/referral.ts', {
     'server-only': {}, 'node:crypto': { randomInt: () => randomValues.shift() ?? 0 },
     'next/server': { NextResponse }, './prisma': { prisma },
-    './site-config': { getTrustedSiteOrigin: () => origin }, './visitor': visitor,
+    './site-config': { getReferralSiteOrigin: () => origin }, './visitor': visitor,
   }, { console: { error: (...args) => calls.errors.push(args) } });
   const request = (id = VISITOR) => ({
     headers: new Headers({ host: 'attacker.invalid', 'x-forwarded-host': 'attacker.invalid' }),
@@ -125,7 +125,7 @@ test('unknown, malformed and reserved codes are 404 without statistics or cookie
   }
 });
 
-test('redirects use the trusted site origin and non-cacheable secure cookies', async () => {
+test('redirects use the selected referral origin and non-cacheable secure cookies', async () => {
   const f = fixture();
   const response = await f.referral.referralRedirect(f.request(), 'AB3');
   assert.equal(response.headers.get('location'), 'https://example.test/');

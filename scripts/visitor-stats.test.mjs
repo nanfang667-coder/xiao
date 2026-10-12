@@ -168,8 +168,8 @@ function pages({ authorized = true } = {}) {
     ...common,
     '@/lib/team-auth': { requireTeamAccount: authenticate },
     '@/lib/team-post-quota': {
-      getTeamMonthlyPostUsageWhere: (teamAccountId) => ({ teamAccountId, fixtureMonthly: true }),
-      getEffectiveTeamMonthlyPostLimit: () => 30,
+      getTeamPostUsageWhere: (teamAccountId) => ({ teamAccountId, fixtureQuota: true }),
+      getEffectiveTeamPostLimit: () => 30,
       summarizeTeamPostQuota: (limit, used) => ({ limit, used, remaining: limit - used, exhausted: used >= limit }),
     },
     './actions': { teamLogout() {} },

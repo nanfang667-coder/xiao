@@ -6,8 +6,8 @@ import {
 } from "@/lib/site-visitor-stats";
 import { requireTeamAccount } from "@/lib/team-auth";
 import {
-  getEffectiveTeamMonthlyPostLimit,
-  getTeamMonthlyPostUsageWhere,
+  getEffectiveTeamPostLimit,
+  getTeamPostUsageWhere,
   summarizeTeamPostQuota,
 } from "@/lib/team-post-quota";
 import { teamLogout } from "./actions";
@@ -22,7 +22,7 @@ export default async function TeamDashboardPage() {
     postCount,
     postViews,
     pendingCount,
-    monthlyPostUsage,
+    postUsage,
   ] = await Promise.all([
       getTodayNewVisitorCount(),
       getLast24HourVisitorCount(),
@@ -36,12 +36,12 @@ export default async function TeamDashboardPage() {
         where: { teamAccountId: account.id, status: "pending" },
       }),
       prisma.teacherSubmission.count({
-        where: getTeamMonthlyPostUsageWhere(account.id),
+        where: getTeamPostUsageWhere(account.id),
       }),
     ]);
   const quota = summarizeTeamPostQuota(
-    getEffectiveTeamMonthlyPostLimit(account),
-    monthlyPostUsage,
+    getEffectiveTeamPostLimit(account),
+    postUsage,
   );
 
   const cards = [
@@ -79,7 +79,7 @@ export default async function TeamDashboardPage() {
       <section className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-bold text-gray-800">本月发布额度</p>
+            <p className="text-sm font-bold text-gray-800">发帖总额度</p>
             <p className="mt-1 text-xs text-gray-500">
               已用 {quota.used}/{quota.limit} 条，剩余 {quota.remaining} 条
             </p>
@@ -96,6 +96,9 @@ export default async function TeamDashboardPage() {
             }}
           />
         </div>
+        <p className="mt-2 text-xs leading-5 text-gray-500">
+          已用额度累计计算，剩余额度跨月保留；总额度仅由管理员追加。审核拒绝会释放额度。
+        </p>
       </section>
 
       <div className="mt-5 grid grid-cols-2 gap-3">
@@ -104,7 +107,7 @@ export default async function TeamDashboardPage() {
         </Link>
         {quota.exhausted ? (
           <span className="rounded-xl bg-gray-300 px-4 py-3 text-center text-sm font-bold text-white">
-            本月额度已用完
+            发帖额度已用完
           </span>
         ) : (
           <Link href="/team/posts/new" className="rounded-xl bg-pink-500 px-4 py-3 text-center text-sm font-bold text-white">
@@ -112,6 +115,10 @@ export default async function TeamDashboardPage() {
           </Link>
         )}
       </div>
+
+      <Link href="/team/assigned" className="mt-3 block rounded-xl border border-pink-200 bg-white px-4 py-3 text-center text-sm font-bold text-pink-600">
+        分配给我的帖子
+      </Link>
 
       <p className="mt-5 rounded-xl bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-700">
         新帖子提交后由管理员审核；已发布的帖子只能由管理员修改。

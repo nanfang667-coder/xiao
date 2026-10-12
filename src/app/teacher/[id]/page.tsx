@@ -243,7 +243,7 @@ export default async function TeacherDetail({
             )}
             {contact.other && (
               <div className="flex items-center gap-2 text-sm text-gray-700">
-                <span className="text-gray-400">其他</span>
+                <span className="text-gray-400">与你号</span>
                 <span className="font-medium">{contact.other}</span>
               </div>
             )}
