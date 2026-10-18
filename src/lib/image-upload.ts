@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import sharp from "sharp";
+import sharp, { type SharpOptions } from "sharp";
 
 export const MAX_PHOTO_COUNT = 8;
 export const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
@@ -29,7 +29,7 @@ async function normalizeImage(file: File, index: number): Promise<Buffer> {
   const input = Buffer.from(await file.arrayBuffer());
 
   try {
-    const decoderOptions: sharp.SharpOptions = {
+    const decoderOptions: SharpOptions = {
       failOn: "warning",
       limitInputPixels: MAX_INPUT_PIXELS,
       sequentialRead: true,
@@ -85,7 +85,8 @@ export async function saveUploadedPhotos(
       writtenFiles.push(filename);
     }
   } catch (error) {
-    await Promise.allSettled(writtenFiles.map((filename) => unlink(path.join(targetDir, filename))));
+    // Uploaded files live in shared runtime storage and must not be bundled by the build.
+    await Promise.allSettled(writtenFiles.map((filename) => unlink(path.join(/* turbopackIgnore: true */ targetDir, filename))));
     throw error;
   }
 

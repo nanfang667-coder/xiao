@@ -15,12 +15,12 @@
     "bcrypt": "^6.0.0",
     "cheerio": "1.1.2",
     "jsonwebtoken": "^9.0.3",
-    "next": "16.2.10",
+    "next": "16.4.2",
     "prisma": "^6.19.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "read-excel-file": "^9.3.10",
-    "sharp": "^0.34.5"
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -29,9 +29,14 @@
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
     "eslint": "^9",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.4.2",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.0"
+    }
   },
   "browserslist": [
     "defaults",

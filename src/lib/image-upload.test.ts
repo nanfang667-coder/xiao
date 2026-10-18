@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
+import test, { type TestContext } from "node:test";
 import sharp from "sharp";
 // @ts-expect-error Node's type-stripping test runner requires the explicit .ts extension.
 import { getSelectedPhotoFiles, ImageUploadError, MAX_PHOTO_COUNT, MAX_PHOTO_SIZE_BYTES, saveUploadedPhotos } from "./image-upload.ts";
@@ -72,4 +72,44 @@ test("rejects too many files", async () => {
     (_, index) => new File(["x"], `${index}.jpg`, { type: "image/jpeg" }),
   );
   await assert.rejects(() => saveUploadedPhotos(files), /一次最多上传/);
+});
+
+async function temporaryUploadDirectory(t: TestContext) {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "hulim-image-upload-"));
+  t.after(async () => {
+    assert.equal(path.dirname(directory), os.tmpdir());
+    assert.ok(path.basename(directory).startsWith("hulim-image-upload-"));
+    await rm(directory, { recursive: true, force: true });
+  });
+  return directory;
+}
+
+test("uploaded PNGs become bounded, opaque JPEGs with the upgraded image decoder", async (t) => {
+  const directory = await temporaryUploadDirectory(t);
+  const png = await sharp({
+    create: { width: 2000, height: 20, channels: 4, background: "#00000000" },
+  }).png().toBuffer();
+  const urls = await saveUploadedPhotos([new File([new Uint8Array(png)], "synthetic.png", { type: "image/png" })], directory);
+  assert.equal(urls.length, 1);
+  assert.match(urls[0], /^\/uploads\/[a-f0-9-]+\.jpg$/);
+  const image = await readFile(path.join(directory, path.basename(urls[0])));
+  const metadata = await sharp(image).metadata();
+  assert.equal(metadata.format, "jpeg");
+  assert.ok(metadata.width && metadata.width <= 1600);
+  assert.ok(metadata.height && metadata.height <= 1600);
+  assert.equal(metadata.hasAlpha, false);
+  const { data } = await sharp(image).raw().toBuffer({ resolveWithObject: true });
+  assert.ok(data.every((channel) => channel >= 250), "transparent input is flattened onto white");
+});
+
+test("a malformed upload rejects the batch before any image is written", async (t) => {
+  const directory = await temporaryUploadDirectory(t);
+  const png = await sharp({
+    create: { width: 8, height: 8, channels: 3, background: "white" },
+  }).png().toBuffer();
+  await assert.rejects(saveUploadedPhotos([
+    new File([new Uint8Array(png)], "valid.png", { type: "image/png" }),
+    new File(["synthetic invalid image"], "invalid.jpg", { type: "image/jpeg" }),
+  ], directory), ImageUploadError);
+  assert.deepEqual(await readdir(directory), []);
 });
