@@ -134,16 +134,29 @@ old_upstream() {
   render_upstream "$mode" "$readonly" | old 'set -e; f=$(mktemp /etc/nginx/conf.d/.hulim-migration.XXXXXXXX); cat > "$f"; chmod 644 "$f"; mv -f -- "$f" /etc/nginx/conf.d/hulim-upstream.inc; nginx -t; systemctl reload nginx'
 }
 healthy_new() {
-  local attempt code
+  local attempt code tls_code
   for attempt in $(seq 1 30); do
+    tls_code=not-tested
     code=$(curl --noproxy '*' --max-time 5 --silent --output /dev/null --write-out '%{http_code}' -H 'Host: fenglou1.com' http://127.0.0.1:3000/ || true)
-    [[ "$code" == 200 ]] && return 0
+    if [[ "$code" == 200 ]]; then
+      tls_code=$(curl --noproxy '*' --resolve fenglou1.com:443:127.0.0.1 --connect-timeout 5 --max-time 5 --silent --output /dev/null --write-out '%{http_code}' https://fenglou1.com/ || true)
+      [[ "$tls_code" == 200 ]] && return 0
+    fi
+    log "New server health attempt=$attempt applicationHTTP=$code httpsHTTP=$tls_code"
     sleep 1
   done
   return 1
 }
 healthy_bridge() {
-  old 'test "$(curl --noproxy "*" --resolve fenglou1.com:443:127.0.0.1 --max-time 15 --silent --output /dev/null --write-out "%{http_code}" https://fenglou1.com/)" = 200'
+  local attempt code
+  for attempt in 1 2 3; do
+    code=$(old 'curl --noproxy "*" --resolve fenglou1.com:443:127.0.0.1 --connect-timeout 5 --max-time 15 --silent --show-error --output /dev/null --write-out "%{http_code}" https://fenglou1.com/' || true)
+    [[ "$code" == 200 ]] && return 0
+    [[ "$code" =~ ^[0-9]{3}$ ]] || code=SSH_FAILED
+    log "Forwarding health attempt=$attempt HTTP=$code"
+    sleep 2
+  done
+  return 1
 }
 new_writes_paused() {
   [[ "$(curl --noproxy '*' --resolve fenglou1.com:443:127.0.0.1 --max-time 10 -sS -o /dev/null -w '%{http_code}' -X POST https://fenglou1.com/__hulim_migration_write_probe__)" == 503 ]]
@@ -252,6 +265,7 @@ NEW_DB_REPLACED=yes
 mv -f -- "$DB.next" "$DB"
 systemctl start hulim-hk
 healthy_new
+log 'Final database responds on both application and verified HTTPS endpoints'
 healthy_bridge
 log 'Final snapshot is serving successfully; enabling writes on the new primary'
 # From this point, never restore old routing: new writes may have been accepted.

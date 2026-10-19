@@ -145,3 +145,47 @@ test("write-pause check uses verified HTTPS and rejects redirects", () => {
     assert.equal(result.status === 0, code === "503", result.stderr);
   }
 });
+
+test("forwarding health retries transient failures and requires HTTP 200", t => {
+  const fixture = launcherFixture(t);
+  const start = source.indexOf("healthy_bridge() {");
+  const end = source.indexOf("\n}", start);
+  assert.ok(start >= 0 && end > start);
+  const check = source.slice(start, end + 2);
+  for (const recovered of [true, false]) {
+    const counter = path.join(fixture.directory, recovered ? "recovered-count" : "failed-count");
+    fs.writeFileSync(counter, "0");
+    const result = run(`
+      counter=${quote(shellPath(counter))}
+      old() {
+        count=$(cat "$counter"); count=$((count + 1)); printf '%s' "$count" > "$counter"
+        if [[ "$count" -gt 1 && ${recovered ? "yes" : "no"} == yes ]]; then printf '200'; else printf '502'; fi
+      }
+      log() { printf '%s\\n' "$*"; }
+      sleep() { return 0; }
+      ${check}
+      healthy_bridge
+    `);
+    assert.equal(result.status === 0, recovered, result.stderr);
+    assert.equal(fs.readFileSync(counter, "utf8"), recovered ? "2" : "3");
+    assert.match(result.stdout, /HTTP=502/);
+  }
+});
+
+test("new server readiness requires both application and HTTPS success", () => {
+  const start = source.indexOf("healthy_new() {");
+  const end = source.indexOf("\n}", start);
+  assert.ok(start >= 0 && end > start);
+  const check = source.slice(start, end + 2);
+  for (const tlsStatus of ["200", "500"]) {
+    const result = run(`
+      curl() { if [[ "$*" == *'https://fenglou1.com/'* ]]; then printf '%s' ${quote(tlsStatus)}; else printf '200'; fi; }
+      seq() { printf '1\\n2\\n'; }
+      log() { printf '%s\\n' "$*"; }
+      sleep() { return 0; }
+      ${check}
+      healthy_new
+    `);
+    assert.equal(result.status === 0, tlsStatus === "200", result.stderr);
+  }
+});
