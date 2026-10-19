@@ -101,8 +101,10 @@ part of routine verification.
 
 Completion is reported as `CUTOVER_OK`. DNS remains unchanged, and the old
 server must remain available as a forwarding bridge until DNS propagation has
-been checked. Certificate renewal scheduling and final DNS records still need
-verification after the backend cutover. Do not cancel the old VPS yet.
+been checked. Certbot and its Nginx plugin are installed, and `certbot.timer`
+is active on the new server. All five copied renewal configurations use the
+installed Nginx authenticator/installer. No ACME dry run was performed.
+The DNS switch remains outstanding. Do not cancel the old VPS yet.
 
 Offline verification for the helper: Bash syntax and template self-checks,
 launcher refusal on invalid Nginx configuration or an existing primary marker,
@@ -116,3 +118,36 @@ hosts. After disabling reuse and allowing the replacement Nginx workers to
 start, three rounds covering all ten root/`www` hosts matched the expected
 status codes. No existing user logs were inspected for this diagnosis. See
 [Nginx's upstream TLS session reuse directive](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_ssl_session_reuse).
+
+The service retains `UMask=0077`. To let Nginx read newly uploaded public photos,
+only `/opt/hulim/public/uploads` has a default ACL granting `www-data` read/search
+access, with no default access for other users or the owning group:
+
+```bash
+setfacl -d -m u::rwx,u:www-data:r-x,g::---,m::r-x,o::--- /opt/hulim/public/uploads
+```
+
+This does not recursively alter existing files or change private storage.
+The real `saveUploadedPhotos` function was exercised with a generated one-pixel
+image under umask `0077`: Nginx could read the new file, HTTPS returned 200,
+and a separate private probe retained mode 600. Both synthetic files were
+removed. See [default ACL inheritance](https://man7.org/linux/man-pages/man5/acl.5.html).
+
+## Outstanding Namecheap DNS switch
+
+Public DNS checks on 2026-10-19 found Namecheap nameservers and these A records
+still pointing to `202.182.120.184`. Change the listed A records to
+`140.235.96.155`:
+
+| Domain | A record hosts to update |
+| --- | --- |
+| fenglou1.com | `@`, `www` |
+| fenglou2.com | `@` |
+| gp77.top | `@`, `www` |
+| sjeeqw.fit | `@` |
+| zollot.world | `@` |
+
+The existing `www` CNAMEs for fenglou2.com, sjeeqw.fit and zollot.world already
+follow their root domains. After saving, verify public DNS and all HTTPS
+redirects before retiring the old forwarding server. Do not replay the
+database migration now that the new primary accepts writes.
