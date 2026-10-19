@@ -77,8 +77,9 @@ bash /opt/hulim/scripts/migrate-hk-cutover.sh --status
 
 The launcher validates all four Nginx upstream templates without reloading the
 live configuration. It starts an immutable script copy as a background systemd
-unit, so an SSH disconnect does not interrupt the migration. An existing unit
-or primary marker prevents replay. The script pauses non-read HTTP methods,
+unit, so an SSH disconnect does not interrupt the migration. Its start timeout
+is explicitly `infinity`: a D-Bus timeout of zero terminates the unit immediately.
+An existing unit or primary marker prevents replay. The script pauses non-read HTTP methods,
 switches the old server to verified HTTPS forwarding and stops its application
 before taking a final SQLite backup. It clears only `Order` in the destination
 copy, checks its integrity, synchronizes the three media directories without

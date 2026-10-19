@@ -87,7 +87,7 @@ if [[ "${1:-}" == --start ]]; then
   bash "$staged" --validate
   systemd-run --no-block --unit=hulim-hk-cutover \
     --property=Type=oneshot --property=RemainAfterExit=yes \
-    --property=TimeoutStartSec=0 \
+    --property=TimeoutStartSec=infinity \
     --property="StandardOutput=append:$BASE/cutover-run.log" \
     --property="StandardError=append:$BASE/cutover-run.log" \
     /bin/bash "$staged" --apply

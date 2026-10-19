@@ -63,7 +63,9 @@ test("launcher validates all configurations and starts an independent immutable 
   const args = fs.readFileSync(path.join(fixture.directory, "launched"), "utf8");
   assert.match(result.stdout, /NGINX_TEMPLATE_VALIDATION_OK/);
   assert.match(args, /--no-block/);
-  assert.match(args, /TimeoutStartSec=0/);
+  // systemd-run passes properties over D-Bus: zero is an immediate timeout.
+  assert.match(args, /TimeoutStartSec=infinity/);
+  assert.doesNotMatch(args, /TimeoutStartSec=0(?:\n|$)/);
   assert.match(args, /cutover-script\./);
   assert.match(args, /--apply/);
 });
