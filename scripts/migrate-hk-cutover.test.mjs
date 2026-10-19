@@ -94,7 +94,7 @@ for (const [name, committed, restartFails] of [
   test(name, t => {
     const fixture = launcherFixture(t);
     const start = source.indexOf("rollback() {");
-    const end = source.indexOf("\n}\ntrap rollback ERR", start);
+    const end = source.indexOf("\n}\ntrap 'rollback", start);
     assert.ok(start >= 0 && end > start);
     const rollback = source.slice(start, end + 2);
     const result = run(`
@@ -126,3 +126,22 @@ for (const [name, committed, restartFails] of [
     }
   });
 }
+
+test("write-pause check uses verified HTTPS and rejects redirects", () => {
+  const start = source.indexOf("new_writes_paused() {");
+  const end = source.indexOf("\n}", start);
+  assert.ok(start >= 0 && end > start);
+  const check = source.slice(start, end + 2);
+  for (const code of ["503", "301", "302", "200"]) {
+    const result = run(`
+      curl() {
+        [[ "$*" == *'--resolve fenglou1.com:443:127.0.0.1'* ]] || return 1
+        [[ "${"${!#}"}" == https://fenglou1.com/__hulim_migration_write_probe__ ]] || return 1
+        printf '%s' ${quote(code)}
+      }
+      ${check}
+      new_writes_paused
+    `);
+    assert.equal(result.status === 0, code === "503", result.stderr);
+  }
+});

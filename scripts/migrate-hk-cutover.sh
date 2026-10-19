@@ -145,6 +145,9 @@ healthy_new() {
 healthy_bridge() {
   old 'test "$(curl --noproxy "*" --resolve fenglou1.com:443:127.0.0.1 --max-time 15 --silent --output /dev/null --write-out "%{http_code}" https://fenglou1.com/)" = 200'
 }
+new_writes_paused() {
+  [[ "$(curl --noproxy '*' --resolve fenglou1.com:443:127.0.0.1 --max-time 10 -sS -o /dev/null -w '%{http_code}' -X POST https://fenglou1.com/__hulim_migration_write_probe__)" == 503 ]]
+}
 
 [[ -d "$BASE" && -f "$DB" && ! -L "$DB" && -f "$UPSTREAM" ]]
 [[ ! -e "$DB.next" ]]
@@ -171,6 +174,7 @@ OLD_STOPPED=no
 rollback() {
   local status=$?
   trap - ERR
+  log "Failure at script line ${1:-unknown}; exit status $status"
   if [[ "$COMMITTED" == yes ]]; then
     log "New server is primary. Do NOT restore the old database. Resume forwarding using $RUN."
     printf 'COMMITTED_NEEDS_ATTENTION\n' > "$RUN/status"
@@ -201,14 +205,14 @@ rollback() {
   printf 'FAILED_BEFORE_COMMIT\n' > "$RUN/status"
   exit "$status"
 }
-trap rollback ERR
+trap 'rollback "$LINENO"' ERR
 trap 'false' TERM INT
 old "install -d -m 700 '$OLD_RUN'; test ! -e '$OLD_RUN/upstream.before'; install -m 600 /etc/nginx/conf.d/hulim-upstream.inc '$OLD_RUN/upstream.before'"
 log "Recovery directory: $RUN"
 MUTATED=yes
 local_upstream yes
 old_upstream local yes
-[[ "$(curl --noproxy '*' --max-time 10 -sS -o /dev/null -w '%{http_code}' -X POST -H 'Host: fenglou1.com' http://127.0.0.1/__hulim_migration_write_probe__)" == 503 ]]
+new_writes_paused
 old 'test "$(curl --noproxy "*" --resolve fenglou1.com:443:127.0.0.1 --max-time 10 --silent --output /dev/null --write-out "%{http_code}" -X POST https://fenglou1.com/__hulim_migration_write_probe__)" = 503'
 log 'Write pause enabled; browsing remains available'
 old_upstream bridge yes
