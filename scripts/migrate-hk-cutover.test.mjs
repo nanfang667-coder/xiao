@@ -25,6 +25,7 @@ test("migration script parses and validates its offline upstream templates", () 
   assert.equal(bridge.status, 0, bridge.stderr);
   assert.match(bridge.stdout, /proxy_ssl_verify on;/);
   assert.match(bridge.stdout, /proxy_ssl_name \$host;/);
+  assert.match(bridge.stdout, /proxy_ssl_session_reuse off;/);
   assert.match(bridge.stdout, /GET\|HEAD\|OPTIONS/);
 });
 

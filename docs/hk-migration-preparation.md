@@ -62,7 +62,10 @@ The new installation has been built and started under `hulim-hk.service`.
 The first media transfer, order-free database copy and Nginx/TLS installation
 have completed. Local HTTPS and the old server's requests to the new IP passed
 for all five domains; root and `www` redirects matched the existing behavior.
-These checks do not establish that the final data sync or DNS change has run.
+Final synchronization and the backend cutover subsequently completed on
+2026-10-19 with status `CUTOVER_OK`. The new server now accepts writes; the old
+application is stopped and its Nginx forwards to the new server using verified
+HTTPS. DNS has not changed: the public A records still point to the old server.
 
 `scripts/migrate-hk-cutover.sh` is a one-use operational helper for these exact
 hosts, paths, old release and service names. It does not read application `.env`
@@ -105,3 +108,11 @@ Offline verification for the helper: Bash syntax and template self-checks,
 launcher refusal on invalid Nginx configuration or an existing primary marker,
 and recovery behavior before/after commit. All fixtures use synthetic temporary
 files and mocked services; no live application data is queried by these tests.
+
+The temporary bridge disables upstream TLS session reuse while preserving SNI,
+hostname verification and the system CA trust store. Direct requests to the new
+server succeeded while the bridge intermittently returned 502 across virtual
+hosts. After disabling reuse and allowing the replacement Nginx workers to
+start, three rounds covering all ten root/`www` hosts matched the expected
+status codes. No existing user logs were inspected for this diagnosis. See
+[Nginx's upstream TLS session reuse directive](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_ssl_session_reuse).

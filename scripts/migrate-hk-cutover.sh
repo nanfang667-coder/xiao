@@ -36,7 +36,7 @@ render_upstream() {
   if [[ "$mode" == local ]]; then
     printf '%s\n' 'proxy_pass http://127.0.0.1:3000;'
   elif [[ "$mode" == bridge ]]; then
-    printf '%s\n' 'proxy_ssl_server_name on;' 'proxy_ssl_name $host;' \
+    printf '%s\n' 'proxy_ssl_server_name on;' 'proxy_ssl_name $host;' 'proxy_ssl_session_reuse off;' \
       'proxy_ssl_verify on;' 'proxy_ssl_verify_depth 3;' \
       'proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;' \
       'proxy_pass https://140.235.96.155;'
