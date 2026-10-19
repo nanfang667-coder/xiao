@@ -3,6 +3,16 @@ export const SITE_NAME = "免费凤楼信息";
 
 const LOCAL_SITE_URL = "http://localhost:3000";
 
+// This public domain shares the existing default site's identity and pricing.
+export function getDefaultSiteAliasHostname(
+  rawHostname: string | null | undefined,
+): string | null {
+  const hostname = rawHostname?.trim().toLowerCase();
+  return hostname && /^(?:www\.)?husil\.world(?::443|:80)?$/.test(hostname)
+    ? "husil.world"
+    : null;
+}
+
 export function getTrustedSiteOrigin(nodeEnv = process.env.NODE_ENV): string {
   return nodeEnv === "production" ? SITE_URL : LOCAL_SITE_URL;
 }
@@ -14,6 +24,8 @@ export function getReferralSiteOrigin(
 ): string {
   const host = (requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host"))
     ?.trim().toLowerCase();
+  const defaultSiteAlias = getDefaultSiteAliasHostname(host);
+  if (defaultSiteAlias) return `https://${defaultSiteAlias}`;
   if (host && /^(?:www\.)?zollot\.world(?::443|:80)?$/.test(host)) {
     return "https://zollot.world";
   }

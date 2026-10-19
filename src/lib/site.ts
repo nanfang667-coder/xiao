@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { SITE_NAME } from "@/lib/site-config";
+import { getDefaultSiteAliasHostname, SITE_NAME } from "@/lib/site-config";
 import {
   FALLBACK_SITE,
   normalizeHostname,
@@ -27,7 +27,11 @@ export async function getSiteByHostname(
   rawHostname: string | null | undefined,
 ): Promise<SiteConfig> {
   const hostname = normalizeHostname(rawHostname);
-  if (hostname && hostname !== "localhost" && hostname !== "127.0.0.1") {
+  const defaultSiteAlias = getDefaultSiteAliasHostname(rawHostname);
+  if (
+    hostname && !defaultSiteAlias &&
+    hostname !== "localhost" && hostname !== "127.0.0.1"
+  ) {
     const matched = await prisma.site.findFirst({
       where: { hostname, isActive: true },
       select: {
@@ -54,7 +58,8 @@ export async function getSiteByHostname(
       membershipOriginalPrice: true,
     },
   });
-  return fallback ? toSiteConfig(fallback) : FALLBACK_SITE;
+  const site = fallback ? toSiteConfig(fallback) : FALLBACK_SITE;
+  return defaultSiteAlias ? { ...site, hostname: defaultSiteAlias } : site;
 }
 
 export const getCurrentSite = cache(async (): Promise<SiteConfig> => {

@@ -1,5 +1,5 @@
 // Only the site owner edits this target. Query parameters never select a host.
-export const TARGET_ORIGIN = 'https://sjeeqw.fit';
+export const TARGET_ORIGIN = 'https://husil.world';
 
 export function resolveEntry(search) {
   const params = new URLSearchParams(search);

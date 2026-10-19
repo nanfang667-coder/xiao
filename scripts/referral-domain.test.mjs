@@ -35,6 +35,12 @@ test('only approved public hosts select an HTTPS invitation destination', () => 
   for (const host of ['fenglou2.com', 'www.fenglou2.com', 'FENGLOU2.COM:443', 'fenglou2.com:80']) {
     assert.equal(config.getReferralSiteOrigin(new Headers({ host })), 'https://fenglou2.com');
   }
+  for (const host of ['husil.world', 'www.husil.world', 'HUSIL.WORLD:443', 'husil.world:80']) {
+    assert.equal(config.getReferralSiteOrigin(new Headers({ host })), 'https://husil.world');
+  }
+  for (const host of ['husil.world.evil.example', 'husil.world@evil.example', 'husil.world, evil.example', 'husil.world:1234', 'https://husil.world']) {
+    assert.equal(config.getReferralSiteOrigin(new Headers({ host })), 'https://fenglou1.com');
+  }
   for (const host of ['fenglou1.com', 'evil.example', 'fenglou2.com.evil.example', 'fenglou2.com@evil.example', 'fenglou2.com, evil.example', 'fenglou2.com:1234']) {
     assert.equal(config.getReferralSiteOrigin(new Headers({ host })), 'https://fenglou1.com');
   }
@@ -59,7 +65,7 @@ function handler(owner, failStats = false) {
   return { ...referral, visits };
 }
 
-for (const host of ['fenglou1.com', 'fenglou2.com', 'sjeeqw.fit', 'zollot.world']) {
+for (const host of ['fenglou1.com', 'fenglou2.com', 'sjeeqw.fit', 'zollot.world', 'husil.world']) {
   test(`${host} invitation retains domain, attribution and secure cookies`, async () => {
     const app = handler({ id: 42, siteId: 'a', referralCode: 'HEV' });
     const response = await app.referralRedirect(new NextRequest(`http://localhost:3000/HEV`, {
@@ -75,6 +81,17 @@ for (const host of ['fenglou1.com', 'fenglou2.com', 'sjeeqw.fit', 'zollot.world'
     assert.equal(app.visits[0].create.referrerId, 42);
   });
 }
+
+test('www target-domain invitation canonicalizes to the same destination and attribution', async () => {
+  const app = handler({ id: 42, siteId: 'a', referralCode: 'HEV' });
+  const response = await app.referralRedirect(new NextRequest('http://localhost:3000/HEV', {
+    headers: { host: 'localhost:3000', 'x-forwarded-host': 'www.husil.world', 'x-forwarded-proto': 'http' },
+  }), 'HEV');
+  assert.equal(response.headers.get('location'), 'https://husil.world/');
+  assert.equal(response.cookies.get('ref_code').value, 'HEV');
+  assert.equal(response.cookies.get('ref_code').secure, true);
+  assert.equal(app.visits[0].create.referrerId, 42);
+});
 test('unknown invitation remains 404 and records no visit', async () => {
   const app = handler(null);
   const response = await app.referralRedirect(new NextRequest('https://fenglou2.com/XYZ'), 'XYZ');

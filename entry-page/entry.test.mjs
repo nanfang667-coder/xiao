@@ -4,7 +4,7 @@ import { resolveEntry, mountEntry } from './entry.mjs';
 
 test('preserves short and legacy invitation codes', () => {
   for (const code of ['NVG', 'abc', '12345678-1234-4123-8123-123456789abc']) {
-    assert.equal(resolveEntry(`?code=${code}`).destination, `https://sjeeqw.fit/${code}`);
+    assert.equal(resolveEntry(`?code=${code}`).destination, `https://husil.world/${code}`);
   }
 });
 test('rejects missing, duplicate and malformed codes', () => {
@@ -13,7 +13,7 @@ test('rejects missing, duplicate and malformed codes', () => {
   }
 });
 test('query cannot override target or append injected URL parameters', () => {
-  assert.equal(resolveEntry('?code=NVG&target=https://evil.test&url=https://evil.test').destination, 'https://sjeeqw.fit/NVG');
+  assert.equal(resolveEntry('?code=NVG&target=https://evil.test&url=https://evil.test').destination, 'https://husil.world/NVG');
 });
 function fixture(search) {
   const nodes = new Map();
@@ -27,12 +27,12 @@ function fixture(search) {
 }
 test('preview automatically displays destination without real traffic', () => {
   const app = fixture('?code=NVG&preview=1');
-  assert.match(app.nodes.get('status').textContent, /https:\/\/sjeeqw.fit\/NVG/);
+  assert.match(app.nodes.get('status').textContent, /https:\/\/husil.world\/NVG/);
   assert.deepEqual(app.jumps, []);
 });
 test('real mode redirects immediately without timer or click', () => {
   const app = fixture('?code=NVG');
-  assert.deepEqual(app.jumps, ['https://sjeeqw.fit/NVG']);
+  assert.deepEqual(app.jumps, ['https://husil.world/NVG']);
 });
 test('invalid invitation never redirects', () => {
   const app = fixture('?code=../');
