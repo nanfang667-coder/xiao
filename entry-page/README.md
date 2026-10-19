@@ -20,3 +20,12 @@
 上线时放入独立入口站点的 `go/index.html`。入口域名的普通根路径 `/` 可由 Nginx 以 302 跳到 `https://husil.world/`；它与带邀请码的 `/go/index.html` 页面分别配置，后者缺码时仍提示错误，不跳首页。服务器必须为该 HTML 设置 `Cache-Control: no-store`；meta 标签不能替代响应头。生成文件包含内联脚本和样式，若入口站点已有 CSP，需要使用对应内容哈希允许它们，或改用三个独立源文件并允许同源脚本与样式。不要直接关闭现有 CSP。
 
 本目录只提供部署产物；DNS、Nginx、HTTPS 和目标站点域名识别需要另外配置并验证。入口必须能访问，页面不是防封保证。跨目标域名的 Cookie 不互通，邀请渠道可保留，但访客不能因此自动跨域去重。
+
+## 当前部署（2026-10-19）
+
+- 新加坡：`/var/www/hlwi-entry/go/index.html`，Nginx 站点 `hlwi-entry`。HTTP 升级 HTTPS，`www` 规范到主域名；普通根路径 302 到 `https://husil.world/`。
+- 香港：Nginx 站点 `husil-world`，代理现有 `hulim-hk` 服务。`husil.world` 共用默认站点的 ID、账号和价格，不新增数据库站点记录；原五个域名保留现有规则。
+- 香港运行代码为提交 `c69a86c`，目录 `/opt/hulim-releases/husil-c69a86c`；systemd drop-in 为 `/etc/systemd/system/hulim-hk.service.d/20-husil-release.conf`。`/opt/hulim` 继续保存源代码 checkout 和原有共享运行数据。后续发布应先构建独立 release，再切换服务，不能假定更新 checkout 就会更新运行版本。
+- 两站 HTTPS 已签发，`certbot.timer` 已启用；证书续期后会校验并重载 Nginx。入口响应使用 `no-store`、`noindex` 和内联资源 SHA256 CSP；修改页面后必须同步重算 CSP 哈希。
+
+已验证入口浏览器预览、新域名 HTTPS／重定向、旧五域名响应，以及隔离测试库下的邀请归属、账号命名空间和 SEO URL。真实邀请码链路未用于线上验证，以免新增推广统计；上线使用已有有效邀请码，并移除测试用的 `preview=1`。
