@@ -55,3 +55,52 @@ Before switching DNS, verify the new site against the migrated copy, configure
 the required HTTPS certificates, and arrange a short write pause for final
 synchronization. Keep the old server available during DNS propagation, with
 writes controlled so that old and new databases cannot diverge.
+
+## Prepared installation and final cutover
+
+The new installation has been built and started under `hulim-hk.service`.
+The first media transfer, order-free database copy and Nginx/TLS installation
+have completed. Local HTTPS and the old server's requests to the new IP passed
+for all five domains; root and `www` redirects matched the existing behavior.
+These checks do not establish that the final data sync or DNS change has run.
+
+`scripts/migrate-hk-cutover.sh` is a one-use operational helper for these exact
+hosts, paths, old release and service names. It does not read application `.env`
+files, print business records, change DNS or contact payment/certificate APIs.
+Run it from the existing root SSH session on `hulim-hk`, after pulling this
+branch into `/opt/hulim`:
+
+```bash
+bash /opt/hulim/scripts/migrate-hk-cutover.sh --start
+bash /opt/hulim/scripts/migrate-hk-cutover.sh --status
+```
+
+The launcher validates all four Nginx upstream templates without reloading the
+live configuration. It starts an immutable script copy as a background systemd
+unit, so an SSH disconnect does not interrupt the migration. An existing unit
+or primary marker prevents replay. The script pauses non-read HTTP methods,
+switches the old server to verified HTTPS forwarding and stops its application
+before taking a final SQLite backup. It clears only `Order` in the destination
+copy, checks its integrity, synchronizes the three media directories without
+deleting destination files, and restarts the new application on the final copy.
+Public read requests may still update analytics during the temporary pause;
+the pause is not a guarantee that all analytics events are preserved.
+
+Before reopening writes, a failure attempts to restore the original routing
+and database. If the old application cannot restart, writes remain paused.
+After the new primary marker is committed, a failure never restores the old
+primary: inspect the technical status and repair forwarding before proceeding.
+Do not remove the marker or rerun `--apply` to bypass this protection.
+Private recovery copies remain in `/root/hulim-migration/cutover.*` on both
+servers; they include source data and must not be published or inspected as
+part of routine verification.
+
+Completion is reported as `CUTOVER_OK`. DNS remains unchanged, and the old
+server must remain available as a forwarding bridge until DNS propagation has
+been checked. Certificate renewal scheduling and final DNS records still need
+verification after the backend cutover. Do not cancel the old VPS yet.
+
+Offline verification for the helper: Bash syntax and template self-checks,
+launcher refusal on invalid Nginx configuration or an existing primary marker,
+and recovery behavior before/after commit. All fixtures use synthetic temporary
+files and mocked services; no live application data is queried by these tests.
