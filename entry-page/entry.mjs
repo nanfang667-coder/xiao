@@ -18,25 +18,11 @@ export function resolveEntry(search) {
 export function mountEntry(doc, location) {
   const entry = resolveEntry(location.search);
   const title = doc.getElementById('title');
-  const description = doc.getElementById('description');
-  const status = doc.getElementById('status');
-  doc.getElementById('preview').hidden = !entry.preview;
   if (!entry.destination) {
     title.textContent = '访问链接不完整';
-    description.textContent = '邀请码缺失或格式不正确，请返回原页面重新打开链接。';
-    status.textContent = '请勿删除链接中的 code 参数。';
     return;
   }
-  title.textContent = '正在进入网站';
-  description.textContent = '正在自动打开页面，无需操作。';
-  doc.getElementById('destination-box').hidden = false;
-  doc.getElementById('destination').textContent = new URL(entry.destination).host;
-  if (entry.preview) {
-    title.textContent = '自动跳转演示';
-    status.textContent = `页面加载后立即前往：${entry.destination}`;
-    return;
-  }
-  status.textContent = '正在跳转…';
+  if (entry.preview) return;
   location.replace(entry.destination);
 }
 

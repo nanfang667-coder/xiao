@@ -18,16 +18,17 @@ test('query cannot override target or append injected URL parameters', () => {
 function fixture(search) {
   const nodes = new Map();
   const doc = { getElementById(id) {
-    if (!nodes.has(id)) nodes.set(id, { hidden: true, addEventListener(type, callback) { this[type] = callback; } });
+    assert.equal(id, 'title');
+    if (!nodes.has(id)) nodes.set(id, { textContent: '即将抵达' });
     return nodes.get(id);
   } };
   const jumps = [];
   mountEntry(doc, { search, replace: url => jumps.push(url) });
   return { nodes, jumps };
 }
-test('preview automatically displays destination without real traffic', () => {
+test('preview keeps the arrival message without real traffic', () => {
   const app = fixture('?code=NVG&preview=1');
-  assert.match(app.nodes.get('status').textContent, /https:\/\/husil.world\/NVG/);
+  assert.equal(app.nodes.get('title').textContent, '即将抵达');
   assert.deepEqual(app.jumps, []);
 });
 test('real mode redirects immediately without timer or click', () => {
