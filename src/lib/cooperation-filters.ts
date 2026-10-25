@@ -3,6 +3,10 @@ import type { Prisma } from "@prisma/client";
 export const COOPERATION_PATH = "/adminzhangzhang/submissions";
 export const COOPERATION_PAGE_SIZE = 20;
 export const ACCOUNT_PAGE_SIZE = 8;
+// Imported records have a reserved key and cannot enter ordinary team review.
+export const ORDINARY_SUBMISSION_WHERE = {
+  OR: [{ submissionKey: null }, { NOT: { submissionKey: { startsWith: "partner-import:" } } }],
+} satisfies Prisma.TeacherSubmissionWhereInput;
 export type CooperationFilters = {
   accountId: number | null;
   accountQuery: string;
@@ -60,7 +64,10 @@ export function cooperationHref(
   return `${COOPERATION_PATH}${params.size ? `?${params}` : ""}`;
 }
 
-export function cooperationSubmissionWhere(filters: CooperationFilters): Prisma.TeacherSubmissionWhereInput {
+export function cooperationSubmissionWhere(
+  filters: CooperationFilters,
+  ordinaryWhere: Prisma.TeacherSubmissionWhereInput = ORDINARY_SUBMISSION_WHERE,
+): Prisma.TeacherSubmissionWhereInput {
   const numericId = Number(filters.query.replace(/^#/, ""));
   return {
     ...(filters.accountId !== null ? { teamAccountId: filters.accountId } : {}),
@@ -68,6 +75,7 @@ export function cooperationSubmissionWhere(filters: CooperationFilters): Prisma.
       ? filters.historyStatus || { in: ["approved", "rejected"] }
       : "pending",
     AND: [
+      ordinaryWhere,
       ...(filters.query ? [{ OR: [
         { name: { contains: filters.query } },
         ...(Number.isSafeInteger(numericId) && numericId > 0 ? [{ id: numericId }, { teacherId: numericId }] : []),

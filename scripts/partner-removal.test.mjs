@@ -26,8 +26,13 @@ test('admin dashboard requires authentication and retains active modules without
   let authorized = true;
   let authorizationChecked = false;
   const queries = [];
-  const count = (name, value) => ({ count: async () => {
+  const count = (name, value) => ({ count: async (args) => {
     assert.equal(authorizationChecked, true);
+    if (name === 'teacherSubmission') {
+      assert.equal(args.where.status, 'pending');
+      assert.equal(args.where.partnerImportDraftId, null);
+      assert.equal(args.where.OR[1].NOT.submissionKey.startsWith, 'partner-import:');
+    }
     queries.push(name);
     return value;
   } });
@@ -37,6 +42,10 @@ test('admin dashboard requires authentication and retains active modules without
     '@/lib/auth': { requireAdmin: async () => {
       if (!authorized) throw new Error('UNAUTHORIZED');
       authorizationChecked = true;
+    } },
+    '@/lib/ordinary-submission-boundary': { getOrdinarySubmissionBoundary: async () => {
+      assert.equal(authorizationChecked, true);
+      return { where: { OR: [{ submissionKey: null }, { NOT: { submissionKey: { startsWith: 'partner-import:' } } }], partnerImportDraftId: null } };
     } },
     '@/lib/prisma': { prisma: {
       teacher: count('teacher', 11),

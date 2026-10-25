@@ -29,6 +29,19 @@ function load(file, mocks, now) {
   return exports;
 }
 
+function matches(row, where) {
+  return Object.entries(where).every(([key, value]) => {
+    if (key === "OR") return value.some(condition => matches(row, condition));
+    if (key === "NOT") return !matches(row, value);
+    if (value && typeof value === "object") {
+      if ("in" in value) return value.in.includes(row[key]);
+      if ("startsWith" in value) return row[key]?.startsWith(value.startsWith) ?? false;
+      if ("gte" in value) return row[key] >= value.gte && row[key] < value.lt;
+    }
+    return (row[key] ?? null) === value;
+  });
+}
+
 function fixtures({ used = 100, bonus = 0, now = "2026-10-01T00:00:00Z" } = {}) {
   const account = {
     id: 17,
@@ -40,13 +53,15 @@ function fixtures({ used = 100, bonus = 0, now = "2026-10-01T00:00:00Z" } = {}) 
     monthlyPostBonusMonth: "2026-09",
   };
   const records = Array.from({ length: used }, (_, index) => ({
+    id: index + 1, name: "Synthetic ordinary pending",
     teamAccountId: account.id,
     kind: "create",
     status: index === 0 ? "pending" : "approved",
+    submissionKey: null, partnerImportDraftId: null,
     createdAt: new Date(index % 2 ? "2026-08-15T00:00:00Z" : "2026-09-15T00:00:00Z"),
   }));
   records.push(
-    { teamAccountId: account.id, kind: "create", status: "rejected" },
+    { id: used + 1, teamAccountId: account.id, kind: "create", status: "rejected", submissionKey: null, partnerImportDraftId: null, name: "Synthetic ordinary rejected" },
     { teamAccountId: account.id, kind: "update", status: "approved" },
     { teamAccountId: 99, kind: "create", status: "approved" },
   );
@@ -59,24 +74,24 @@ function fixtures({ used = 100, bonus = 0, now = "2026-10-01T00:00:00Z" } = {}) 
   const count = async ({ where }) => {
     assert.equal(authenticated, true);
     queries.push(where);
-    return records.filter((record) =>
-      record.teamAccountId === where.teamAccountId
-      && (!where.kind || record.kind === where.kind)
-      && (typeof where.status === "string"
-        ? record.status === where.status
-        : where.status.in.includes(record.status))
-      && (!where.createdAt
-        || (record.createdAt >= where.createdAt.gte && record.createdAt < where.createdAt.lt)),
-    ).length;
+    return records.filter(record => matches(record, where)).length;
   };
   const quota = load("src/lib/team-post-quota.ts", {}, now);
   const common = {
     "react/jsx-runtime": jsx,
     "next/link": { default: "a" },
     "@/lib/team-auth": { requireTeamAccount },
+    "@/lib/ordinary-submission-boundary": { getOrdinarySubmissionBoundary: async () => {
+      assert.equal(authenticated, true);
+      return { where: { OR: [{ submissionKey: null }, { NOT: { submissionKey: { startsWith: "partner-import:" } } }], partnerImportDraftId: null } };
+    } },
     "@/lib/team-post-quota": quota,
     "@/lib/prisma": { prisma: {
-      teacherSubmission: { count, findMany: async () => [] },
+      teacherSubmission: { count, findMany: async ({ where }) => {
+        assert.equal(authenticated, true);
+        queries.push(where);
+        return records.filter(record => matches(record, where));
+      } },
       teacherOwnership: { count: async () => 0, findMany: async () => [] },
       teacher: { aggregate: async () => ({ _sum: { viewCount: 0 } }) },
       siteVisit: { count: async () => 0 },
@@ -122,7 +137,7 @@ test("all team pages retain historic usage across the month boundary", async () 
       assert.match(html, /href="\/team\/posts\/new"/);
     }
     assert.match(fixture.formProps.notice, /剩余 50 条新帖额度，跨月保留/);
-    assert.equal(fixture.queries.filter((query) => query.kind === "create").length, 3);
+    assert.equal(fixture.queries.filter((query) => query.kind === "create" && !query.OR).length, 3);
     assert.ok(fixture.queries.every((query) => !("createdAt" in query)));
   }
 });
@@ -152,4 +167,29 @@ test("rejected historical submission releases quota and permits the create form"
   assert.ok(fixture.formProps);
   assert.match(fixture.formProps.notice, /提交时发帖额度不足/);
   assert.match(fixture.formProps.notice, /审核拒绝会释放额度/);
+});
+
+test("team pending statistics and unpublished queue exclude historical imports without changing cumulative quota", async () => {
+  const f = fixtures({ used: 100 });
+  f.records.push(
+    { id: 500, name: "PRIVATE_IMPORT_KEY_SENTINEL", teamAccountId: 17, kind: "create", status: "pending", submissionKey: "partner-import:7", partnerImportDraftId: null },
+    { id: 501, name: "PRIVATE_IMPORT_REFERENCE_SENTINEL", teamAccountId: 17, kind: "create", status: "pending", submissionKey: null, partnerImportDraftId: 8 },
+    { id: 502, name: "OTHER_ACCOUNT_SENTINEL", teamAccountId: 99, kind: "create", status: "pending", submissionKey: null, partnerImportDraftId: null },
+  );
+  const dashboard = renderToStaticMarkup(await f.dashboard());
+  const posts = renderToStaticMarkup(await f.posts({ searchParams: Promise.resolve({}) }));
+  assert.match(dashboard, /待管理员审核<\/p><p[^>]*>1<\/p>/);
+  for (const html of [dashboard, posts]) {
+    assert.match(html, /已用 102\/150 条，剩余 48 条/);
+    assert.doesNotMatch(html, /PRIVATE_IMPORT_KEY_SENTINEL|PRIVATE_IMPORT_REFERENCE_SENTINEL|OTHER_ACCOUNT_SENTINEL/);
+  }
+  assert.match(posts, /Synthetic ordinary pending/);
+  assert.match(posts, /Synthetic ordinary rejected/);
+  const queue = f.queries.find(query => query.status?.in?.includes("rejected"));
+  assert.equal(queue.teamAccountId, 17);
+  assert.equal(queue.partnerImportDraftId, null);
+  assert.equal(queue.OR[1].NOT.submissionKey.startsWith, "partner-import:");
+  const quotaQueries = f.queries.filter(query => query.kind === "create" && !query.OR);
+  assert.equal(quotaQueries.length, 2);
+  assert.ok(quotaQueries.every(query => !("partnerImportDraftId" in query)));
 });

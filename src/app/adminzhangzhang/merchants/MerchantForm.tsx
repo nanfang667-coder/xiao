@@ -159,10 +159,18 @@ export function MerchantForm({
           <p className="mt-1 text-xs text-gray-400">数字越小越靠前，例如 1 排第一；默认 100。</p>
         </div>
 
-        <label className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-3">
-          <input type="checkbox" name="isPublished" defaultChecked={initial?.isPublished ?? true} className="h-4 w-4 accent-pink-500" />
-          <span className="text-sm text-gray-700">在前台公开展示</span>
-        </label>
+        <fieldset className="space-y-3 rounded-xl border border-gray-100 bg-white p-3">
+          <legend className="px-1 text-sm font-medium text-gray-700">显示设置</legend>
+          <label className="flex items-center gap-3 text-sm text-gray-700">
+            <input type="radio" name="isPublished" value="on" defaultChecked={initial?.isPublished ?? true} className="h-4 w-4 accent-pink-500" />
+            正常显示
+          </label>
+          <label className="flex items-center gap-3 text-sm text-gray-700">
+            <input type="radio" name="isPublished" value="off" defaultChecked={initial?.isPublished === false} className="h-4 w-4 accent-pink-500" />
+            隐藏此商家帖子
+          </label>
+          <p className="text-xs leading-5 text-gray-400">隐藏后，访客看不到此商家的列表或详情，后台可随时恢复展示。</p>
+        </fieldset>
 
         <div>
           <label className={label}>照片（可多选，也可以一次拖拽好几张进来）</label>

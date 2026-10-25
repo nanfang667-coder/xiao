@@ -8,9 +8,18 @@ import { createBrotliDecompress, createGunzip, createInflate } from "node:zlib";
 const SAFE_ERROR = "合作方资源下载失败，请检查来源设置或稍后重试。";
 const MAX_URL_LENGTH = 4096;
 const MAX_RESOURCE_BYTES = 10 * 1024 * 1024;
+const MAX_JSON_BODY_BYTES = 16 * 1024;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const HTTP_STATUSES = new Set(Object.keys(STATUS_CODES).map(Number));
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"]);
+const SCRIPT_TYPES = new Set(["application/javascript", "text/javascript", "application/x-javascript", "application/ecmascript", "text/ecmascript"]);
+type ResourceAccept = "html" | "image" | "script" | "json";
+const ACCEPT_HEADERS: Record<ResourceAccept, string> = {
+  html: "text/html, application/xhtml+xml",
+  image: "image/jpeg, image/png, image/webp, image/gif, image/avif",
+  script: [...SCRIPT_TYPES].join(", "),
+  json: "application/json, application/*+json",
+};
 
 export type PartnerFetchErrorCode = "INVALID_URL" | "ORIGIN_NOT_ALLOWED" | "UNSAFE_ADDRESS" | "DNS_FAILED"
   | "CONNECT_FAILED" | "TLS_FAILED" | "TIMEOUT" | "HTTP_STATUS" | "CONTENT_TYPE"
@@ -30,7 +39,7 @@ export class PartnerFetchError extends Error {
 }
 
 type Address = { address: string; family: number };
-type FetchOptions = { maxBytes?: number; accept?: "html" | "image" };
+type FetchOptions = { maxBytes?: number; accept?: ResourceAccept; signal?: AbortSignal; jsonBody?: string };
 type Resource = { bytes: Buffer; contentType: string; url: string };
 type TransportResult = { location: string } | { bytes: Buffer; contentType: string };
 type Dependencies = {
@@ -128,7 +137,8 @@ async function download(
   dependencies: Dependencies,
   signal: AbortSignal,
   maxBytes: number,
-  accept: "html" | "image",
+  accept: ResourceAccept,
+  body?: Buffer,
 ): Promise<TransportResult> {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -157,7 +167,7 @@ async function download(
     if (signal.aborted) return abort();
     try {
       outgoing = dependencies.request(url, {
-        method: "GET",
+        method: body ? "POST" : "GET",
         agent: false,
         rejectUnauthorized: true,
         maxHeaderSize: 16 * 1024,
@@ -168,9 +178,10 @@ async function download(
           else callback(null, address.address, address.family);
         },
         headers: {
-          Accept: accept === "html" ? "text/html, application/xhtml+xml" : "image/jpeg, image/png, image/webp, image/gif, image/avif",
+          Accept: ACCEPT_HEADERS[accept],
           "Accept-Encoding": "gzip, deflate, br",
           "User-Agent": "PartnerPostImporter/1.0",
+          ...(body ? { "Content-Type": "application/json", "Content-Length": String(body.length) } : {}),
         },
       }, (incoming) => {
         response = incoming;
@@ -184,6 +195,8 @@ async function download(
         try {
           const status = incoming.statusCode ?? 0;
           if (REDIRECT_STATUSES.has(status)) {
+            // Never replay a POST body, including same-origin 307/308 redirects.
+            if (body) return fail(failed("REDIRECT_LIMIT"));
             const location = incoming.headers.location;
             if (!location || location.length > MAX_URL_LENGTH || /[\s\u0000-\u001f\u007f#\\]/u.test(location)) return fail();
             succeed({ location });
@@ -195,7 +208,9 @@ async function download(
           const mimeType = contentType.split(";", 1)[0].trim().toLowerCase();
           const validType = accept === "html"
             ? mimeType === "text/html" || mimeType === "application/xhtml+xml"
-            : IMAGE_TYPES.has(mimeType);
+            : accept === "image" ? IMAGE_TYPES.has(mimeType)
+              : accept === "script" ? SCRIPT_TYPES.has(mimeType)
+                : mimeType === "application/json" || /^application\/[a-z0-9][a-z0-9!#$&^_.+-]*\+json$/u.test(mimeType);
           if (!validType || contentType.length > 256 || /[^\x20-\x7e]/u.test(contentType)) return fail(failed("CONTENT_TYPE"));
           const encoding = incoming.headers["content-encoding"]?.trim().toLowerCase() || "identity";
           const declaredLength = incoming.headers["content-length"];
@@ -253,7 +268,8 @@ async function download(
         }
       });
       outgoing.on("error", (error: unknown) => fail(connectionFailure(error)));
-      outgoing.end();
+      if (body) outgoing.end(body);
+      else outgoing.end();
     } catch (error) {
       fail(connectionFailure(error));
     }
@@ -264,12 +280,25 @@ async function download(
 export function createPartnerResourceFetcher(dependencies: Dependencies) {
   return async (rawUrl: string, allowedOrigins: string[], options: FetchOptions = {}): Promise<Resource> => {
     const controller = new AbortController();
+    const abort = () => controller.abort();
+    options.signal?.addEventListener("abort", abort, { once: true });
+    if (options.signal?.aborted) controller.abort();
     const timer = setTimeout(() => controller.abort(), dependencies.timeoutMs ?? 20_000);
     try {
+      if (controller.signal.aborted) throw failed("TIMEOUT");
       const accept = options.accept ?? "html";
       const maxBytes = options.maxBytes ?? (accept === "image" ? MAX_RESOURCE_BYTES : 2 * 1024 * 1024);
       if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0 || maxBytes > MAX_RESOURCE_BYTES
-        || (accept !== "html" && accept !== "image")) throw failed("INVALID_RESPONSE");
+        || (accept !== "html" && accept !== "image" && accept !== "script" && accept !== "json")) throw failed("INVALID_RESPONSE");
+      let body: Buffer | undefined;
+      if (options.jsonBody !== undefined) {
+        if (accept !== "json" || typeof options.jsonBody !== "string" || options.jsonBody.length > MAX_JSON_BODY_BYTES) throw failed("INVALID_RESPONSE");
+        body = Buffer.from(options.jsonBody, "utf8");
+        if (body.length > MAX_JSON_BODY_BYTES) throw failed("INVALID_RESPONSE");
+        let parsed: unknown;
+        try { parsed = JSON.parse(options.jsonBody); } catch { throw failed("INVALID_RESPONSE"); }
+        if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") throw failed("INVALID_RESPONSE");
+      }
       if (!allowedOrigins.length) throw failed("INVALID_URL");
       const origins = new Set(allowedOrigins.map((origin) => {
         const parsed = parseUrl(origin);
@@ -286,7 +315,7 @@ export function createPartnerResourceFetcher(dependencies: Dependencies) {
         if (!addresses.length) throw failed("DNS_FAILED");
         if (addresses.length > 32
           || addresses.some((entry) => !isPublicAddress(entry.address) || isIP(entry.address) !== entry.family)) throw failed("UNSAFE_ADDRESS");
-        const result = await download(url, addresses[0], dependencies, controller.signal, maxBytes, accept);
+        const result = await download(url, addresses[0], dependencies, controller.signal, maxBytes, accept, body);
         if ("location" in result) {
           if (redirects === 3) throw failed("REDIRECT_LIMIT");
           let redirected: string;
@@ -305,6 +334,7 @@ export function createPartnerResourceFetcher(dependencies: Dependencies) {
       throw error instanceof PartnerFetchError ? error : failed();
     } finally {
       clearTimeout(timer);
+      options.signal?.removeEventListener("abort", abort);
       controller.abort();
     }
   };

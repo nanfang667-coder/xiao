@@ -19,6 +19,7 @@ test("every recognized import failure has fixed, actionable text", () => {
   }
   assert.equal(isPartnerImportDiagnosticCode("IMPORT_FAILED"), true);
   assert.match(getPartnerImportErrorMessage("LISTING_NO_MATCH", 200), /调整.*帖子链接选择器/);
+  assert.match(getPartnerImportErrorMessage("LISTING_NO_MATCH", 200), /恢复默认帖子链接规则.*保存重试/);
   assert.match(getPartnerImportErrorMessage("UNSAFE_ADDRESS"), /DNS.*代理.*保留.*安全检查/);
   assert.match(getPartnerImportErrorMessage("TLS_FAILED"), /保留证书验证/);
 });

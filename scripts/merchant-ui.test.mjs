@@ -81,22 +81,28 @@ test('merchant views reject invalid requests and atomically count only published
 
 test('admin merchant list displays zero and formatted view counts behind admin authorization', async () => {
   let authorized = true;
+  const locations = load('src/data/locations.ts', {});
+  const filters = load('src/lib/admin-merchant-filters.ts', { '@/data/locations': locations });
   const { default: Page } = load('src/app/adminzhangzhang/merchants/page.tsx', {
     'react/jsx-runtime': jsx,
     'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
     '@/lib/auth': { requireAdmin: async () => { if (!authorized) throw new Error('UNAUTHORIZED'); } },
     '@/lib/merchants': { getMerchantsForAdmin: async () => [0, 1234].map((viewCount, id) => ({
-      id, name: '测试商家', photos: [], isPublished: true, viewCount,
+      id, name: '测试商家', photos: [], isPublished: true, viewCount, city: '', district: '',
     })) },
+    '@/lib/admin-merchant-filters': filters,
     '@/lib/photo': { isImage: () => false },
     '@/lib/location-label': { formatLocationLabel: () => '' },
     './DeleteMerchantButton': { DeleteMerchantButton: () => null },
+    './AdminMerchantFilters': { AdminMerchantFilters: () => null },
+    './MerchantVisibilityButton': { MerchantVisibilityButton: () => null },
   });
-  const html = renderToStaticMarkup(await Page());
+  const props = { searchParams: Promise.resolve({}) };
+  const html = renderToStaticMarkup(await Page(props));
   assert.match(html, /阅读量 0 次/);
   assert.match(html, /阅读量 1,234 次/);
   authorized = false;
-  await assert.rejects(Page(), /UNAUTHORIZED/);
+  await assert.rejects(Page(props), /UNAUTHORIZED/);
 });
 
 function actions(authorized = true) {

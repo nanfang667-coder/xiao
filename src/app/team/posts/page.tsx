@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireTeamAccount } from "@/lib/team-auth";
+import { getOrdinarySubmissionBoundary } from "@/lib/ordinary-submission-boundary";
 import { isImage } from "@/lib/photo";
 import {
   getEffectiveTeamPostLimit,
@@ -29,6 +30,7 @@ export default async function TeamPostsPage({
   searchParams: Promise<{ submitted?: string }>;
 }) {
   const account = await requireTeamAccount();
+  const { where: ordinaryWhere } = await getOrdinarySubmissionBoundary();
   const { submitted } = await searchParams;
   const [ownerships, submissions, postUsage] = await Promise.all([
     prisma.teacherOwnership.findMany({
@@ -39,6 +41,7 @@ export default async function TeamPostsPage({
     prisma.teacherSubmission.findMany({
       select: { id: true, name: true, status: true, reviewNote: true },
       where: {
+        ...ordinaryWhere,
         teamAccountId: account.id,
         kind: "create",
         status: { in: ["pending", "rejected"] },

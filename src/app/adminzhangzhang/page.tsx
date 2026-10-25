@@ -4,15 +4,17 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getOrdinarySubmissionBoundary } from "@/lib/ordinary-submission-boundary";
 import { logout } from "./actions";
 
 export default async function AdminDashboard() {
   await requireAdmin(); // 未登录会被挡下
+  const { where: ordinaryWhere } = await getOrdinarySubmissionBoundary();
 
   // 各模块的数据量，显示在入口卡片上
   const [teacherCount, pendingSubmissions, merchantCount, userCount] = await Promise.all([
     prisma.teacher.count(),
-    prisma.teacherSubmission.count({ where: { status: "pending" } }),
+    prisma.teacherSubmission.count({ where: { ...ordinaryWhere, status: "pending" } }),
     prisma.merchant.count(),
     prisma.user.count(),
   ]);
@@ -21,9 +23,9 @@ export default async function AdminDashboard() {
     {
       href: "/adminzhangzhang/partner-import",
       icon: "📥",
-      title: "合作网站导入",
-      desc: "按分页网址导入帖子，私密待审后手动发布",
-      count: "导入与审查",
+      title: "合作网站图片",
+      desc: "输入目标网页地址，获取、预览并下载图片",
+      count: "图片获取",
     },
     {
       href: "/adminzhangzhang/sites",

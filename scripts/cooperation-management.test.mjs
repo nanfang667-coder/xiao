@@ -25,18 +25,16 @@ const { parseCooperationFilters: parse, cooperationHref: href } = filtersApi;
 const returns = load('src/lib/admin-teacher-return.ts');
 const clone = value => JSON.parse(JSON.stringify(value));
 const photoKey = '00000000-0000-0000-0000-000000000001.jpg';
-const photoApi = load('src/lib/partner-import-photos.ts', Object.fromEntries([
-  'node:crypto', 'node:fs/promises', 'node:path', 'node:fs', './image-upload',
-  './partner-import-fetch', './partner-import-photo-cover', './partner-import-photo-cover-render',
-].map(name => [name, {}])));
 
 // In-memory fixtures only: no environment files, live databases, or external requests.
 function matches(row, where = {}) {
   return Object.entries(where).every(([key, value]) => {
     if (key === 'AND') return value.every(condition => matches(row, condition));
     if (key === 'OR') return value.some(condition => matches(row, condition));
+    if (key === 'NOT') return !matches(row, value);
     if (value && typeof value === 'object') {
-      if ('contains' in value) return row[key].includes(value.contains);
+      if ('contains' in value) return row[key]?.includes(value.contains) ?? false;
+      if ('startsWith' in value) return row[key]?.startsWith(value.startsWith) ?? false;
       if ('in' in value) return value.in.includes(row[key]);
       return matches(row[key], value);
     }
@@ -75,7 +73,7 @@ function fixture({ authorized = true, ready = true, imported = false, draft = {}
   const date = id => new Date(Date.UTC(2026, 8, 1, 0, id));
   const post = (id, teamAccountId, extra = {}) => ({
     id, teamAccountId, account: teamAccountId === 1 ? accountA : accountB,
-    status: 'pending', kind: 'create', teacherId: null,
+    status: 'pending', kind: 'create', teacherId: null, submissionKey: null, partnerImportDraftId: null,
     name: `模拟帖子${id}`, city: '广东省', district: '广州市', price: '100', emoji: '🎹',
     photos: '[]', age: '25', services: '测试服务', courseNotes: null, phone: '测试联系方式', wechat: '', qq: null,
     otherContact: null, address: null, createdAt: date(id), reviewedAt: null, reviewNote: null,
@@ -112,12 +110,18 @@ function fixture({ authorized = true, ready = true, imported = false, draft = {}
       count: async ({ where }) => { calls.push([name, 'count', where]); return rows.filter(row => matches(row, where)).length; },
       findMany: async args => {
         calls.push([name, 'findMany', args]);
+        if (name === 'submissions') {
+          assert.equal(Object.hasOwn(args.select, 'partnerImportDraft'), false);
+          assert.equal(Object.hasOwn(args.select, 'importReview'), false);
+        }
         if (!ready && name === 'submissions') {
           assert.equal(Object.hasOwn(args.select, 'partnerImportDraftId'), false);
           assert.equal(Object.hasOwn(args.select, 'partnerImportDraft'), false);
         }
         const selected = order(rows.filter(row => matches(row, args.where)), args.orderBy);
-        return selected.slice(args.skip ?? 0, args.take === undefined ? undefined : (args.skip ?? 0) + args.take).map(row => pick(row, args.select));
+        return selected.slice(args.skip ?? 0, args.take === undefined ? undefined : (args.skip ?? 0) + args.take).map(row => pick(name === 'accounts' ? {
+          ...row, _count: { ...row._count, submissions: row.submissions.filter(item => matches(item, args.select._count.select.submissions.where)).length },
+        } : row, args.select));
       },
       findUnique: async ({ where, select }) => {
         calls.push([name, 'findUnique', where]);
@@ -128,8 +132,9 @@ function fixture({ authorized = true, ready = true, imported = false, draft = {}
   }
   const api = load('src/lib/admin-cooperation.ts', {
     'server-only': {}, '@/lib/cooperation-filters': filtersApi,
-    '@/lib/partner-import-photos': photoApi,
-    '@/lib/partner-import-assignment-readiness': { isPartnerImportAssignmentReady: async () => ready },
+    '@/lib/ordinary-submission-boundary': { getOrdinarySubmissionBoundary: async () => ({
+      hasImportReference: ready, where: { ...filtersApi.ORDINARY_SUBMISSION_WHERE, ...(ready ? { partnerImportDraftId: null } : {}) },
+    }) },
     '@/lib/auth': { requireAdmin: async () => { if (!authorized) throw new Error('UNAUTHORIZED'); } },
     '@/lib/prisma': { prisma: {
       teamAccount: model(accounts, 'accounts'), teacherSubmission: model(submissions, 'submissions'), teacherOwnership: model(ownerships, 'ownerships'),
@@ -234,9 +239,6 @@ async function renderPage(params, options, inspect = () => {}) {
     '@/lib/admin-cooperation': api, '@/lib/cooperation-filters': filtersApi,
     '@/lib/photo': { isImage: () => false },
     '../DeleteTeacherButton': { DeleteTeacherButton: () => React.createElement('button', null, '删除') },
-    './InlineImportReview': { InlineImportReview: ({ submissionId, draftId, version }) => React.createElement('div', {
-      'data-import-review': submissionId + ':' + draftId + ':' + version,
-    }, '审核通过并发布') },
     './actions': { approveTeacherSubmission: async () => {}, rejectTeacherSubmission: async () => {} },
   });
   const tree = await Page({ searchParams: Promise.resolve(params) });
@@ -262,98 +264,45 @@ test('UI keeps account links and filters, with review controls only in pending v
   assert.match(empty, /当前条件下没有待审核内容/);
 });
 
-test('old-schema cooperation lists omit new columns and still distinguish import submissions by their old key', async () => {
-  for (const imported of [false, true]) {
-    const f = fixture({ ready: false, imported });
+test('historical imported submissions are excluded from queues, totals and account summaries', async () => {
+  for (const ready of [false, true]) {
+    const f = fixture({ ready, imported: true });
     const result = await f.api.getCooperationManagement(parse({ account: '1' }));
-    assert.equal(result.assignmentReady, false);
-    assert.equal(result.submissions.length, 20);
-    assert.equal(result.submissions[0].isPartnerImport, imported);
-    assert.equal(result.submissions[0].partnerImportDraftId, null);
-    assert.equal(Object.hasOwn(result.submissions[0], 'submissionKey'), false);
-    assert.equal(f.calls.filter(([model, method]) => model === 'submissions' && method === 'findMany')
-      .every(([, , args]) => !Object.hasOwn(args.select, 'partnerImportDraftId')), true);
+    assert.equal(result.pagination.total, 24);
+    assert.equal(result.counts.pending, 24);
+    assert.equal(result.accounts.find(row => row.id === 1)._count.submissions, 24);
+    assert.equal(result.submissions[0].id, 2);
+    assert.ok(result.submissions.every(row => !Object.hasOwn(row, 'submissionKey')
+      && !Object.hasOwn(row, 'partnerImportDraftId') && !Object.hasOwn(row, 'isPartnerImport')));
+    const imported = await f.api.getCooperationManagement(parse({ account: '1', q: '#1' }));
+    assert.equal(imported.submissions.length, 0);
+    f.submissions[0].status = 'approved';
+    const history = await f.api.getCooperationManagement(parse({ account: '1', view: 'history', q: '#1' }));
+    assert.equal(history.submissions.length, 0);
   }
 });
 
-test('unavailable assignment UI preserves ordinary controls and blocks imported-submission shortcuts', async () => {
-  const ordinary = await renderPage({ account: '1', q: '#1' }, { ready: false });
-  assert.match(ordinary, /团队分配功能尚未启用/);
-  assert.match(ordinary, /审核通过/);
-  const imported = await renderPage({ account: '1', q: '#1' }, { ready: false, imported: true });
-  assert.match(imported, /此稿件需要导入终审/);
-  assert.doesNotMatch(imported, /name="reviewNote"|打开导入稿终审|>审核通过</);
-});
-
-
-test('import review selects only bounded private photo metadata and binds the submitted version', async () => {
+test('draft references without a reserved key also cannot enter ordinary review', async () => {
   const f = fixture({ imported: true });
+  f.submissions[0].submissionKey = null;
   const result = await f.api.getCooperationManagement(parse({ account: '1', q: '#1' }));
-  const row = result.submissions[0];
-  assert.deepEqual(clone(row.importReview), { draftId: 77, version: 4, photos: [photoKey] });
-  assert.equal(row.age, '25');
-  assert.equal(Object.hasOwn(row, 'partnerImportDraft'), false);
-  assert.equal(Object.hasOwn(row, 'submissionKey'), false);
-  const query = f.calls.find(([model, method]) => model === 'submissions' && method === 'findMany')[2];
-  assert.deepEqual(clone(query.select.partnerImportDraft.select), { id: true, version: true, status: true, teamAccountId: true, photos: true });
+  assert.equal(result.submissions.length, 0);
+  assert.equal(result.counts.pending, 24);
 });
 
-test('historical and ordinary submissions do not expose an inline import review', async () => {
-  const ordinary = fixture();
-  const pending = await ordinary.api.getCooperationManagement(parse({ account: '1' }));
-  assert.ok(pending.submissions.every(row => row.importReview === null));
+test('historical private draft content is never inspected or exposed', async () => {
   const f = fixture({ imported: true });
-  f.submissions[0].status = 'approved';
-  const history = await f.api.getCooperationManagement(parse({ account: '1', view: 'history' }));
-  assert.ok(history.submissions.every(row => row.importReview === null));
-  const query = f.calls.find(([model, method]) => model === 'submissions' && method === 'findMany')[2];
-  assert.equal(Object.hasOwn(query.select, 'partnerImportDraft'), false);
+  f.submissions[0].partnerImportDraft = new Proxy({}, { get() { throw new Error('PRIVATE_DRAFT_MUST_NOT_BE_READ'); } });
+  const result = await f.api.getCooperationManagement(parse({ account: '1' }));
+  assert.equal(JSON.stringify(result).includes(photoKey), false);
 });
 
-test('inconsistent submission and draft ownership or state cannot get inline publication controls', async () => {
-  for (const draft of [{ status: 'returned' }, { teamAccountId: 2 }, { id: 78 }]) {
-    const f = fixture({ imported: true, draft });
-    const result = await f.api.getCooperationManagement(parse({ account: '1', q: '#1' }));
-    assert.equal(result.submissions[0].importReview, null);
-  }
-  const f = fixture({ imported: true });
-  f.submissions[0].kind = 'update';
-  assert.equal((await f.api.getCooperationManagement(parse({ account: '1', q: '#1' }))).submissions[0].importReview, null);
-});
-
-test('unsafe or invalid photo records fail closed while legitimate empty photos remain reviewable', async () => {
-  for (const photos of ['invalid', '["https://example.test/photo.jpg"]', '["../secret.jpg"]', '{}']) {
-    const f = fixture({ imported: true, draft: { photos } });
-    const result = await f.api.getCooperationManagement(parse({ account: '1', q: '#1' }));
-    assert.equal(result.submissions[0].importReview.photos, null);
-  }
-  const f = fixture({ imported: true, draft: { photos: '[]' } });
-  assert.deepEqual(clone((await f.api.getCooperationManagement(parse({ account: '1', q: '#1' }))).submissions[0].importReview.photos), []);
-});
-
-test('pending imported cards offer inline final review and all text fields without ordinary approval shortcuts', async () => {
-  const page = await renderPage({ account: '1', q: '#1' }, { imported: true });
-  assert.match(page, /data-import-review="1:77:4"/);
-  assert.match(page, /审核通过并发布/);
-  assert.match(page, /年龄：25/);
-  assert.match(page, /打开导入稿终审/);
-  assert.doesNotMatch(page, /name="reviewNote"|>审核通过<|PRIVATE_TEST_SENTINEL/);
-  const stale = await renderPage({ account: '1', q: '#1' }, { imported: true, draft: { status: 'returned' } });
-  assert.match(stale, /稿件状态已变化/);
-  assert.doesNotMatch(stale, /data-import-review/);
-});
-
-
-test('a resubmitted draft remounts inline photo and confirmation state for the new version', async () => {
-  const walk = node => !node || typeof node !== 'object' ? [] : Array.isArray(node)
-    ? node.flatMap(walk) : [node, ...walk(node.props?.children)];
-  const keys = [];
-  for (const version of [4, 5]) {
-    await renderPage({ account: '1', q: '#1' }, { imported: true, draft: { version } }, tree => {
-      const component = walk(tree).find(node => node.props?.draftId === 77);
-      assert.ok(component);
-      keys.push(component.key);
-    });
-  }
-  assert.deepEqual(keys, ['1:77:4', '1:77:5']);
+test('ordinary cards keep review controls while old import records have no cards or workflow notices', async () => {
+  const ordinary = await renderPage({ account: '1', q: '#1' });
+  assert.match(ordinary, />审核通过</);
+  assert.match(ordinary, />不通过</);
+  assert.match(ordinary, /name="reviewNote"/);
+  const imported = await renderPage({ account: '1', q: '#1' }, { imported: true });
+  assert.match(imported, /当前条件下没有待审核内容/);
+  assert.doesNotMatch(imported, /历史导入稿|已停止流转|获取网站图片|name="reviewNote"|终审|data-import-review/);
 });

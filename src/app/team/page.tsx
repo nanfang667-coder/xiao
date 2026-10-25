@@ -5,6 +5,7 @@ import {
   getTodayNewVisitorCount,
 } from "@/lib/site-visitor-stats";
 import { requireTeamAccount } from "@/lib/team-auth";
+import { getOrdinarySubmissionBoundary } from "@/lib/ordinary-submission-boundary";
 import {
   getEffectiveTeamPostLimit,
   getTeamPostUsageWhere,
@@ -14,6 +15,7 @@ import { teamLogout } from "./actions";
 
 export default async function TeamDashboardPage() {
   const account = await requireTeamAccount();
+  const { where: ordinaryWhere } = await getOrdinarySubmissionBoundary();
 
   const [
     todayNewVisitors,
@@ -33,7 +35,7 @@ export default async function TeamDashboardPage() {
         _sum: { viewCount: true },
       }),
       prisma.teacherSubmission.count({
-        where: { teamAccountId: account.id, status: "pending" },
+        where: { ...ordinaryWhere, teamAccountId: account.id, status: "pending" },
       }),
       prisma.teacherSubmission.count({
         where: getTeamPostUsageWhere(account.id),
@@ -115,10 +117,6 @@ export default async function TeamDashboardPage() {
           </Link>
         )}
       </div>
-
-      <Link href="/team/assigned" className="mt-3 block rounded-xl border border-pink-200 bg-white px-4 py-3 text-center text-sm font-bold text-pink-600">
-        分配给我的帖子
-      </Link>
 
       <p className="mt-5 rounded-xl bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-700">
         新帖子提交后由管理员审核；已发布的帖子只能由管理员修改。

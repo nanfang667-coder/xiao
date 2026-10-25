@@ -1,13 +1,22 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { getMerchantsForAdmin } from "@/lib/merchants";
+import { filterMerchantsForAdmin, parseAdminMerchantFilters } from "@/lib/admin-merchant-filters";
 import { isImage } from "@/lib/photo";
 import { formatLocationLabel } from "@/lib/location-label";
 import { DeleteMerchantButton } from "./DeleteMerchantButton";
+import { AdminMerchantFilters } from "./AdminMerchantFilters";
+import { MerchantVisibilityButton } from "./MerchantVisibilityButton";
 
-export default async function AdminMerchantsPage() {
+export default async function AdminMerchantsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requireAdmin();
-  const merchants = await getMerchantsForAdmin();
+  const filters = parseAdminMerchantFilters(await searchParams);
+  const result = filterMerchantsForAdmin(await getMerchantsForAdmin(), filters);
+  const merchants = result.merchants;
 
   return (
     <div className="mx-auto w-full max-w-md flex-1 px-4 pb-10">
@@ -20,9 +29,19 @@ export default async function AdminMerchantsPage() {
         ＋ 添加商家
       </Link>
 
-      <div className="space-y-3">
+      <AdminMerchantFilters
+        {...filters}
+        total={result.total}
+        allLocationTotal={result.allLocationTotal}
+        provinceCounts={result.provinceCounts}
+        cityCounts={result.cityCounts}
+      />
+
+      <div className="mt-4 space-y-3">
         {merchants.length === 0 && (
-          <p className="py-16 text-center text-sm text-gray-400">还没有商家</p>
+          <p className="py-16 text-center text-sm text-gray-400">
+            {filters.province ? "没有符合条件的商家" : "还没有商家"}
+          </p>
         )}
         {merchants.map((merchant) => (
           <div key={merchant.id} className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-sm">
@@ -37,7 +56,7 @@ export default async function AdminMerchantsPage() {
                 <span className="text-[11px] text-gray-400">#{merchant.id}</span>
                 <span className="rounded-full bg-pink-50 px-1.5 py-0.5 text-[10px] font-bold text-pink-600">排序 {merchant.sortOrder}</span>
                 {!merchant.isPublished && (
-                  <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">未公开</span>
+                  <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">已隐藏</span>
                 )}
               </div>
               <h2 className="mt-1 truncate text-sm font-semibold text-gray-800">{merchant.name || `商家 #${merchant.id}`}</h2>
@@ -46,11 +65,14 @@ export default async function AdminMerchantsPage() {
                 {[formatLocationLabel(merchant.city, merchant.district), merchant.price].filter(Boolean).join(" · ")}
               </p>
             </div>
-            <div className="flex flex-none gap-2">
-              <Link href={`/adminzhangzhang/merchants/${merchant.id}/edit`} className="rounded-lg border border-gray-200 px-3 py-1 text-xs text-gray-600 active:bg-gray-50">
-                编辑
-              </Link>
-              <DeleteMerchantButton id={merchant.id} name={merchant.name || `商家 #${merchant.id}`} />
+            <div className="flex flex-none flex-col items-end gap-2">
+              <MerchantVisibilityButton id={merchant.id} isPublished={merchant.isPublished} />
+              <div className="flex gap-2">
+                <Link href={`/adminzhangzhang/merchants/${merchant.id}/edit`} className="rounded-lg border border-gray-200 px-3 py-1 text-xs text-gray-600 active:bg-gray-50">
+                  编辑
+                </Link>
+                <DeleteMerchantButton id={merchant.id} name={merchant.name || `商家 #${merchant.id}`} />
+              </div>
             </div>
           </div>
         ))}

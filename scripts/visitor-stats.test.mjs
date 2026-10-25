@@ -167,6 +167,7 @@ function pages({ authorized = true } = {}) {
   const TeamPage = load('src/app/team/page.tsx', {
     ...common,
     '@/lib/team-auth': { requireTeamAccount: authenticate },
+    '@/lib/ordinary-submission-boundary': { getOrdinarySubmissionBoundary: async () => ({ where: { partnerImportDraftId: null } }) },
     '@/lib/team-post-quota': {
       getTeamPostUsageWhere: (teamAccountId) => ({ teamAccountId, fixtureQuota: true }),
       getEffectiveTeamPostLimit: () => 30,

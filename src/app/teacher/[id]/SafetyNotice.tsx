@@ -18,12 +18,12 @@ export function SafetyNotice() {
         onClick={(e) => e.stopPropagation()}
       >
         <p>
-          <span className="font-bold text-red-600">不要裸聊、刷单、下载陌生软件，</span>
+          <span className="font-bold text-red-600">不要裸聊、刷单、下载、充值陌生软件，</span>
           凡是要求提前转账、押金的可能是骗子，保护好个人财产。
           <span className="font-bold text-red-600">
             QQ微信风控严重，建议下载与你APP沟通，手机应用商店搜与你或官网yuni.com.cn下载。
           </span>
-          有欺骗行为，联系邮箱举报。
+          有<span className="font-bold text-red-600">诱导充值、欺骗行为</span>，联系邮箱举报。
         </p>
         <button
           type="button"

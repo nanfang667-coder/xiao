@@ -46,7 +46,28 @@ function revalidateMerchantPages(id?: number) {
   revalidatePath("/adminzhangzhang");
   revalidatePath("/adminzhangzhang/merchants");
   revalidatePath("/sitemap.xml");
-  if (id) revalidatePath(`/spa/${id}`);
+  if (id) {
+    revalidatePath(`/spa/${id}`);
+    revalidatePath(`/adminzhangzhang/merchants/${id}/edit`);
+  }
+}
+
+export async function setMerchantVisibility(id: number, isPublished: boolean): Promise<{ error?: string }> {
+  await requireAdmin();
+  if (!Number.isSafeInteger(id) || id <= 0 || typeof isPublished !== "boolean") {
+    return { error: "商家编号或显示设置无效。" };
+  }
+  try {
+    const result = await prisma.merchant.updateMany({
+      where: { id },
+      data: { isPublished },
+    });
+    if (result.count === 0) return { error: "商家不存在，请刷新页面后重试。" };
+  } catch {
+    return { error: "设置未保存，请稍后重试。" };
+  }
+  revalidateMerchantPages(id);
+  return {};
 }
 
 export async function createMerchant(formData: FormData) {

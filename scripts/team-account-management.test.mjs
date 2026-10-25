@@ -82,7 +82,6 @@ function actions({ authorized = true, activeSite = true, historyReady = true, fa
     'next/cache': { revalidatePath: path => refreshed.push(path) },
     '@/lib/auth': { requireAdmin: async () => { if (!authorized) throw new Error('UNAUTHORIZED'); } },
     '@/lib/team-post-quota': quota,
-    '@/lib/partner-import-assignment-readiness': { isPartnerImportAssignmentReady: async () => true },
     '@/lib/team-quota-history-readiness': { requireTeamQuotaHistoryReady: async () => { if (!historyReady) throw new Error('HISTORY_UNAVAILABLE'); } },
     '@/lib/prisma': { prisma: {
       site: { findFirst: async ({ where }) => activeSite && where.id === 'fixture-site' && where.isActive ? { id: 'fixture-site' } : null },
@@ -136,6 +135,91 @@ test('team account actions require administrator authorization and valid reset I
     await assert.rejects(allowed.api.resetTeamPassword(id, form(valid)), /Invalid team password/);
   }
   assert.equal(allowed.hashes.length, 0);
+});
+
+function deletion({ hasHistoricalColumn = true, authorized = true, failDelete = false, metadataError = false } = {}) {
+  const calls = [];
+  let state = {
+    drafts: [
+      { id: 1, teamAccountId: 7, status: 'submitted', version: 4, fields: 'PRIVATE_FIXTURE' },
+      { id: 2, teamAccountId: 8, status: 'assigned', version: 3, fields: 'OTHER_FIXTURE' },
+    ],
+    sessions: [{ teamAccountId: 7 }, { teamAccountId: 8 }],
+    submissions: [{ teamAccountId: 7 }, { teamAccountId: 8 }],
+    ownerships: [{ teamAccountId: 7 }, { teamAccountId: 8 }],
+    accounts: [{ id: 7 }, { id: 8 }],
+  };
+  const remove = (table, key = 'teamAccountId') => ({ deleteMany: async ({ where }) => {
+    calls.push(table);
+    if (table === 'accounts' && failDelete) throw new Error('FK_DELETE_FAILED');
+    state[table] = state[table].filter(row => row[key] !== where[key]);
+  } });
+  const tx = {
+    $queryRaw: async (strings, ...values) => {
+      calls.push('metadata');
+      if (metadataError) throw new Error('METADATA_FAILED');
+      assert.equal(strings.join(''), 'PRAGMA table_info("PartnerImportDraft")');
+      assert.equal(values.length, 0);
+      return hasHistoricalColumn ? [{ name: 'teamAccountId' }] : [];
+    },
+    $executeRaw: async (strings, ...values) => {
+      calls.push('releaseFK');
+      assert.equal(strings.join('?'), 'UPDATE "PartnerImportDraft" SET "teamAccountId" = NULL WHERE "teamAccountId" = ?');
+      assert.deepEqual(values, [7]);
+      for (const row of state.drafts) if (row.teamAccountId === values[0]) row.teamAccountId = null;
+    },
+    teamSession: remove('sessions'), teacherSubmission: remove('submissions'),
+    teacherOwnership: remove('ownerships'), teamAccount: remove('accounts', 'id'),
+  };
+  const api = load('src/app/adminzhangzhang/sites/actions.ts', {
+    bcrypt: { default: {} }, 'next/cache': { revalidatePath: () => calls.push('refresh') },
+    '@/lib/auth': { requireAdmin: async () => { if (!authorized) throw new Error('UNAUTHORIZED'); } },
+    '@/lib/team-post-quota': quota, '@/lib/team-quota-history-readiness': {},
+    '@/lib/prisma': { prisma: { $transaction: async callback => {
+      const before = structuredClone(state);
+      try { return await callback(tx); } catch (error) { state = before; throw error; }
+    } } },
+  });
+  return { api, calls, state: () => structuredClone(state) };
+}
+
+test('account deletion releases only a historical nullable FK without reassigning, changing or deleting drafts', async () => {
+  const f = deletion();
+  await f.api.deleteTeamAccount(7);
+  const state = f.state();
+  assert.deepEqual(state.drafts, [
+    { id: 1, teamAccountId: null, status: 'submitted', version: 4, fields: 'PRIVATE_FIXTURE' },
+    { id: 2, teamAccountId: 8, status: 'assigned', version: 3, fields: 'OTHER_FIXTURE' },
+  ]);
+  assert.deepEqual(state.accounts, [{ id: 8 }]);
+  for (const table of ['sessions', 'submissions', 'ownerships']) assert.deepEqual(state[table], [{ teamAccountId: 8 }]);
+  assert.deepEqual(f.calls.slice(0, 6), ['metadata', 'releaseFK', 'sessions', 'submissions', 'ownerships', 'accounts']);
+});
+
+test('account deletion works on databases without historical assignment columns', async () => {
+  const f = deletion({ hasHistoricalColumn: false });
+  await f.api.deleteTeamAccount(7);
+  assert.equal(f.calls.includes('releaseFK'), false);
+  assert.deepEqual(f.state().accounts, [{ id: 8 }]);
+});
+
+test('failed account deletion or metadata detection rolls all changes back and does not refresh', async () => {
+  for (const options of [{ failDelete: true }, { metadataError: true }]) {
+    const f = deletion(options);
+    const before = f.state();
+    await assert.rejects(f.api.deleteTeamAccount(7), /FAILED/);
+    assert.deepEqual(f.state(), before);
+    assert.equal(f.calls.includes('refresh'), false);
+  }
+});
+
+test('account deletion authorizes and validates IDs before metadata, writes or refreshing', async () => {
+  const denied = deletion({ authorized: false });
+  await assert.rejects(denied.api.deleteTeamAccount(7), /UNAUTHORIZED/);
+  assert.deepEqual(denied.calls, []);
+  const f = deletion();
+  for (const id of [0, -1, 1.5, NaN, Infinity]) await assert.rejects(f.api.deleteTeamAccount(id), /Invalid team account/);
+  assert.deepEqual(f.calls, []);
 });
 
 test('adding allowance accumulates existing grants from earlier months without changing month metadata', async () => {

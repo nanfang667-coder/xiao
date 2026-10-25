@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 
-function setup({ authorized = true, fail = false, ready = true, foreignKeyFailure = false } = {}) {
+function setup({ authorized = true, fail = false, hasHistoricalColumn = true, foreignKeyFailure = false } = {}) {
   const calls = [];
   const refreshed = [];
   const tx = Object.fromEntries(['teamSession', 'teacherSubmission', 'teacherOwnership', 'teamAccount'].map(name => [name, {
@@ -14,7 +14,16 @@ function setup({ authorized = true, fail = false, ready = true, foreignKeyFailur
       if (foreignKeyFailure && name === 'teamAccount') throw new Error('SYNTHETIC_FOREIGN_KEY');
     },
   }]));
-  tx.partnerImportDraft = { updateMany: async args => { calls.push(['partnerImportDraft.updateMany', JSON.parse(JSON.stringify(args))]); } };
+  tx.$queryRaw = async (strings, ...values) => {
+    assert.equal(strings.join(''), 'PRAGMA table_info("PartnerImportDraft")');
+    assert.equal(values.length, 0);
+    calls.push('metadata');
+    return hasHistoricalColumn ? [{ name: 'teamAccountId' }] : [];
+  };
+  tx.$executeRaw = async (strings, ...values) => {
+    assert.equal(strings.join('?'), 'UPDATE "PartnerImportDraft" SET "teamAccountId" = NULL WHERE "teamAccountId" = ?');
+    calls.push(['releaseHistoricalFK', values]);
+  };
   const mocks = {
     'node:crypto': {}, bcrypt: {}, 'next/navigation': {},
     'next/cache': { revalidatePath: path => refreshed.push(path) },
@@ -25,7 +34,6 @@ function setup({ authorized = true, fail = false, ready = true, foreignKeyFailur
       catch (error) { calls.push('rollback'); throw error; }
     } } },
     '@/lib/site-utils': {}, '@/lib/team-post-quota': {},
-    '@/lib/partner-import-assignment-readiness': { isPartnerImportAssignmentReady: async () => ready },
     '@/lib/team-quota-history-readiness': {},
   };
   const source = fs.readFileSync(new URL('../src/app/adminzhangzhang/sites/actions.ts', import.meta.url), 'utf8');
@@ -50,9 +58,8 @@ test('deletion requires admin and a valid account ID before any writes', async (
 test('deletion removes only selected account relations in one transaction and keeps published posts', async () => {
   const api = setup();
   await api.deleteTeamAccount(7);
-  assert.deepEqual(api.calls, ['begin',
-    ['partnerImportDraft.updateMany', { where: { teamAccountId: 7, status: { in: ['assigned', 'returned', 'submitted'] } }, data: { teamAccountId: null, status: 'ready', version: { increment: 1 } } }],
-    ['partnerImportDraft.updateMany', { where: { teamAccountId: 7 }, data: { teamAccountId: null, version: { increment: 1 } } }],
+  assert.deepEqual(api.calls, ['begin', 'metadata',
+    ['releaseHistoricalFK', [7]],
     ['teamSession', { where: { teamAccountId: 7 } }],
     ['teacherSubmission', { where: { teamAccountId: 7 } }],
     ['teacherOwnership', { where: { teamAccountId: 7 } }],
@@ -70,20 +77,20 @@ test('failed relation cleanup aborts deletion and does not refresh as successful
   assert.deepEqual(api.refreshed, []);
 });
 
-test('old-schema account deletion skips assignment fields and keeps the existing deletion transaction', async () => {
-  const f = setup({ ready: false });
+test('old-schema account deletion skips absent historical foreign keys and keeps the deletion transaction', async () => {
+  const f = setup({ hasHistoricalColumn: false });
   await f.deleteTeamAccount(7);
-  assert.equal(f.calls.some(call => Array.isArray(call) && call[0] === 'partnerImportDraft.updateMany'), false);
-  assert.deepEqual(f.calls, ['begin',
+  assert.equal(f.calls.some(call => Array.isArray(call) && call[0] === 'releaseHistoricalFK'), false);
+  assert.deepEqual(f.calls, ['begin', 'metadata',
     ['teamSession', { where: { teamAccountId: 7 } }],
     ['teacherSubmission', { where: { teamAccountId: 7 } }],
     ['teacherOwnership', { where: { teamAccountId: 7 } }],
     ['teamAccount', { where: { id: 7 } }], 'commit']);
 });
 
-test('old clients cannot delete accounts with migrated assignments when restrict ownership remains', async () => {
-  const f = setup({ ready: false, foreignKeyFailure: true });
-  await assert.rejects(f.deleteTeamAccount(7), /账号删除未完成/);
+test('any remaining foreign-key restriction aborts the whole account deletion', async () => {
+  const f = setup({ hasHistoricalColumn: false, foreignKeyFailure: true });
+  await assert.rejects(f.deleteTeamAccount(7), /SYNTHETIC_FOREIGN_KEY/);
   assert.equal(f.calls.at(-1), 'rollback');
   assert.deepEqual(f.refreshed, []);
 });

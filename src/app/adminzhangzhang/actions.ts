@@ -216,12 +216,6 @@ export async function updateTeacher(
   const uploaded = await saveUploadedPhotos(files);
 
   await prisma.$transaction(async (tx) => {
-    // 管理后台的手动修改也使旧导入草稿失效，防止稍后发布覆盖人工编辑。
-    await tx.partnerImportedPost.updateMany({
-      where: { teacherId: id },
-      data: { revision: { increment: 1 } },
-    });
-
     // 在同一事务内读取当前图片，避免保留事务开始前已被替换的旧图片。
     let photos: string[];
     if (uploaded.length > 0) {
@@ -259,11 +253,6 @@ export async function updateTeacher(
 export async function deleteTeacher(id: number) {
   await requireAdmin();
   const existing = await prisma.$transaction(async (tx) => {
-    // 清除公开记录关联并递增版本，旧待审稿必须重新确认后才能再次发布。
-    await tx.partnerImportedPost.updateMany({
-      where: { teacherId: id },
-      data: { revision: { increment: 1 }, teacherId: null },
-    });
     const current = await tx.teacher.findUnique({ where: { id } });
     await tx.teacher.delete({ where: { id } });
     return current;

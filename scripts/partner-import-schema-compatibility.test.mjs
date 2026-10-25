@@ -54,18 +54,19 @@ function loadModule(file, mocks) {
   return exports;
 }
 
-function readiness(prisma) {
-  return loadModule("src/lib/partner-import-assignment-readiness.ts", {
-    "server-only": {}, "./prisma": { prisma },
+function boundary(prisma) {
+  return loadModule("src/lib/ordinary-submission-boundary.ts", {
+    "server-only": {}, "@/lib/prisma": { prisma },
+    "@/lib/cooperation-filters": loadModule("src/lib/cooperation-filters.ts", {}),
   });
 }
 
-test("real generated client detects absent assignment columns and observes later schema activation", async () => {
+test("ordinary submission boundary supports old schema and isolates newly present historical references", async () => {
   await withLegacyDatabase(async ({ prisma, db }) => {
-    const api = readiness(prisma);
-    assert.equal(await api.isPartnerImportAssignmentReady(), false);
+    const api = boundary(prisma);
+    assert.equal((await api.getOrdinarySubmissionBoundary()).hasImportReference, false);
     db.exec(fs.readFileSync(path.join(migrationRoot, finalMigration, "migration.sql"), "utf8"));
-    assert.equal(await api.isPartnerImportAssignmentReady(), true);
+    assert.equal((await api.getOrdinarySubmissionBoundary()).hasImportReference, true);
   });
 });
 
@@ -102,6 +103,7 @@ test("new Prisma client can create and display ordinary team submissions against
       "react/jsx-runtime": jsx, "next/link": { default: "a" },
       "@/lib/prisma": { prisma },
       "@/lib/team-auth": { requireTeamAccount: async () => account },
+      "@/lib/ordinary-submission-boundary": boundary(prisma),
       "@/lib/photo": { isImage: () => false },
       "@/lib/team-post-quota": quota,
     });

@@ -2,9 +2,9 @@ import { load, type CheerioAPI } from "cheerio";
 // @ts-expect-error The Node type-stripping test runner needs the explicit .ts extension.
 import { extractBoundNuxtImageUrls } from "./partner-import-nuxt-images.ts";
 // @ts-expect-error The Node type-stripping test runner needs the explicit .ts extension.
-import { extractLabeledArticleFields, partnerArticleFieldLabel } from "./partner-import-labeled-fields.ts";
+import { normalizePartnerPageUrlTemplate } from "./partner-image-pagination.ts";
 // @ts-expect-error The Node type-stripping test runner needs the explicit .ts extension.
-import { cleanPartnerImportFields, removePartnerDeclarationSections } from "./partner-import-declarations.ts";
+import { DISCUZ_FIRST_POST_PHOTO_SELECTOR } from "./partner-discuz-image-rules.ts";
 
 export type PartnerImportField =
   | "name" | "type" | "city" | "district" | "price" | "services"
@@ -14,30 +14,17 @@ export type PartnerImportRules = {
   postLinkSelector: string;
   fields?: Partial<Record<PartnerImportField, string>>;
   photoSelector?: string;
-};
-
-export type PartnerImportFields = {
-  name: string;
-  type: string;
-  city: string;
-  district: string;
-  price: string;
-  services: string;
-  courseNotes: string | null;
-  age: string | null;
-  phone: string;
-  wechat: string;
-  qq: string | null;
-  otherContact: string | null;
-  address: string | null;
+  nextPageSelector?: string;
+  pageUrlTemplate?: string;
 };
 
 const LEGACY_POST_LINK_SELECTOR = 'a[href*="/listing/"]:has(h2), a[href*="/teacher/"]:has(h2)';
+const PREVIOUS_DEFAULT_POST_LINK_SELECTOR = `${LEGACY_POST_LINK_SELECTOR}, h1 a[href], h2 a[href], h3 a[href], h4 a[href]`;
 
 // Require a title/card structure. Unknown detail routes are allowed, but ordinary
 // links and navigation must never become an implicit crawl of the whole site.
 export const DEFAULT_PARTNER_IMPORT_RULES: PartnerImportRules = {
-  postLinkSelector: `${LEGACY_POST_LINK_SELECTOR}, h1 a[href], h2 a[href], h3 a[href], h4 a[href]`,
+  postLinkSelector: 'a[href]:has(h2), a[href]:has(h3), a[href]:has(h4), h1 a[href], h2 a[href], h3 a[href], h4 a[href]',
 };
 
 export type PartnerParseErrorCode =
@@ -66,20 +53,24 @@ export class PartnerParseError extends Error {
     this.code = code;
   }
 }
+// Accept persisted field mappings for source configuration compatibility only.
+const COMPATIBLE_FIELDS = new Set<PartnerImportField>([
+  "name", "type", "city", "district", "price", "services", "courseNotes", "age",
+  "phone", "wechat", "qq", "otherContact", "address",
+]);
 
-const FIELD_LIMITS: Record<PartnerImportField, number> = {
-  name: 100, type: 50, city: 50, district: 50, price: 100,
-  services: 4_000, courseNotes: 10_000, age: 50, phone: 100,
-  wechat: 100, qq: 100, otherContact: 300, address: 500,
-};
-const MANUAL_IMPORT_FIELDS = new Set<PartnerImportField>(["price", "phone", "wechat", "qq", "otherContact", "address"]);
 const MAX_POSTS = 50;
 const MAX_PHOTOS = 8;
 const MAX_HTML_LENGTH = 2_000_000;
 const MAX_URL_LENGTH = 2_048;
-const IGNORED_AREAS = 'nav, header, footer, aside, [role="navigation"], [data-import-ignore], [data-ad], [data-ad-slot], [aria-label="全国推广"], .advertisement, .pagination';
-const INERT_CONTENT = 'script, style, noscript, template, iframe, object, embed, svg, canvas, [hidden], [aria-hidden="true"]';
+const IGNORED_AREAS = 'nav, header, footer, aside, [role="navigation"], [data-import-ignore], [data-ad], [data-ad-slot], [aria-label="全国推广"], .advertisement, .advert, .ads, .ad, .pagination';
+const INERT_ELEMENTS = "script, style, noscript, template, iframe, object, embed, svg, canvas";
+const INERT_CONTENT = `${INERT_ELEMENTS}, [hidden], [aria-hidden="true"]`;
 const DEFAULT_PHOTO_SELECTOR = 'img[data-import-photo], [data-import-photos] img, div.grid.grid-cols-2 > button > img';
+const DISCUZ_POST_SELECTOR = '#threadlist a.xst[href], #threadlisttableid a.xst[href], tbody[id^="normalthread_"] th a.xst[href]';
+const DISCUZ_CARD_SELECTOR = 'a[href]:has(img)';
+const DISCUZ_NON_PHOTO_AREAS = '.pls, .pi, .pob, .sign, .signature, .signatures, .quote, blockquote, .pstatus, .attachtype, .locked, .locked_tip, .smilie, .smilies, [smilieid]';
+const DISCUZ_CARD_EXCLUDED_AREAS = `${IGNORED_AREAS}, ${DISCUZ_NON_PHOTO_AREAS}, .pg, .pgs, button, [role="button"], .avt`;
 
 const DEFAULT_AVATAR_AREAS = [
   ".avatar, .gravatar, .author-avatar, .user-avatar, .profile-avatar",
@@ -133,7 +124,7 @@ function selector(value: unknown): string {
 
 export function normalizePartnerImportRules(value: unknown): PartnerImportRules {
   if (!record(value)) throw new PartnerParseError("INVALID_RULES");
-  if (Object.keys(value).some((key) => !["postLinkSelector", "fields", "photoSelector"].includes(key))) {
+  if (Object.keys(value).some((key) => !["postLinkSelector", "fields", "photoSelector", "nextPageSelector", "pageUrlTemplate"].includes(key))) {
     throw new PartnerParseError("INVALID_RULES");
   }
   const result: PartnerImportRules = {
@@ -142,28 +133,33 @@ export function normalizePartnerImportRules(value: unknown): PartnerImportRules 
       : selector(value.postLinkSelector),
   };
   // Upgrade persisted former defaults in memory; custom mappings stay intact.
-  if (result.postLinkSelector === LEGACY_POST_LINK_SELECTOR) {
+  if (result.postLinkSelector === LEGACY_POST_LINK_SELECTOR || result.postLinkSelector === PREVIOUS_DEFAULT_POST_LINK_SELECTOR) {
     result.postLinkSelector = DEFAULT_PARTNER_IMPORT_RULES.postLinkSelector;
   }
   if (value.fields !== undefined) {
     if (!record(value.fields)) throw new PartnerParseError("INVALID_RULES");
     result.fields = {};
     for (const [key, fieldSelector] of Object.entries(value.fields)) {
-      if (!Object.hasOwn(FIELD_LIMITS, key)) throw new PartnerParseError("INVALID_RULES");
+      if (!COMPATIBLE_FIELDS.has(key as PartnerImportField)) throw new PartnerParseError("INVALID_RULES");
       result.fields[key as PartnerImportField] = selector(fieldSelector);
     }
   }
   if (value.photoSelector !== undefined) result.photoSelector = selector(value.photoSelector);
+  if (value.nextPageSelector !== undefined) result.nextPageSelector = selector(value.nextPageSelector);
+  if (value.pageUrlTemplate !== undefined) {
+    try { result.pageUrlTemplate = normalizePartnerPageUrlTemplate(value.pageUrlTemplate); }
+    catch { throw new PartnerParseError("INVALID_RULES"); }
+  }
   return result;
 }
 
-function document(html: string): CheerioAPI {
+function document(html: string, preserveHidden = false): CheerioAPI {
   if (typeof html !== "string" || html.length > MAX_HTML_LENGTH) {
     throw new PartnerParseError("TOO_LARGE");
   }
   // Parsing is inert: no browser, script execution, RSC evaluation, or network fetches.
   const $ = load(html);
-  $(INERT_CONTENT).remove();
+  $(preserveHidden ? INERT_ELEMENTS : INERT_CONTENT).remove();
   return $;
 }
 
@@ -177,6 +173,75 @@ function httpUrl(value: string, base?: string): URL | null {
   } catch {
     return null;
   }
+}
+
+function positiveDecimal(value: string | null): boolean {
+  return value !== null && /^[1-9]\d*$/.test(value) && Number.isSafeInteger(Number(value));
+}
+
+function isDiscuzListing(url: URL): boolean {
+  const seo = /\/forum-([1-9]\d*)-([1-9]\d*)\.html$/.exec(url.pathname);
+  if (seo && positiveDecimal(seo[1]) && positiveDecimal(seo[2])) return true;
+  return /\/forum\.php$/.test(url.pathname)
+    && url.searchParams.getAll("mod").length === 1
+    && url.searchParams.get("mod") === "forumdisplay"
+    && url.searchParams.getAll("fid").length === 1
+    && positiveDecimal(url.searchParams.get("fid"));
+}
+
+/** Only explicit thread identities qualify for a same-path query exception. */
+function discuzThread(url: URL): { canonical: string; page: number } | null {
+  const keys = [...url.searchParams.keys()];
+  if (new Set(keys).size !== keys.length) return null;
+  const canonical = new URL(url.href);
+  canonical.hash = "";
+  const seo = /\/thread-([1-9]\d*)-([1-9]\d*)-(0|[1-9]\d*)\.html$/.exec(url.pathname);
+  if (seo) {
+    if (!positiveDecimal(seo[1]) || !positiveDecimal(seo[2])
+      || !Number.isSafeInteger(Number(seo[3])) || keys.some(key => !["extra", "highlight"].includes(key))) return null;
+    canonical.pathname = canonical.pathname.replace(/thread-[^/]+$/, `thread-${seo[1]}-1-1.html`);
+    canonical.search = "";
+    return { canonical: canonical.href, page: Number(seo[2]) };
+  }
+  if (!/\/forum\.php$/.test(url.pathname)
+    || keys.some(key => !["mod", "tid", "page", "extra", "highlight"].includes(key))
+    || url.searchParams.get("mod") !== "viewthread"
+    || !positiveDecimal(url.searchParams.get("tid"))
+    || url.searchParams.has("page") && !positiveDecimal(url.searchParams.get("page"))) return null;
+  canonical.search = "";
+  canonical.searchParams.set("mod", "viewthread");
+  canonical.searchParams.set("tid", url.searchParams.get("tid")!);
+  return { canonical: canonical.href, page: Number(url.searchParams.get("page") ?? "1") };
+}
+
+function visiblyAvailable($: CheerioAPI, element: Selection): boolean {
+  return element.parents().addBack().filter((_, node) => {
+    const current = $(node);
+    return current.is('[hidden], [aria-hidden="true"], .hidden, .d-none, .sr-only, .screen-reader-text')
+      || INLINE_HIDDEN.test(current.attr("style") ?? "");
+  }).length === 0;
+}
+
+function hasDiscuzCardImage($: CheerioAPI, link: Selection, page: URL): boolean {
+  if (link.closest(DISCUZ_CARD_EXCLUDED_AREAS).length
+    || NAVIGATION_TITLE.test(plainText(link).replace(/\s+/g, " ").trim())) return false;
+  const forms = link.parents("form");
+  // Discuz wraps its selectable thread list in this moderation form. It is a
+  // list container, not evidence that every descendant is an action control.
+  if (forms.length && (forms.length !== 1 || !forms.is("form#moderate")
+    || $("form#moderate").length !== 1
+    || forms.find('input[type="password"], [data-sitekey], #challenge-form').length)) return false;
+  return link.find("img").toArray().some(node => {
+    const image = $(node);
+    const imageForms = image.parents("form");
+    if (!visiblyAvailable($, image) || !isDefaultPhotoCandidate(image)
+      || image.closest(DISCUZ_CARD_EXCLUDED_AREAS).length
+      || imageForms.length !== forms.length || imageForms.get(0) !== forms.get(0)) return false;
+    const source = imageSource(image, true);
+    const url = source ? httpUrl(source, page.href) : null;
+    return url !== null && !/(?:^|\/)static\/image\//i.test(url.pathname)
+      && !/\/(?:none|image_s)\.gif$/i.test(url.pathname);
+  });
 }
 
 type HeadingGroup = { hrefs: Set<string>; headings: Set<unknown> };
@@ -198,12 +263,25 @@ function isDetailPath(pathname: string): boolean {
     && !/^(?:new|create|edit)$/i.test(segments.at(-1) ?? "");
 }
 
-function hasSubstantiveTitle(link: Selection): boolean {
-  const wrappedTitle = link.find("h2").first();
-  const text = plainText(wrappedTitle.length ? wrappedTitle : link).replace(/\s+/g, " ").trim();
+function substantiveTitleText(element: Selection): string | null {
+  const text = plainText(element).replace(/\s+/g, " ").trim();
   return text.length >= 2 && text.length <= 200
     && (text.match(/\p{L}/gu)?.length ?? 0) >= 2
-    && !NAVIGATION_TITLE.test(text);
+    && !NAVIGATION_TITLE.test(text) ? text : null;
+}
+
+function hasSubstantiveTitle($: CheerioAPI, link: Selection): boolean {
+  const wrappedTitles = link.find("h2, h3, h4");
+  if (!wrappedTitles.length) return substantiveTitleText(link) !== null;
+  const titles = new Set<string>();
+  wrappedTitles.each((_, element) => {
+    if ($(element).closest(IGNORED_AREAS).length) return;
+    const title = substantiveTitleText($(element));
+    if (title !== null) titles.add(title);
+  });
+  // Responsive copies of one title are one card; multiple distinct titles are
+  // a section/container, not evidence that the surrounding link is one post.
+  return titles.size === 1;
 }
 
 function groupRepeatedHeadings(candidates: ListingCandidate[]): void {
@@ -244,9 +322,12 @@ export function parsePartnerListing(html: string, pageUrl: string, input: Partne
   const page = httpUrl(pageUrl);
   if (!page) throw new PartnerParseError("INVALID_URL");
   const $ = document(html);
-  const selected = $(rules.postLinkSelector);
-  if (!selected.length) throw new PartnerParseError("LISTING_NO_MATCH");
   const usesDefault = rules.postLinkSelector === DEFAULT_PARTNER_IMPORT_RULES.postLinkSelector;
+  const forumListing = isDiscuzListing(page);
+  const selected = $(rules.postLinkSelector).add(
+    usesDefault && forumListing ? $(`${DISCUZ_POST_SELECTOR}, ${DISCUZ_CARD_SELECTOR}`) : $(),
+  );
+  if (!selected.length) throw new PartnerParseError("LISTING_NO_MATCH");
   const candidates: ListingCandidate[] = [];
   selected.each((_, element) => {
     const link = $(element);
@@ -256,12 +337,20 @@ export function parsePartnerListing(html: string, pageUrl: string, input: Partne
     if (!href || href.startsWith("#")) return;
     const url = httpUrl(href, page.href);
     if (!url || url.origin !== page.origin || url.href === page.href) return;
-    // Same-path query links are pagination/filter controls, never detail links.
-    if (url.pathname.replace(/\/$/, "") === page.pathname.replace(/\/$/, "")) return;
+    const thread = forumListing ? discuzThread(url) : null;
+    if (forumListing) {
+      if (!visiblyAvailable($, link)) return;
+      if (/\/(?:forum|member|home|search|misc|plugin|admincp)\.php$/.test(url.pathname) && !thread) return;
+      if (usesDefault && !thread) return;
+    }
+    // Query-only pagination stays excluded; a proven Discuz thread is the only exception.
+    if (url.pathname.replace(/\/$/, "") === page.pathname.replace(/\/$/, "") && !thread) return;
     if (!isDetailPath(url.pathname)) return;
-    if (usesDefault && !hasSubstantiveTitle(link)) return;
+    const titleCandidate = !forumListing || link.is(rules.postLinkSelector) || link.is(DISCUZ_POST_SELECTOR);
+    if (usesDefault && !(titleCandidate && hasSubstantiveTitle($, link))
+      && !(thread && hasDiscuzCardImage($, link, page))) return;
     candidates.push({
-      href: url.href,
+      href: thread?.canonical ?? url.href,
       heading: usesDefault ? link.closest("h1, h2, h3, h4") : $(),
       repeatedGroups: [],
     });
@@ -290,67 +379,6 @@ function plainText(element: Selection): string {
     .trim();
 }
 
-function singleText(elements: Selection): string {
-  if (elements.length > 1) throw new PartnerParseError("DETAIL_AMBIGUOUS_FIELDS");
-  if (elements.is("meta[content]")) return elements.attr("content")?.trim() ?? "";
-  return plainText(elements);
-}
-
-
-function manualFieldElementsRemoved($: CheerioAPI, elements: Selection): Selection {
-  const copy = elements.clone();
-  const isManualLabel = (text: string) => {
-    const found = partnerArticleFieldLabel(text);
-    return found?.destination != null && MANUAL_IMPORT_FIELDS.has(found.destination);
-  };
-  copy.find("tr, dt, div, p, li, section, td, dd, [data-import-field]").addBack().each((_, node) => {
-    const element = $(node);
-    const marker = element.attr("data-import-field") as PartnerImportField | undefined;
-    if (marker && MANUAL_IMPORT_FIELDS.has(marker)) {
-      element.empty();
-      return;
-    }
-    if (element.is("tr") && isManualLabel(plainText(element.children("th, td").first()))) {
-      element.empty();
-      return;
-    }
-    if (element.is("dt") && isManualLabel(plainText(element))) {
-      element.nextUntil("dt").empty();
-      element.empty();
-      return;
-    }
-    if (element.is("section") && plainText(element.children("h2").first()) === "联系方式") {
-      element.empty();
-      return;
-    }
-    const children = element.children();
-    if (children.length === 2 && children.first().is("span, label, strong, b") &&
-        isManualLabel(plainText(children.first()))) children.remove();
-  });
-  return copy;
-}
-
-function importFieldText($: CheerioAPI, elements: Selection, key: PartnerImportField): string {
-  return singleText(key === "services" || key === "courseNotes" ? manualFieldElementsRemoved($, elements) : elements);
-}
-
-function namedSection($: CheerioAPI, title: string): Selection {
-  return $("section").filter((_, element) => {
-    return !$(element).closest(IGNORED_AREAS).length && plainText($(element).children("h2").first()) === title;
-  });
-}
-
-function sectionBody($: CheerioAPI, title: string): string {
-  const section = namedSection($, title).clone();
-  section.children("h2").remove();
-  return singleText(title === "服务内容" || title === "补充说明" ? manualFieldElementsRemoved($, section) : section);
-}
-
-function contactValue($: CheerioAPI, title: string): string {
-  const labels = namedSection($, "联系方式").find("span").filter((_, element) => plainText($(element)) === title);
-  return singleText(labels.next());
-}
-
 
 function isDefaultPhotoCandidate(element: Selection): boolean {
   // Explicit author/avatar markup is structural evidence; image alt text,
@@ -362,12 +390,16 @@ function defaultTitle($: CheerioAPI): Selection {
   return $("h1").filter((_, element) => !$(element).closest(IGNORED_AREAS).length);
 }
 
-function semanticArticle($: CheerioAPI, strict = true): Selection | null {
-  const articles = $("article").filter((_, element) => {
+function visibleArticles($: CheerioAPI): Selection {
+  return $("article").filter((_, element) => {
     const article = $(element);
     return !article.closest(ARTICLE_NON_BODY + ", button").length
       && !article.parents().addBack().filter((_, parent) => INLINE_HIDDEN.test($(parent).attr("style") ?? "")).length;
   });
+}
+
+function semanticArticle($: CheerioAPI, strict = true): Selection | null {
+  const articles = visibleArticles($);
   if (articles.length > 1 && strict) throw new PartnerParseError("DETAIL_AMBIGUOUS_FIELDS");
   if (articles.length !== 1) return null;
   const title = defaultTitle($);
@@ -379,9 +411,7 @@ function semanticArticle($: CheerioAPI, strict = true): Selection | null {
   return articles;
 }
 
-function semanticArticleBody($: CheerioAPI, strict = true): Selection | null {
-  const articles = semanticArticle($, strict);
-  if (!articles) return null;
+function cleanArticleBody($: CheerioAPI, articles: Selection): Selection {
   const body = articles.clone();
   // Clean exclusions before unwrapping buttons, so their own advertising,
   // metadata or hidden attributes cannot disappear while leaving images behind.
@@ -401,207 +431,94 @@ function semanticArticleBody($: CheerioAPI, strict = true): Selection | null {
     if (images.length) button.replaceWith(images.clone().attr("data-import-photo", ""));
   });
   body.find("button").remove();
-  const text = plainText(body);
-  return (text.match(/\p{L}/gu)?.length ?? 0) >= 2 ? body : null;
+  return body;
 }
 
-
-function recognizedLineLabel(line: string) {
-  const match = /^([^:：\n]{1,16})\s*[:：]\s*/.exec(line.trim());
-  return match ? partnerArticleFieldLabel(match[1]) : null;
+/** Select an explicitly marked first floor, never the first visible reply. */
+function discuzFirstPostBody($: CheerioAPI): Selection | null {
+  const lists = $("#postlist");
+  if (lists.length !== 1) return null;
+  const posts = lists.children('div[id^="post_"]').filter((_, element) => /^post_[1-9]\d*$/.test($(element).attr("id") ?? ""));
+  const first = posts.first();
+  if (!first.length || !visiblyAvailable($, first)) return null;
+  const id = first.attr("id")!.slice("post_".length);
+  if (posts.filter((_, element) => $(element).attr("id") === first.attr("id")).length !== 1) return null;
+  const floor = first.find(`[id="postnum${id}"]`);
+  let markedFirst = first.is('.first, [first="1"], [data-first-post="true"]')
+    || first.find(`[id="pid${id}"][first="1"], [id="postmessage_${id}"][first="1"]`).length > 0;
+  if (floor.length) {
+    if (floor.length !== 1 || !visiblyAvailable($, floor)) return null;
+    const label = plainText(floor).replace(/\s+/g, "");
+    // Custom themes often replace the number with the explicit author-floor label.
+    if (!/^(?:1#?|楼主#?)$/.test(label)) return null;
+    markedFirst = true;
+  }
+  if (!markedFirst) return null;
+  const body = first.find(`[id="postmessage_${id}"]`);
+  if (body.length !== 1 || !visiblyAvailable($, body)
+    || body.closest('div[id^="post_"]').get(0) !== first.get(0)
+    || body.closest(IGNORED_AREAS + ", " + DISCUZ_NON_PHOTO_AREAS).length
+    || body.find('input[type="password"], [data-sitekey], #challenge-form').length) return null;
+  return body;
 }
 
-// Source contact, price and address fields are manually entered values. Preserve their
-// boundaries even inside a broad explicit service/notes mapping.
-function withoutManualFieldText(text: string): string {
-  const kept: string[] = [];
-  let discard = false;
-  for (const line of text.split("\n")) {
-    const found = recognizedLineLabel(line);
-    if (found) discard = found.destination !== null && MANUAL_IMPORT_FIELDS.has(found.destination);
-    if (!discard) kept.push(line);
-  }
-  return kept.join("\n").trim();
+function applyDiscuzPhotoPreset($: CheerioAPI): boolean {
+  const lists = $("div#postlist");
+  if (lists.length !== 1 || $("#postlist").length !== 1
+    || lists.is("[data-sitekey]")
+    || lists.find('input[type="password"], [data-sitekey], #challenge-form').length) return false;
+  // Only an explicitly saved source preset opts into this theme convention.
+  // Semantic hiding, visibility:hidden and every other hidden node still apply.
+  const style = lists.attr("style");
+  if (style) lists.attr("style", style.replace(/(^|;)\s*display\s*:\s*none\s*(?:!important)?\s*(?=;|$)/gi, "$1"));
+  return true;
 }
 
-function articleIntroduction($: CheerioAPI, rules: PartnerImportRules): string {
-  const article = semanticArticle($, false);
-  if (!article) return "";
-  const copy = article.clone();
-  const serviceSelector = rules.fields?.services ?? '[data-import-field="services"]';
-  const serviceAreas = copy.find(serviceSelector).add(copy.filter(serviceSelector));
-  if (serviceAreas.find("h1").length) return "";
-  const serviceBoundaries = new Set<unknown>(serviceAreas.toArray());
-  copy.find(ARTICLE_NON_BODY + ", " + DEFAULT_AVATAR_AREAS + ", button, figure, picture, video, audio, .metadata, .post-info")
-    .filter((_, element) => !$(element).is("h1")).remove();
-  copy.find("[style]").filter((_, element) => INLINE_HIDDEN.test($(element).attr("style") ?? "")).remove();
-  let afterTitle = false;
-  let stopped = false;
-  const text: string[] = [];
-  function visit(element: Selection): void {
-    if (stopped) return;
-    const node = element.get(0);
-    if (!node) return;
-    if (element.is("h1")) {
-      afterTitle = true;
-      return;
-    }
-    if (afterTitle) {
-      if (serviceBoundaries.has(node) || element.is("table, dl, h2, h3, h4, h5, h6, [data-import-field], a[href^='tel:'], a[href^='mailto:']")) {
-        stopped = true;
-        return;
-      }
-      const siblings = element.parent().children();
-      if (element.is("span, label, strong, b") && siblings.length === 2 && siblings.first().get(0) === node &&
-          partnerArticleFieldLabel(plainText(element))) {
-        stopped = true;
-        return;
-      }
-      if (node.type === "text") {
-        text.push(element.text());
-        return;
-      }
-    }
-    if (element.is("br")) text.push("\n");
-    const block = element.is("p, div, li, section, article, blockquote, pre");
-    if (block && afterTitle) text.push("\n");
-    element.contents().each((_, child) => visit($(child)));
-    if (block && afterTitle && !stopped) text.push("\n");
+function imageSource(image: Selection, discuz = false): string | undefined {
+  const attributes = discuz ? ["zoomfile", "file", "data-src", "src"] : ["data-src", "src"];
+  for (const attribute of attributes) {
+    const value = image.attr(attribute)?.trim();
+    if (value) return value;
   }
-  visit(copy);
-  const introduction: string[] = [];
-  let textBoundary = false;
-  for (const line of text.join("").replace(/[\t\r ]+/g, " ").split("\n")) {
-    const trimmed = line.trim();
-    if (recognizedLineLabel(trimmed) || partnerArticleFieldLabel(trimmed)) {
-      textBoundary = true;
-      break;
-    }
-    if (/^(?:发布于|发布时间|发布日期|更新时间|作者|浏览次数|阅读次数)\s*[:：]?/.test(trimmed)) continue;
-    introduction.push(trimmed);
-  }
-  return stopped || textBoundary ? introduction.join("\n").replace(/\n{3,}/g, "\n\n").trim() : "";
+  return undefined;
 }
 
-function mergeIntroductionAndNotes(introduction: string, notes: string): string {
-  const paragraphs: string[] = [];
-  const seen = new Set<string>();
-  for (const text of [introduction, notes]) {
-    for (const paragraph of text.split(/\n+/).map((value) => value.trim()).filter(Boolean)) {
-      if (seen.has(paragraph)) continue;
-      seen.add(paragraph);
-      paragraphs.push(paragraph);
-    }
+function discuzPostPhotos($: CheerioAPI, body: Selection, detail: URL): string[] {
+  const photos = new Set<string>();
+  const post = body.closest('div[id^="post_"]');
+  const region = body.closest(".t_fsz");
+  let images = body.find("img");
+  // Some themes render attachments next to the message, inside its own content
+  // region. Bind that region to this verified first post, never the whole page.
+  if (region.length === 1 && region.closest('div[id^="post_"]').get(0) === post.get(0)
+    && region.find('[id^="postmessage_"]').length === 1) {
+    images = images.add(region.find(".pattl img").filter((_, element) =>
+      $(element).closest(".t_fsz").get(0) === region.get(0)));
   }
-  return paragraphs.join("\n\n");
+  images.each((_, element) => {
+    const image = $(element);
+    if (!visiblyAvailable($, image) || !isDefaultPhotoCandidate(image)
+      || image.closest(ARTICLE_NON_BODY + ", " + DISCUZ_NON_PHOTO_AREAS).length
+      || image.closest('div[id^="post_"]').get(0) !== post.get(0)) return;
+    const source = imageSource(image, true);
+    const url = source ? httpUrl(source, detail.href) : null;
+    if (!url) throw new PartnerParseError("INVALID_URL");
+    // Discuz controls use this static tree and these placeholders, never attachments.
+    if (/(?:^|\/)static\/image\//i.test(url.pathname) || /\/(?:none|image_s)\.gif$/i.test(url.pathname)) return;
+    photos.add(url.href);
+    if (photos.size > MAX_PHOTOS) throw new PartnerParseError("DETAIL_LIMIT");
+  });
+  return [...photos];
 }
 
-function defaultField($: CheerioAPI, key: PartnerImportField): string {
-  if (key === "type") return "";
-  if (key === "services") return sectionBody($, "服务内容");
-  if (key === "courseNotes") return sectionBody($, "补充说明");
-  if (key === "address") return sectionBody($, "详细地址");
-  if (key === "phone") return contactValue($, "电话");
-  if (key === "wechat") return contactValue($, "微信");
-  if (key === "qq") return contactValue($, "QQ");
-  if (key === "otherContact") return contactValue($, "其他");
-  const title = defaultTitle($);
-  if (key === "name") {
-    const titleOnly = title.clone();
-    titleOnly.find("span").filter((_, element) => /^年龄/.test(plainText($(element)))).remove();
-    return singleText(titleOnly);
-  }
-  if (key === "age") {
-    const age = title.find("span").filter((_, element) => /^年龄/.test(plainText($(element))));
-    return singleText(age).replace(/^年龄\s*/, "");
-  }
-  const titleBlock = title.parent();
-  if (key === "price") return singleText(titleBlock.children("div.text-rose-500"));
-  const location = titleBlock.children("div").filter((_, element) => /^📍/.test(plainText($(element))));
-  const parts = singleText(location).replace(/^📍\s*/, "").split(/\s*[·｜|]\s*/);
-  return key === "city" ? parts[0] ?? "" : parts.slice(1).join(" · ");
-}
-
-export function parsePartnerDetail(html: string, detailUrl: string, input: PartnerImportRules): {
-  fields: PartnerImportFields;
-  photoUrls: string[];
-} {
-  const rules = normalizePartnerImportRules(input);
-  const detail = httpUrl(detailUrl);
-  if (!detail) throw new PartnerParseError("INVALID_URL");
-  const $ = document(html);
-  const $text = load($.html());
-  removePartnerDeclarationSections($text, $text.root());
-  let values = {} as Record<PartnerImportField, string>;
-  const protectedFields = new Set<PartnerImportField>(["name", "type", ...MANUAL_IMPORT_FIELDS]);
-  let articleBody: Selection | null = null;
-  for (const key of Object.keys(FIELD_LIMITS) as PartnerImportField[]) {
-    if (MANUAL_IMPORT_FIELDS.has(key)) {
-      values[key] = "";
-      continue;
-    }
-    const fieldDocument = key === "name" || key === "type" ? $ : $text;
-    const explicit = rules.fields?.[key];
-    const marked = fieldDocument(`[data-import-field="${key}"]`);
-    let value: string;
-    if (explicit) {
-      value = importFieldText(fieldDocument, fieldDocument(explicit), key);
-      protectedFields.add(key);
-    } else if (marked.length) {
-      value = importFieldText(fieldDocument, marked, key);
-      protectedFields.add(key);
-    } else if (key === "services" && !namedSection($text, "服务内容").length) {
-      // Keep the article for photos, but split its labeled fields before using
-      // any of its text as services. An explicit empty mapping never falls back.
-      articleBody = semanticArticleBody($);
-      value = "";
-    } else {
-      value = defaultField(fieldDocument, key);
-      if (value || key === "services"
-        || key === "address" && namedSection($text, "详细地址").length
-        || key === "courseNotes" && namedSection($text, "补充说明").length) protectedFields.add(key);
-    }
-    values[key] = value;
-  }
-
-  // Field fallback is independent per field. Optional discovery must not make
-  // an otherwise valid explicit mapping depend on a unique article layout.
-  const fieldBody = semanticArticleBody($text, false);
-  if (fieldBody) {
-    const ignored = [...protectedFields].filter((field): field is Exclude<PartnerImportField, "name" | "type"> => field !== "name" && field !== "type");
-    const labeled = extractLabeledArticleFields(fieldBody.toString(), ignored);
-    if (!protectedFields.has("courseNotes") && (labeled || protectedFields.has("services"))) {
-      values.courseNotes = mergeIntroductionAndNotes(articleIntroduction($text, rules), labeled?.fields.courseNotes ?? "");
-    }
-    if (labeled) {
-      // A recognized structured article must supply its own service field.
-      // Never put age, appearance, contact details or unrelated text in services.
-      for (const [key, value] of Object.entries(labeled.fields)) {
-        const field = key as PartnerImportField;
-        if (field !== "courseNotes" && !protectedFields.has(field)) values[field] = value as string;
-      }
-    } else if (articleBody) {
-      values.services = singleText(fieldBody);
-    }
-  }
-  values.services = withoutManualFieldText(values.services);
-  values.courseNotes = withoutManualFieldText(values.courseNotes);
-  values = cleanPartnerImportFields(values);
-  for (const key of Object.keys(FIELD_LIMITS) as PartnerImportField[]) {
-    if (values[key].length > FIELD_LIMITS[key]) throw new PartnerParseError("DETAIL_LIMIT");
-  }
-  if (!values.name || !values.services) {
-    throw new PartnerParseError("DETAIL_MISSING_FIELDS");
-  }
-
+function detailPhotoUrls($: CheerioAPI, html: string, detail: URL, rules: PartnerImportRules, articleBody: Selection | null): string[] {
   const photos = new Set<string>();
   const defaultPhotos = (articleBody ? articleBody.find(DEFAULT_PHOTO_SELECTOR) : $(DEFAULT_PHOTO_SELECTOR))
     .filter((_, element) => !$(element).closest(IGNORED_AREAS).length && isDefaultPhotoCandidate($(element)));
   const hasPhotoMarkers = (articleBody ? articleBody.find('[data-import-photos], img[data-import-photo]')
     : $('[data-import-photos], img[data-import-photo]'))
     .filter((_, element) => isDefaultPhotoCandidate($(element))).length > 0;
-  // Bind static image data to the unique visible article. Explicit selectors
-  // and photo markers remain authoritative; scripts are never executed.
+  // Bind static image data to the unique visible article. Scripts remain inert.
   let boundPhotos: string[] | null = null;
   if (!rules.photoSelector && !hasPhotoMarkers && html.includes("__NUXT_DATA__")) {
     const article = semanticArticle($);
@@ -618,21 +535,35 @@ export function parsePartnerDetail(html: string, detailUrl: string, input: Partn
     // A deliberate custom photoSelector may override avatar classification.
     if (!rules.photoSelector && !isDefaultPhotoCandidate(image)) return;
     if (!image.is("img")) throw new PartnerParseError("INVALID_RULES");
-    const src = image.attr("data-src")?.trim() || image.attr("src")?.trim();
+    const src = imageSource(image, Boolean(discuzThread(detail)));
     const url = src ? httpUrl(src, detail.href) : null;
     if (!url) throw new PartnerParseError("INVALID_URL");
     photos.add(url.href);
     if (photos.size > MAX_PHOTOS) throw new PartnerParseError("DETAIL_LIMIT");
   });
-  return {
-    fields: {
-      ...values,
-      courseNotes: values.courseNotes || null,
-      age: values.age || null,
-      qq: values.qq || null,
-      otherContact: values.otherContact || null,
-      address: values.address || null,
-    },
-    photoUrls: [...photos],
-  };
+  return [...photos];
+}
+
+/** Image collection does not depend on importing a title, body or contact fields. */
+export function parsePartnerImageUrls(html: string, detailUrl: string, input: PartnerImportRules): string[] {
+  const rules = normalizePartnerImportRules({ postLinkSelector: input.postLinkSelector, photoSelector: input.photoSelector });
+  const detail = httpUrl(detailUrl);
+  if (!detail) throw new PartnerParseError("INVALID_URL");
+  const forumThread = /\/forum\.php$/.test(detail.pathname) && detail.searchParams.getAll("mod").includes("viewthread")
+    || /\/thread-[^/]+\.html$/.test(detail.pathname);
+  const discuzPreset = rules.photoSelector === DISCUZ_FIRST_POST_PHOTO_SELECTOR;
+  const discuzPhotos = discuzPreset || forumThread && !rules.photoSelector;
+  const $ = document(html, discuzPhotos);
+  if (discuzPhotos) {
+    const thread = discuzThread(detail);
+    if (!thread || thread.page !== 1) return [];
+    if (discuzPreset && !applyDiscuzPhotoPreset($)) return [];
+    const body = discuzFirstPostBody($);
+    // A missing, hidden or empty first floor is authoritative; replies are not a fallback.
+    return body ? discuzPostPhotos($, body, detail) : [];
+  }
+  const articles = visibleArticles($);
+  const article = articles.length === 1
+    && !articles.find('input[type="password"], [data-sitekey], #challenge-form').length ? articles : null;
+  return detailPhotoUrls($, html, detail, rules, article ? cleanArticleBody($, article) : null);
 }

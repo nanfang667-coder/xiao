@@ -49,6 +49,11 @@ function adminActions({ authorized = true, supportsCompensation = false } = {}) 
       Object.assign(record, data);
       return record;
     },
+    delete: async ({ where }) => {
+      assert.equal(where.id, record.id);
+      events.push('delete');
+      return record;
+    },
   };
   const api = load('src/app/adminzhangzhang/actions.ts', {
     'fs/promises': {}, path: {}, 'next/headers': {},
@@ -62,7 +67,7 @@ function adminActions({ authorized = true, supportsCompensation = false } = {}) 
       teacher,
       $transaction: async callback => {
         events.push('transaction');
-        return callback({ teacher, partnerImportedPost: { updateMany: async () => ({ count: 0 }) } });
+        return callback({ teacher });
       },
     } },
     '@/lib/admin-teacher-return': load('src/lib/admin-teacher-return.ts'),
@@ -76,6 +81,16 @@ function adminActions({ authorized = true, supportsCompensation = false } = {}) 
   });
   return { api, events, writes, refreshed, record };
 }
+
+test('ordinary teacher deletion no longer depends on the removed import workflow', async () => {
+  const f = adminActions();
+  await f.api.deleteTeacher(7);
+  assert.deepEqual(f.events, ['authorize', 'transaction', 'delete']);
+  assert.ok(f.refreshed.includes('/adminzhangzhang/submissions'));
+  const denied = adminActions({ authorized: false });
+  await assert.rejects(denied.api.deleteTeacher(7), /UNAUTHORIZED/);
+  assert.deepEqual(denied.events, ['authorize']);
+});
 
 test('administrator creation enables compensation only for the checked checkbox value', async () => {
   for (const [values, expected] of [
@@ -146,54 +161,13 @@ test('approving a team edit preserves compensation even if the submission contai
       'next/cache': { revalidatePath() {} },
       '@/lib/auth': { requireAdmin: async () => {} },
       '@/lib/prisma': { prisma: { $transaction: async callback => callback(tx) } },
-      '@/lib/partner-import-assignment-readiness': { isPartnerImportAssignmentReady: async () => true },
+      '@/lib/ordinary-submission-boundary': { getOrdinarySubmissionBoundary: async () => ({ hasImportReference: true }) },
       '@/lib/uploaded-photos': { deleteUploadedPhotos: async () => {} },
     });
     await api.approveTeacherSubmission(21);
     assert.equal(writes.length, 1);
     assert.equal(Object.hasOwn(writes[0], 'supportsCompensation'), false);
     assert.equal(teacher.supportsCompensation, supportsCompensation);
-  }
-});
-
-test('partner publication defaults new posts to false and preserves existing administrator compensation choices', async () => {
-  const { extractTeacherPostFields } = load('src/lib/teacher-post-input.ts');
-  const fields = extractTeacherPostFields(form({
-    name: 'Synthetic teacher', services: 'Synthetic services', phone: 'fixture-contact', supportsCompensation: 'on',
-  }));
-  for (const initial of [undefined, false, true]) {
-    let teacher = initial === undefined ? null : { id: 7, photos: '[]', supportsCompensation: initial };
-    let writes = 0;
-    const tx = {
-      partnerImportDraft: { updateMany: async () => ({ count: 1 }) },
-      partnerImportedPost: { updateMany: async () => ({ count: 1 }), update: async () => ({}) },
-      teacher: {
-        findUnique: async () => teacher,
-        upsert: async ({ create, update }) => {
-          for (const data of [create, update]) assert.equal(Object.hasOwn(data, 'supportsCompensation'), false);
-          teacher = teacher ? { ...teacher, ...update } : { id: 7, supportsCompensation: false, ...create };
-          writes += 1;
-          return teacher;
-        },
-      },
-    };
-    const api = load('src/lib/partner-import.ts', {
-      'server-only': {}, 'node:crypto': {},
-      './prisma': { prisma: { $transaction: async callback => callback(tx) } },
-      './partner-import-assignment-readiness': { isPartnerImportAssignmentReady: async () => true },
-      './partner-import-fetch': {}, './partner-import-parser': {}, './partner-import-errors': {},
-      './partner-import-declarations': {}, './partner-import-photo-cover': {},
-      './partner-import-photos': { publishPartnerPhotos: async () => [], removePartnerPrivatePhotos: async () => {} },
-      './uploaded-photos': { deleteUploadedPhotos: async () => {} },
-      './teacher-post-input': { extractTeacherPostFields },
-      './photo': { defaultGradients: () => [], emojiFor: () => 'fixture' },
-    });
-    await api.publishReviewedPartnerDraft({
-      id: 2, version: 1, postId: 3, sourceId: 4, reviewedRevision: 0,
-      fields, photoCover: null, allPhotos: [], keepPhotos: [],
-    });
-    assert.equal(writes, 1);
-    assert.equal(teacher.supportsCompensation, initial ?? false);
   }
 });
 

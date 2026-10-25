@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isPartnerImportAssignmentReady } from "@/lib/partner-import-assignment-readiness";
+import { getOrdinarySubmissionBoundary } from "@/lib/ordinary-submission-boundary";
 import { deleteUploadedPhotos } from "@/lib/uploaded-photos";
 
 function approvedTeacherData(submission: {
@@ -61,7 +61,7 @@ async function deleteReplacedPhotos(oldPhotosJson: string, newPhotosJson: string
 
 export async function approveTeacherSubmission(submissionId: number) {
   await requireAdmin();
-  const assignmentReady = await isPartnerImportAssignmentReady();
+  const { hasImportReference } = await getOrdinarySubmissionBoundary();
 
   const replacedPhotos = await prisma.$transaction(async (tx) => {
     const submission = await tx.teacherSubmission.findUnique({
@@ -70,11 +70,11 @@ export async function approveTeacherSubmission(submissionId: number) {
         id: true, submissionKey: true, kind: true, status: true, teamAccountId: true, teacherId: true,
         name: true, type: true, city: true, district: true, price: true, services: true, courseNotes: true,
         age: true, photos: true, emoji: true, phone: true, wechat: true, qq: true, otherContact: true, address: true,
-        ...(assignmentReady ? { partnerImportDraftId: true } : {}),
+        ...(hasImportReference ? { partnerImportDraftId: true } : {}),
       },
     });
     if (!submission || submission.status !== "pending") return null;
-    if (submission.partnerImportDraftId || submission.submissionKey?.startsWith("partner-import:")) throw new Error("请打开导入稿终审页，核对当前版本后操作。");
+    if (submission.partnerImportDraftId || submission.submissionKey?.startsWith("partner-import:")) throw new Error("此记录不是普通团队投稿，不能审核。");
 
     if (submission.kind === "create") {
       const teacher = await tx.teacher.create({
@@ -141,21 +141,21 @@ export async function rejectTeacherSubmission(
   formData: FormData,
 ) {
   await requireAdmin();
-  const assignmentReady = await isPartnerImportAssignmentReady();
+  const { hasImportReference } = await getOrdinarySubmissionBoundary();
   const note = String(formData.get("reviewNote") ?? "").trim().slice(0, 300) || null;
   const submission = await prisma.teacherSubmission.findUnique({
     where: { id: submissionId },
     select: {
       status: true,
       submissionKey: true,
-      ...(assignmentReady ? { partnerImportDraftId: true } : {}),
+      ...(hasImportReference ? { partnerImportDraftId: true } : {}),
       kind: true,
       photos: true,
       teacher: { select: { photos: true } },
     },
   });
   if (!submission || submission.status !== "pending") return;
-  if (submission.partnerImportDraftId || submission.submissionKey?.startsWith("partner-import:")) throw new Error("请在导入稿终审页退回修改，原稿和照片将保留。");
+  if (submission.partnerImportDraftId || submission.submissionKey?.startsWith("partner-import:")) throw new Error("此记录不是普通团队投稿，不能审核。");
 
   const protectedPhotos = new Set(parsePhotos(submission.teacher?.photos ?? "[]"));
   const draftOnlyPhotos = parsePhotos(submission.photos).filter(

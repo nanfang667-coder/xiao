@@ -4,7 +4,6 @@ import bcrypt from "bcrypt";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isPartnerImportAssignmentReady } from "@/lib/partner-import-assignment-readiness";
 import { requireTeamQuotaHistoryReady } from "@/lib/team-quota-history-readiness";
 import {
   getEffectiveTeamPostLimit,
@@ -188,35 +187,22 @@ export async function deleteTeamAccount(accountId: number) {
   if (!Number.isSafeInteger(accountId) || accountId < 1) {
     throw new Error("Invalid team account");
   }
-  const assignmentReady = await isPartnerImportAssignmentReady();
-  try {
-    await prisma.$transaction(async (tx) => {
-      const where = { teamAccountId: accountId };
-      if (assignmentReady) {
-        // Return unfinished assignments to the private pool before removing the account.
-        await tx.partnerImportDraft.updateMany({
-          where: { ...where, status: { in: ["assigned", "returned", "submitted"] } },
-          data: { teamAccountId: null, status: "ready", version: { increment: 1 } },
-        });
-        await tx.partnerImportDraft.updateMany({
-          where, data: { teamAccountId: null, version: { increment: 1 } },
-        });
-      }
-      // Restrict foreign keys roll back this transaction if an old client cannot
-      // release assignments that already exist in a migrated database.
-      await tx.teamSession.deleteMany({ where });
-      await tx.teacherSubmission.deleteMany({ where });
-      await tx.teacherOwnership.deleteMany({ where });
-      await tx.teamAccount.deleteMany({ where: { id: accountId } });
-    });
-  } catch (error) {
-    if (!assignmentReady) throw new Error("账号删除未完成，请刷新页面后重试。");
-    throw error;
-  }
+  await prisma.$transaction(async (tx) => {
+    const where = { teamAccountId: accountId };
+    // Keep historical rows intact while releasing their nullable account FK.
+    // Metadata-only detection also supports databases predating this column.
+    const columns = await tx.$queryRaw<{ name: string }[]>`PRAGMA table_info("PartnerImportDraft")`;
+    if (columns.some(column => column.name === "teamAccountId")) {
+      await tx.$executeRaw`UPDATE "PartnerImportDraft" SET "teamAccountId" = NULL WHERE "teamAccountId" = ${accountId}`;
+    }
+    await tx.teamSession.deleteMany({ where });
+    await tx.teacherSubmission.deleteMany({ where });
+    await tx.teacherOwnership.deleteMany({ where });
+    await tx.teamAccount.deleteMany({ where: { id: accountId } });
+  });
   revalidatePath("/adminzhangzhang/sites");
   revalidatePath("/adminzhangzhang/submissions");
   revalidatePath("/adminzhangzhang/teachers");
   revalidatePath("/adminzhangzhang");
-  revalidatePath("/adminzhangzhang/partner-import");
   revalidatePath("/team", "layout");
 }

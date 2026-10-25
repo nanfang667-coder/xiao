@@ -11,6 +11,22 @@ import { createPartnerResourceFetcher, PartnerFetchError, type PartnerFetchError
 const ORIGIN = "https://partner.example";
 const compressors = [["gzip", gzipSync], ["deflate", deflateSync], ["br", brotliCompressSync]] as const;
 const SAFE_ERROR = "合作方资源下载失败，请检查来源设置或稍后重试。";
+
+test("a caller deadline aborts transport without exposing native errors", async () => {
+  const controller = new AbortController();
+  const transport = fixture([{ stall: true }]);
+  const pending = transport.fetchResource(ORIGIN + "/detail", [ORIGIN], { signal: controller.signal });
+  await new Promise<void>(resolve => setImmediate(resolve));
+  controller.abort();
+  await assertSafeFailure(pending, "TIMEOUT");
+  assert.equal(transport.calls.length, 1);
+  assert.equal(transport.calls[0].destroyed, true);
+
+  const neverStarted = fixture();
+  await assertSafeFailure(neverStarted.fetchResource(ORIGIN + "/detail", [ORIGIN], { signal: controller.signal }), "TIMEOUT");
+  assert.equal(neverStarted.dnsCalls(), 0);
+  assert.equal(neverStarted.calls.length, 0);
+});
 type Address = { address: string; family: number };
 type Reply = {
   status?: number;
@@ -29,7 +45,7 @@ function fixture(replies: Reply[] = [{}], settings: {
   resolve?: Dependencies["resolve"];
   timeoutMs?: number;
 } = {}) {
-  const calls: { url: URL; options: RequestOptions; destroyed: boolean; incoming?: IncomingMessage }[] = [];
+  const calls: { url: URL; options: RequestOptions; destroyed: boolean; incoming?: IncomingMessage; body?: Buffer }[] = [];
   let dnsCalls = 0;
   const fetchResource = createPartnerResourceFetcher({
     timeoutMs: settings.timeoutMs ?? 2000,
@@ -47,7 +63,8 @@ function fixture(replies: Reply[] = [{}], settings: {
         call.destroyed = true;
         return outgoing;
       };
-      outgoing.end = (() => {
+      outgoing.end = ((body?: Buffer) => {
+        call.body = body;
         queueMicrotask(() => {
           const reply = replies[index] ?? {};
           if (reply.error) {
@@ -240,6 +257,224 @@ test("accepts bounded raster images but never SVG or HTML as images", async () =
   for (const contentType of ["image/svg+xml", "text/html", "application/octet-stream"]) {
     const invalid = fixture([{ headers: { "content-type": contentType } }]);
     await assertSafeFailure(invalid.fetchResource(ORIGIN, [ORIGIN], { accept: "image" }));
+  }
+});
+
+test("explicit script mode accepts only common JavaScript MIME types and keeps GET, TLS and pinned DNS", async () => {
+  const types = ["application/javascript", "text/javascript", "application/x-javascript", "application/ecmascript", "text/ecmascript"];
+  for (const type of types) {
+    const contentType = type.toUpperCase() + "; charset=utf-8";
+    const body = Buffer.from("globalThis.syntheticFixture = true;");
+    const f = fixture([{ headers: { "content-type": contentType }, chunks: [body] }]);
+    const resource = await f.fetchResource(ORIGIN + "/assets/public.js", [ORIGIN], { accept: "script" });
+    assert.equal(resource.contentType, contentType);
+    assert.deepEqual(resource.bytes, body);
+    const options = f.calls[0].options;
+    assert.equal(options.method, "GET");
+    assert.equal(options.rejectUnauthorized, true);
+    assert.equal(options.agent, false);
+    const headers = options.headers as Record<string, string>;
+    assert.equal(headers.Accept, types.join(", "));
+    assert.equal(headers.Cookie, undefined);
+    assert.equal(headers.Authorization, undefined);
+    const pinned = await new Promise<unknown>((resolve, reject) => {
+      options.lookup!("partner.example", { all: true }, (error, addresses) => error ? reject(error) : resolve(addresses));
+    });
+    assert.deepEqual(pinned, [{ address: "93.184.215.14", family: 4 }]);
+    assert.equal(f.dnsCalls(), 1);
+  }
+});
+
+test("explicit JSON mode accepts application/json and structured application JSON suffixes", async () => {
+  for (const contentType of ["application/json", "application/problem+json", "application/vnd.api+json", "application/ld+json; charset=utf-8", "APPLICATION/VND.FIXTURE-V1+JSON"]) {
+    const body = Buffer.from('{"synthetic":true}');
+    const f = fixture([{ headers: { "content-type": contentType }, chunks: [body] }]);
+    assert.deepEqual((await f.fetchResource(ORIGIN + "/public-list", [ORIGIN], { accept: "json" })).bytes, body);
+    const headers = f.calls[0].options.headers as Record<string, string>;
+    assert.equal(headers.Accept, "application/json, application/*+json");
+    assert.equal(f.calls[0].options.method, "GET");
+    assert.equal(f.calls[0].options.rejectUnauthorized, true);
+    assert.equal(headers.Cookie, undefined);
+    assert.equal(headers.Authorization, undefined);
+  }
+});
+
+test("explicit JSON object bodies are transmitted as UTF8 POST with fixed headers and pinned TLS", async () => {
+  const jsonBody = ' {"page":2,"post_type":1,"city_id":0,"label":"合成测试"} ';
+  const response = Buffer.from('{"synthetic":true}');
+  const f = fixture([{ headers: { "content-type": "application/json" }, chunks: [response] }]);
+  assert.deepEqual((await f.fetchResource(ORIGIN + "/public-list", [ORIGIN], { accept: "json", jsonBody })).bytes, response);
+  const call = f.calls[0];
+  assert.equal(call.options.method, "POST");
+  assert.deepEqual(call.body, Buffer.from(jsonBody, "utf8"));
+  const headers = call.options.headers as Record<string, string>;
+  assert.equal(headers.Accept, "application/json, application/*+json");
+  assert.equal(headers["Content-Type"], "application/json");
+  assert.equal(headers["Content-Length"], String(Buffer.byteLength(jsonBody, "utf8")));
+  assert.equal(headers.Cookie, undefined);
+  assert.equal(headers.Authorization, undefined);
+  assert.equal(call.options.rejectUnauthorized, true);
+  assert.equal(call.options.agent, false);
+  assert.equal(f.dnsCalls(), 1);
+  const pinned = await new Promise<unknown>((resolve, reject) => {
+    call.options.lookup!("partner.example", { all: true }, (error, addresses) => error ? reject(error) : resolve(addresses));
+  });
+  assert.deepEqual(pinned, [{ address: "93.184.215.14", family: 4 }]);
+});
+
+test("JSON object POST accepts the 16 KB boundary but rejects invalid combinations before DNS", async () => {
+  const boundary = JSON.stringify({ value: "x".repeat(16 * 1024 - Buffer.byteLength('{"value":""}')) });
+  assert.equal(Buffer.byteLength(boundary), 16 * 1024);
+  for (const jsonBody of ["{}", boundary]) {
+    const valid = fixture([{ headers: { "content-type": "application/json" } }]);
+    await valid.fetchResource(ORIGIN, [ORIGIN], { accept: "json", jsonBody });
+    assert.equal(valid.calls[0].options.method, "POST");
+    assert.deepEqual(valid.calls[0].body, Buffer.from(jsonBody));
+  }
+  for (const accept of [undefined, "html", "image", "script"] as const) {
+    const invalid = fixture();
+    await assertSafeFailure(invalid.fetchResource(ORIGIN, [ORIGIN], { accept, jsonBody: "{}" }), "INVALID_RESPONSE");
+    assert.equal(invalid.dnsCalls(), 0);
+    assert.equal(invalid.calls.length, 0);
+  }
+  for (const jsonBody of ["", "{PRIVATE invalid JSON", "null", "[]", "[{}]", '"PRIVATE"', "true", "123", null, {}, 42, boundary + " ", JSON.stringify({ value: "中".repeat(6000) })]) {
+    const invalid = fixture();
+    await assertSafeFailure(invalid.fetchResource(ORIGIN, [ORIGIN], { accept: "json", jsonBody: jsonBody as string }), "INVALID_RESPONSE");
+    assert.equal(invalid.dnsCalls(), 0);
+    assert.equal(invalid.calls.length, 0);
+  }
+});
+
+test("JSON POST never replays a body for any redirect, including same-origin 307 and 308", async () => {
+  for (const status of [301, 302, 303, 307, 308]) {
+    for (const location of ["/next", "https://foreign.example/PRIVATE", undefined, "/PRIVATE\nheader"]) {
+      const f = fixture([{ status, headers: location === undefined ? {} : { location } }, { headers: { "content-type": "application/json" } }]);
+      await assertSafeFailure(f.fetchResource(ORIGIN, [ORIGIN], { accept: "json", jsonBody: '{"value":"PRIVATE"}' }), "REDIRECT_LIMIT");
+      assert.equal(f.calls.length, 1);
+      assert.equal(f.dnsCalls(), 1);
+      assert.equal(f.calls[0].destroyed, true);
+      assert.equal(f.calls[0].incoming?.destroyed, true);
+    }
+  }
+});
+
+test("omitting jsonBody keeps all resource modes as GET without POST headers or bytes", async () => {
+  for (const [accept, contentType] of [["html", "text/html"], ["image", "image/png"], ["script", "application/javascript"], ["json", "application/json"]] as const) {
+    const f = fixture([{ headers: { "content-type": contentType } }]);
+    await f.fetchResource(ORIGIN, [ORIGIN], { accept, jsonBody: undefined });
+    assert.equal(f.calls[0].options.method, "GET");
+    assert.equal(f.calls[0].body, undefined);
+    const headers = f.calls[0].options.headers as Record<string, string>;
+    assert.equal(headers["Content-Type"], undefined);
+    assert.equal(headers["Content-Length"], undefined);
+  }
+  const redirected = fixture([{ status: 307, headers: { location: "/next" } }, { headers: { "content-type": "application/json" } }]);
+  await redirected.fetchResource(ORIGIN, [ORIGIN], { accept: "json" });
+  assert.equal(redirected.calls.length, 2);
+  assert.ok(redirected.calls.every(call => call.options.method === "GET" && call.body === undefined));
+});
+
+test("JSON POST retains origin, public-address and bounded compressed response protections", async () => {
+  const options = { accept: "json", jsonBody: '{"value":"PRIVATE"}' } as const;
+  const foreign = fixture();
+  await assertSafeFailure(foreign.fetchResource("https://foreign.example/PRIVATE", [ORIGIN], options), "ORIGIN_NOT_ALLOWED");
+  assert.equal(foreign.dnsCalls(), 0);
+  const privateAddress = fixture([], { addresses: [{ address: "127.0.0.1", family: 4 }] });
+  await assertSafeFailure(privateAddress.fetchResource(ORIGIN, [ORIGIN], options), "UNSAFE_ADDRESS");
+  assert.equal(privateAddress.calls.length, 0);
+  const body = Buffer.from('{"synthetic":true}');
+  for (const [encoding, encode] of compressors) {
+    const valid = fixture([{ headers: { "content-type": "application/json", "content-encoding": encoding }, chunks: [encode(body)] }]);
+    assert.deepEqual((await valid.fetchResource(ORIGIN, [ORIGIN], options)).bytes, body);
+    const expanded = fixture([{ headers: { "content-type": "application/json", "content-encoding": encoding }, chunks: [encode(Buffer.alloc(8192, 65))] }]);
+    await assertSafeFailure(expanded.fetchResource(ORIGIN, [ORIGIN], { ...options, maxBytes: 1024 }), "TOO_LARGE");
+    assert.equal(expanded.calls[0].destroyed, true);
+  }
+});
+
+test("JSON POST response, transport and deadline errors never expose request or response values", async () => {
+  const options = { accept: "json", jsonBody: '{"value":"PRIVATE request body"}' } as const;
+  const cases: [Reply, PartnerFetchErrorCode][] = [
+    [{ status: 500, headers: { "content-type": "application/json" }, chunks: [Buffer.from('{"message":"PRIVATE response body"}')] }, "HTTP_STATUS"],
+    [{ headers: { "content-type": "PRIVATE" } }, "CONTENT_TYPE"],
+    [{ error: true, errorCode: "CERT_HAS_EXPIRED" }, "TLS_FAILED"],
+    [{ error: true, errorCode: "ECONNREFUSED" }, "CONNECT_FAILED"],
+    [{ headers: { "content-type": "application/json" }, incomplete: true }, "INVALID_RESPONSE"],
+  ];
+  for (const [reply, code] of cases) await assertSafeFailure(fixture([reply]).fetchResource(ORIGIN + "/PRIVATE", [ORIGIN], options), code);
+  await assertSafeFailure(fixture([], { resolve: async () => { throw new Error("PRIVATE DNS"); } }).fetchResource(ORIGIN, [ORIGIN], options), "DNS_FAILED");
+  const controller = new AbortController();
+  const f = fixture([{ headers: { "content-type": "application/json" }, stall: true }]);
+  const pending = f.fetchResource(ORIGIN, [ORIGIN], { ...options, signal: controller.signal });
+  await new Promise<void>(resolve => setImmediate(resolve));
+  controller.abort();
+  await assertSafeFailure(pending, "TIMEOUT");
+  assert.equal(f.calls[0].destroyed, true);
+});
+
+test("script and JSON modes reject other resource types and malformed JSON suffixes", async () => {
+  const rejected = {
+    script: ["text/html", "application/xhtml+xml", "application/json", "application/problem+json", "image/jpeg", "image/svg+xml", "text/plain", "text/css", "application/octet-stream", "application/javascript+xml"],
+    json: ["text/html", "application/javascript", "image/png", "application/octet-stream", "text/json", "text/vnd.api+json", "application/jsonp", "application/+json", "application/problem+json+xml", "application/problem+json/extra", "application/private data+json"],
+  } as const;
+  for (const accept of ["script", "json"] as const) {
+    for (const contentType of rejected[accept]) {
+      const f = fixture([{ headers: { "content-type": contentType }, chunks: [Buffer.from("PRIVATE synthetic body")] }]);
+      await assertSafeFailure(f.fetchResource(ORIGIN, [ORIGIN], { accept }), "CONTENT_TYPE");
+      assert.equal(f.calls[0].destroyed, true);
+    }
+  }
+});
+
+test("new script and JSON categories never broaden existing HTML or image modes", async () => {
+  for (const accept of ["html", "image"] as const) {
+    for (const contentType of ["application/javascript", "text/javascript", "application/x-javascript", "application/ecmascript", "text/ecmascript", "application/json", "application/problem+json", "application/vnd.api+json"]) {
+      await assertSafeFailure(fixture([{ headers: { "content-type": contentType } }]).fetchResource(ORIGIN, [ORIGIN], { accept }), "CONTENT_TYPE");
+    }
+  }
+  const html = fixture();
+  await html.fetchResource(ORIGIN, [ORIGIN]);
+  assert.equal((html.calls[0].options.headers as Record<string, string>).Accept, "text/html, application/xhtml+xml");
+  const image = fixture([{ headers: { "content-type": "image/jpeg" } }]);
+  await image.fetchResource(ORIGIN, [ORIGIN], { accept: "image" });
+  assert.equal((image.calls[0].options.headers as Record<string, string>).Accept, "image/jpeg, image/png, image/webp, image/gif, image/avif");
+  const unknown = fixture();
+  await assertSafeFailure(unknown.fetchResource(ORIGIN, [ORIGIN], { accept: "arbitrary" as never }), "INVALID_RESPONSE");
+  assert.equal(unknown.dnsCalls(), 0);
+});
+
+test("script and JSON modes retain origin, rebinding, size and deadline restrictions with redacted failures", async () => {
+  for (const accept of ["script", "json"] as const) {
+    const contentType = accept === "script" ? "application/javascript" : "application/json";
+    const foreign = fixture();
+    await assertSafeFailure(foreign.fetchResource("https://foreign.example/PRIVATE", [ORIGIN], { accept }), "ORIGIN_NOT_ALLOWED");
+    assert.equal(foreign.dnsCalls(), 0);
+    const privateAddress = fixture([], { addresses: [{ address: "127.0.0.1", family: 4 }] });
+    await assertSafeFailure(privateAddress.fetchResource(ORIGIN, [ORIGIN], { accept }), "UNSAFE_ADDRESS");
+    assert.equal(privateAddress.calls.length, 0);
+    const redirected = fixture([{ status: 302, headers: { location: "https://foreign.example/PRIVATE" } }]);
+    await assertSafeFailure(redirected.fetchResource(ORIGIN, [ORIGIN], { accept }), "ORIGIN_NOT_ALLOWED");
+    assert.equal(redirected.calls.length, 1);
+    let resolutions = 0;
+    const rebinding = fixture([{ status: 302, headers: { location: "/next" } }], {
+      resolve: async () => [{ address: ++resolutions === 1 ? "93.184.215.14" : "127.0.0.1", family: 4 }],
+    });
+    await assertSafeFailure(rebinding.fetchResource(ORIGIN, [ORIGIN], { accept }), "UNSAFE_ADDRESS");
+    assert.equal(rebinding.calls.length, 1);
+    const oversized = fixture([{ headers: { "content-type": contentType }, chunks: [Buffer.alloc(32)] }]);
+    await assertSafeFailure(oversized.fetchResource(ORIGIN, [ORIGIN], { accept, maxBytes: 16 }), "TOO_LARGE");
+    assert.equal(oversized.calls[0].destroyed, true);
+    const compressed = fixture([{ headers: { "content-type": contentType, "content-encoding": "gzip" }, chunks: [gzipSync(Buffer.alloc(8192, 65))] }]);
+    await assertSafeFailure(compressed.fetchResource(ORIGIN, [ORIGIN], { accept, maxBytes: 1024 }), "TOO_LARGE");
+    const controller = new AbortController();
+    const stalled = fixture([{ headers: { "content-type": contentType }, stall: true }]);
+    const pending = stalled.fetchResource(ORIGIN, [ORIGIN], { accept, signal: controller.signal });
+    await new Promise<void>(resolve => setImmediate(resolve));
+    controller.abort();
+    await assertSafeFailure(pending, "TIMEOUT");
+    assert.equal(stalled.calls[0].destroyed, true);
+    await assertSafeFailure(fixture([{ error: true, errorCode: "CERT_HAS_EXPIRED" }]).fetchResource(ORIGIN, [ORIGIN], { accept }), "TLS_FAILED");
+    await assertSafeFailure(fixture([], { resolve: async () => { throw new Error("PRIVATE credentials and URL"); } }).fetchResource(ORIGIN, [ORIGIN], { accept }), "DNS_FAILED");
   }
 });
 
